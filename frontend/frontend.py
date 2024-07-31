@@ -40,14 +40,14 @@ class ONNX2TopIR:
         self.model = onnx.load(model_path)
         self.print_model_info()
         self.graph = GraphIR()  # 创建图IR对象
-
+        # TODO what this
         self.fused_ops = []
         for n, op in enumerate(self.model.graph.node):
             if self._get_op_code(op) not in FUSIBLE_OPs:  # 不会存在一个不可融合算子，也是OVERLAPPED吗？？？？？
                 self.fused_ops.append(op)
                 continue
             print(op.name, 'not in FUSIBLE_OPs')
-            in_tensors_name = op.input
+            # in_tensors_name = op.input
             # if len(in_tensors_name) == 1:
             # state = self.quantization_config["configs"][op.name][in_tensors_name[0]]['state']
             # if state == "OVERLAPPED":  # 表示量化参数可能与其他参数重叠，为了安全暂时不对他们优化 ???可能表示该算子已经在其他部分的处理流程中被考虑或融合过??????????????不确定
@@ -124,14 +124,14 @@ class ONNX2TopIR:
         for op in self.fused_ops:
             for name in op.input:
                 if not self.graph.check_tensor(name):
-                    print(f'load {index} tensor: {name}')
+                    # print(f'load {index} tensor: {name}')
                     self.load_ir_tensor_info(name, index)
                     index += 1
             # check tensors
         for op in self.fused_ops:
             for name in op.output:
                 if not self.graph.check_tensor(name):
-                    print(f'load {index} tensor: {name}')
+                    # print(f'load {index} tensor: {name}')
                     self.load_ir_tensor_info(name, index)
                     index += 1
         print(f'已导入 {index} 个张量')
@@ -150,28 +150,28 @@ class ONNX2TopIR:
         in_tensors_name = op.input
         out_tensors_name = op.output
 
-        in1_tensors_id = self.graph.AllTensorNames[in_tensors_name[0]]
-        in2_tensors_id = self.graph.AllTensorNames[in_tensors_name[1]]
-        out_tensors_id = self.graph.AllTensorNames[out_tensors_name[0]]
+        in1_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
+        in2_tensor_id = self.graph.AllTensorNames[in_tensors_name[1]]
+        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
 
         # 算子初始化
         elem_op = ElemWise()  # 元张量操作
         elem_op.Name = op.name
         elem_op.Mode = mode
         elem_op.TopOpId = op_idx
-        elem_op.PreOpId.append(self.graph.get_tensor(in_tensors_name[0]).OwnerOp)
-        elem_op.PreOpId.append(self.graph.get_tensor(in_tensors_name[1]).OwnerOp)
 
         # 添加到输入输出列表
-        elem_op.load_input_id(in1_tensors_id)
-        elem_op.load_input_id(in2_tensors_id)
-        elem_op.load_output_id(out_tensors_id)
+        elem_op.load_input_id(in1_tensor_id)
+        elem_op.load_input_id(in2_tensor_id)
+        elem_op.load_output_id(out_tensor_id)
         self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx  # 将指定张量的绑定到指定算子上
+        self.graph.get_tensor(in_tensors_name[0]).Consumer.append(op_idx)
+        self.graph.get_tensor(in_tensors_name[1]).Consumer.append(op_idx)
 
         # 不保留整个张量类信息，因为 其他信息不是经常用，所以 等用的时候直接通过函数查询，减少内存占用？
-        elem_op.InputShape = self.graph.AllTensors[in1_tensors_id].Shape
-        elem_op.Input1Shape = self.graph.AllTensors[in2_tensors_id].Shape
-        elem_op.OutputShape = self.graph.AllTensors[out_tensors_id].Shape
+        elem_op.InputShape = self.graph.AllTensors[in1_tensor_id].Shape
+        elem_op.Input1Shape = self.graph.AllTensors[in2_tensor_id].Shape
+        elem_op.OutputShape = self.graph.AllTensors[out_tensor_id].Shape
 
         self.graph.insert_op(elem_op, op_idx)
         # print(elem_op)
@@ -180,13 +180,7 @@ class ONNX2TopIR:
         pass
 
     def load_conv(self, op, op_idx, code):
-        if code == OperatorType.CONV_2D:
-            conv_op = Conv2d()
-        elif code == OperatorType.DEPTHWISE_CONV_2D:
-            conv_op = DepthWiseConv2d()
-        else:
-            raise ValueError(f'Unsupported code of conv was identified: {op.name}')
-        # print(conv_op.name)
+        conv_op = Conv2d()
 
         in_tensors_name = op.input
         out_tensors_name = op.output
@@ -194,10 +188,10 @@ class ONNX2TopIR:
         fea_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
         weight_tensor_id = self.graph.AllTensorNames[in_tensors_name[1]]
         out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+
         # 算子初始化
         conv_op.Name = op.name
         conv_op.TopOpId = op_idx
-        conv_op.PreOpId.append(self.graph.get_tensor(in_tensors_name[0]).OwnerOp)
         
         # 加载输入输出ID
         conv_op.load_input_id(fea_tensor_id)
@@ -206,6 +200,7 @@ class ONNX2TopIR:
 
         self.graph.get_tensor(in_tensors_name[1]).Type = TensorType.Weight
         self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx
+        self.graph.get_tensor(in_tensors_name[0]).Consumer.append(op_idx)
 
         if op_idx == 0:
             conv_op.FirstLayer = True
@@ -228,6 +223,7 @@ class ONNX2TopIR:
         if code == OperatorType.CONV_2D:
             conv_op.Group = 1
         elif code == OperatorType.DEPTHWISE_CONV_2D:
+            conv_op.Type = "DepthWiseConv2d"
             conv_op.Group = conv_op.InputShape.C
 
         conv_op.OutputShape.H = self.graph.AllTensors[out_tensor_id].Shape.H
@@ -289,20 +285,22 @@ class ONNX2TopIR:
         pool_op = Pool()
         pool_op.Name = op.name
         pool_op.TopOpId = op_idx
-        pool_op.PreOpId.append(self.graph.get_tensor(in_tensors_name[0]).OwnerOp)
 
         # 加载输入输出ID
         pool_op.load_input_id(in_tensor_id)
         pool_op.load_output_id(out_tensor_id)
         self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx
+        self.graph.get_tensor(in_tensors_name[0]).Consumer.append(op_idx)
 
         # 输入输出形状
         pool_op.InputShape = self.graph.AllTensors[in_tensor_id].Shape
         pool_op.OutputShape = self.graph.AllTensors[out_tensor_id].Shape
 
         if op_code == OperatorType.MAX_POOL_2D:
+            pool_op.Type = "MaxPool"
             pool_op.Mode = PoolMode.POOL_MAX
         elif op_code == OperatorType.AVERAGE_POOL_2D:
+            pool_op.Type = "AvgPool"
             pool_op.Mode = PoolMode.POOL_AVG
         else:
             raise ValueError(f'Unsupported code of pool was identified: {op.name}')
@@ -361,7 +359,69 @@ class ONNX2TopIR:
                 self.graph.AllTensors[out_tensor_id].load_data(np_data)
                 self.graph.get_tensor(out_tensors_name[0]).DataType = dtype
 
+            else:
+                raise NotImplementedError("有非张量类型常数")
+
             self.graph.insert_op(constant_op, op_idx)
+
+    def load_relu(self, op, op_idx, op_code):
+        in_tensors_name = op.input
+        out_tensors_name = op.output
+
+        in_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
+        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+
+        # 算子初始化
+        relu_op = RELU()
+        relu_op.Name = op.name
+        relu_op.TopOpId = op_idx
+
+        # 加载输入输出ID
+        relu_op.load_input_id(in_tensor_id)
+        relu_op.load_output_id(out_tensor_id)
+        self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx
+        self.graph.get_tensor(in_tensors_name[0]).Consumer.append(op_idx)
+
+        relu_op.InputShape = self.graph.AllTensors[in_tensor_id].Shape
+        relu_op.OutputShape = self.graph.AllTensors[out_tensor_id].Shape
+
+        assert relu_op.InputShape.H == relu_op.OutputShape.H
+
+        if op_code == OperatorType.LEAKY_RELU:
+            relu_op.Type = 'LeakyRELU'
+            relu_op.Mode = RELUMode.LEAKY_RELU
+            relu_op.Alpha = op.attribute[0].f
+        elif op_code == OperatorType.PRELU:
+            relu_op.Type = 'PRELU'
+            relu_op.Mode = RELUMode.PRELU
+            relu_op.Alpha = op.attribute[0].f
+
+        self.graph.insert_op(relu_op, op_idx)
+
+    def load_sigmoid(self, op, op_idx):
+        in_tensors_name = op.input
+        out_tensors_name = op.output
+
+        in_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
+        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+
+        # 算子初始化
+        sigmoid_op = Sigmoid()
+        sigmoid_op.Name = op.name
+        sigmoid_op.TopOpId = op_idx
+
+        # 加载输入输出ID
+        sigmoid_op.load_input_id(in_tensor_id)
+        sigmoid_op.load_output_id(out_tensor_id)
+        self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx
+        self.graph.get_tensor(in_tensors_name[0]).Consumer.append(op_idx)
+
+        sigmoid_op.InputShape = self.graph.AllTensors[in_tensor_id].Shape
+        sigmoid_op.OutputShape = self.graph.AllTensors[out_tensor_id].Shape
+
+        assert sigmoid_op.InputShape.H == sigmoid_op.OutputShape.H
+
+        self.graph.insert_op(sigmoid_op, op_idx)
 
     # op_idx是op在AllOps和AllOpIds中的索引值，index
     def parse_operator(self):
@@ -389,6 +449,9 @@ class ONNX2TopIR:
             elif op_code == OperatorType.MUL:  # NEW
                 self.load_element(op, op_idx, ElementWiseMode.ELW_MUL)
 
+            elif op_code == OperatorType.POW:
+                self.load_element(op, op_idx, ElementWiseMode.ELW_POW)
+
             elif op_code == OperatorType.MAX_POOL_2D:
                 self.load_pool(op, op_idx, op_code)
 
@@ -396,28 +459,31 @@ class ONNX2TopIR:
                 self.load_pool(op, op_idx, op_code)
 
             elif op_code == OperatorType.SIGMOID:
-                continue
+                self.load_sigmoid(op, op_idx)
 
             elif op_code == OperatorType.LEAKY_RELU:
-                continue
+                self.load_relu(op, op_idx, op_code)
+
+            elif op_code == OperatorType.PRELU:
+                self.load_relu(op, op_idx, op_code)
 
             elif op_code == OperatorType.PAD:
                 continue
 
             elif op_code == OperatorType.RESIZE_NEAREST_NEIGHBOR:
-                continue
+                continue  # TODO
 
             elif op_code == OperatorType.RESIZE_BILINEAR:
-                continue
+                continue  # TODO
 
             elif op_code == OperatorType.TRANSPOSE:
-                continue
+                continue  # TODO
 
             elif op_code == OperatorType.RESHAPE:
-                continue
+                continue  # TODO
 
             elif op_code == OperatorType.CONCATENATION:
-                continue
+                continue  # TODO
 
             elif op_code == OperatorType.CONSTANT:
                 self.load_constant(op, op_idx)
@@ -433,7 +499,9 @@ class ONNX2TopIR:
 
 
 if __name__ == "__main__":
+    # m = ONNX2TopIR('yolov3-tiny_128.onnx')
     m = ONNX2TopIR('yolov3-tiny_128.onnx')
-    # m = ONNX2TopIR('yolov5n.onnx')
     m.load_all_tensor()
+    toolkit = ONNXToolkit('yolov3-tiny_128.onnx')
+    toolkit.check_requirement_based_code(m._get_op_code, SUPPORTED_OPs)
     m.parse_operator()

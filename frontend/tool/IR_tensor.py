@@ -76,6 +76,7 @@ class IRTensor:  # IR中，表示张量的class
     Data = None
     # 输出该张量的 算子的 在AllTensors中的 索引
     OwnerOp = None
+    Consumer = []
     # NumpyData = None
     # Tensor_id = None
     Tensor_idx = None
@@ -87,6 +88,7 @@ class IRTensor:  # IR中，表示张量的class
         return (f'############## Tensor.{self.Tensor_idx} ##############\n'
                 f"Name:{self.Name}\n"
                 f"Type:{self.Type}\n"
+                f'{self.OwnerOp} -> {self.Consumer}'
                 f"Shape:{self.Shape}\n"
                 f"Format:{self.Format}\n"
                 f"Data:{self.Data}\n"

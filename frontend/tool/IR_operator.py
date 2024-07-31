@@ -152,8 +152,8 @@ class OpBase:  # 算子基类
         self.Name = None
         self.InTensors = []
         self.OutTensors = []
-        self.PreOpId = []  # 上一个op id
-        self.PostOpId = []  # 下一个op id
+        # self.PreOpId = []  # 上一个op id
+        # self.PostOpId = []  # 下一个op id
 
     def load_input_id(self, ir_tensor_id):
         self.InTensors.append(ir_tensor_id)
@@ -187,15 +187,18 @@ class Constant(OpBase):
             f'Output shape:{self.OutputShape}\n'
             f'############## Constant.{self.TopOpId} ##############\n'
         )
+    def shape_inference(self):
+        shape = self.OutputShape
+        return [shape.N, shape.C, shape.H, shape.W]
+
 
 # ########################### ElemWise ########################
-
-
 class ElementWiseMode(object):  # 元操作代码
     ELW_ADD = 0
     ELW_SUB = 1
-    ELW_MUL = 2
+    ELW_MUL = 2  # 元素乘法
     ELW_DIV = 3
+    ELW_POW = 4
 
 
 class ElemWise(OpBase):
@@ -251,20 +254,13 @@ class ElemWise(OpBase):
 
 
 # ###################  conv related ############################
-
-
-class ConvBase(OpBase):
-    # 卷积核尺寸
-    KerH = None
-    KerW = None
+class Conv2d(OpBase):
+    Type = "Conv2d"  # ConvRelu2d
     # Pad
     Padding = None  # 开关
     PadH = None  # 分别表示高度和宽度方向上的填充大小
     PadW = None
     Auto_pads = "PAD_ZERO"
-    # 卷积核在输入特征图上滑动的步长
-    StrideH = None
-    StrideW = None
     #  卷积核在相应维度上的膨胀
     Dilation = None
     # 将输入和卷积核分组
@@ -284,6 +280,26 @@ class ConvBase(OpBase):
 
     def __init__(self):
         super().__init__()
+        # 卷积核尺寸
+        self.KerH = None
+        self.KerW = None
+
+        # 卷积核在输入特征图上滑动的步长
+        self.StrideH = None
+        self.StrideW = None
+
+    def __repr__(self):
+        return (
+            f'############## {self.Type}.{self.TopOpId} ##############\n'
+            f'Op Name:{self.Name}\n'
+            f'Kernel Shape: {[self.KerH, self.KerW]}\n'
+            f'Stride: {[self.StrideH, self.StrideW]}\n'
+            f'Input tensor Id:{self.InTensors[0]}\n'
+            f'Input shape:{self.InputShape}\n'
+            f'Output tensor Id:{self.OutTensors[0]}\n'
+            f'Output shape:{self.OutputShape}\n'
+            f'############## Conv2d.{self.TopOpId} ##############\n'
+        )
 
     # TODO confirm 哪个正确？
     def get_mac(self):
@@ -362,67 +378,6 @@ class ConvBase(OpBase):
     #     return None
 
 
-class Conv2d(ConvBase):
-    Type = "Conv2d"
-
-    def __init__(self):
-        super().__init__()
-
-    def __repr__(self):
-        return (
-            f'############## Conv2d.{self.TopOpId} ##############\n'
-            f'Op Name:{self.Name}\n'
-            f'Kernel Shape: {[self.KerH, self.KerW]}\n'
-            f'Stride: {[self.StrideH, self.StrideW]}\n'
-            f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape}\n'
-            f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape}\n'
-            f'############## Conv2d.{self.TopOpId} ##############\n'
-        )
-
-
-class DepthWiseConv2d(ConvBase):
-    Type = "DepthWiseConv2d"
-
-    def __init__(self):
-        super().__init__()
-
-    def __repr__(self):
-        return (
-            f'############## DepthWiseConv2d.{self.TopOpId} ##############\n'
-            f'Op Name:{self.Name}\n'
-            f'Kernel Shape: {[self.KerH, self.KerW]}\n'
-            f'Stride: {[self.StrideH, self.StrideW]}\n'
-            f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape}\n'
-            f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape}\n'
-            f'############## DepthWiseConv2d.{self.TopOpId} ##############\n'
-        )
-
-
-class ConvRelu2d(ConvBase):
-    Do_relu = True
-    Type = "ConvRelu2d"
-
-    def __init__(self):
-        super().__init__()
-
-    def __repr__(self):
-        return (
-            f'############## ConvRelu2d.{self.TopOpId} ##############\n'
-            f'Op Name:{self.Name}\n'
-            f'Kernel Shape: {[self.KerH, self.KerW]}\n'
-            f'Stride: {[self.StrideH, self.StrideW]}\n'
-            f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape}\n'
-            f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape}\n'
-            f'############## ConvRelu2d.{self.TopOpId} ##############\n'
-        )
-
-
 # ###################### Pool ######################
 class PoolMode(object):
     POOL_AVG = 1
@@ -446,7 +401,7 @@ class Pool(OpBase):
 
     def __repr__(self):
         return (
-            f'############## Pool.{self.TopOpId} ##############\n'
+            f'############## {self.Type}.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
             f'Mode:{self.Mode}\n'
             f'Kernel Shape: {[self.KerH, self.KerW]}\n'
@@ -464,6 +419,70 @@ class Pool(OpBase):
         n_w = int(w / self.StrideW)
         n_c = c
         return [n_h, n_w, n_c]
+    
+
+# ############################ activation ###########################
+class RELUMode(object):
+    RELU = 0
+    PRELU = 1
+    LEAKY_RELU = 2
+    # SIGMOID = 3
+    # HARDSWISH = 4
+    # SOFTMAX = 5
+
+
+class RELU(OpBase):
+    Type = "RELU"
+    Mode = RELUMode.RELU
+    Alpha = 0
+    MaxLimit = None
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+
+    def get_input_scale_numpy(self, graph):
+        assert len(self.InTensors)
+        return graph.AllTensors[self.InTensors[0]].Scale
+
+    def get_input_zero_point_numpy(self, graph):
+        assert len(self.InTensors)
+        return graph.AllTensors[self.InTensors[0]].ZeroPoint
+
+    def get_output_scale_numpy(self, graph):
+        assert len(self.OutTensors)
+        return graph.AllTensors[self.OutTensors[0]].Scale
+
+    def get_output_zero_point_numpy(self, graph):
+        assert len(self.OutTensors)
+        return graph.AllTensors[self.OutTensors[0]].ZeroPoint
+
+    def shape_inference(self, shape_list):
+        return shape_list
+
+
+class Sigmoid(OpBase):
+    Type = 'Sigmoid'
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+
+    def get_input_scale_numpy(self, graph):
+        assert len(self.InTensors)
+        return graph.AllTensors[self.InTensors[0]].Scale
+
+    def get_input_zero_point_numpy(self, graph):
+        assert len(self.InTensors)
+        return graph.AllTensors[self.InTensors[0]].ZeroPoint
+
+    def get_output_scale_numpy(self, graph):
+        assert len(self.OutTensors)
+        return graph.AllTensors[self.OutTensors[0]].Scale
+
+    def get_output_zero_point_numpy(self, graph):
+        assert len(self.OutTensors)
+        return graph.AllTensors[self.OutTensors[0]].ZeroPoint
 
 
 # ###################  FullConnected ############################
@@ -547,55 +566,15 @@ class FullConnected(OpBase):
     #     return QuantizeMultiplier(scale)
 
 
-# ############################ activation ###########################
-
-
-class ActivationMode(object):
-    AM_RELU = 0
-    AM_RELUX = 1
-    AM_LEAKYRELU = 2
-    AM_SIGMOID = 3
-    AM_HARDSWISH = 4
-    AM_SOFTMAX = 5
-
-
-class Activation(OpBase):
-    ActiMode = None
-    Alpha = None
-    MaxLimit = None
-
-    def __init__(self):
-        super().__init__()
-        self.Name = "Activation"
-
-    def GetQuantInputScaleNumpy(self, graph):
-        assert len(self.InTensors)
-        return graph.get_tensor(self.InTensors[0]).Scale
-
-    def GetQuantInputZeroPointNumpy(self, graph):
-        assert len(self.InTensors)
-        return graph.get_tensor(self.InTensors[0]).ZeroPoint
-
-    def GetQuantOutputScaleNumpy(self, graph):
-        assert len(self.OutTensors)
-        return graph.get_tensor(self.OutTensors[0]).Scale
-
-    def GetQuantOutputZeroPointNumpy(self, graph):
-        assert len(self.OutTensors)
-        return graph.get_tensor(self.OutTensors[0]).ZeroPoint
-
-    def shape_inference(self, shape_list):
-        return shape_list
-
-
 # ###################  math related ############################
 class Softmax(OpBase):
-    Name = "Softmax"
+    Type = "Softmax"
     Axis = None
     Beta = 1
 
     def __init__(self):
         super().__init__()
+        self.Name = None
 
     def shape_inference(self, shape_list):
         return shape_list
@@ -742,28 +721,6 @@ class Dequantize(OpBase):
     def __init__(self):
         super().__init__()
         self.Name = "Dequantize"
-
-
-class Logistic(OpBase):
-    def __init__(self):
-        super().__init__()
-        self.Name = "Logistic"
-
-    def GetQuantInputScaleNumpy(self, graph):
-        assert len(self.InTensors)
-        return graph.get_tensor(self.InTensors[0]).Scale
-
-    def GetQuantInputZeroPointNumpy(self, graph):
-        assert len(self.InTensors)
-        return graph.get_tensor(self.InTensors[0]).ZeroPoint
-
-    def GetQuantOutputScaleNumpy(self, graph):
-        assert len(self.OutTensors)
-        return graph.get_tensor(self.OutTensors[0]).Scale
-
-    def GetQuantOutputZeroPointNumpy(self, graph):
-        assert len(self.OutTensors)
-        return graph.get_tensor(self.OutTensors[0]).ZeroPoint
 
 
 class Custom(OpBase):

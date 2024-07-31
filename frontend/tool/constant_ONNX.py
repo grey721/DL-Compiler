@@ -13,7 +13,7 @@ SUPPORTED_OPs = [
     # OperatorType.RESHAPE,
     # OperatorType.FULLY_CONNECTED,
     # OperatorType.SOFTMAX,
-    # OperatorType.LEAKY_RELU,
+    OperatorType.LEAKY_RELU,
     # OperatorType.RESIZE_NEAREST_NEIGHBOR,
     # OperatorType.RESIZE_BILINEAR,
     # OperatorType.CONCATENATION,
@@ -22,17 +22,17 @@ SUPPORTED_OPs = [
     # OperatorType.PAD,
     OperatorType.ADD,
     # OperatorType.DEQUANTIZE,
-    # OperatorType.LOGISTIC,
     # OperatorType.CUSTOM,
     # OperatorType.QUANTIZE,
-    # OperatorType.RELU,
-    # TODO realize
+    OperatorType.RELU,
+
+    # New
     OperatorType.MUL,
     OperatorType.CONSTANT,
-
     # OperatorType.SPLIT,
-    # OperatorType.SIGMOID,
-    # OperatorType.POW
+    OperatorType.SIGMOID,
+    OperatorType.PRELU,
+    OperatorType.POW
 ]
 
 FUSIBLE_OPs = [
