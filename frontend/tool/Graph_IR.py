@@ -24,12 +24,12 @@ class GraphIR:
         self.NetInputNpuOpId =      []
         self.SubGraphs =            []
 
-    def add_input_id(self, tensor_name):
+    def load_input_id(self, tensor_name):
         idx = self.AllTensorNames[tensor_name]
         self.NetInTensors.append(idx)
 
     # 图输出张量
-    def add_output_id(self, tensor_name):
+    def load_output_id(self, tensor_name):
         idx = self.AllTensorNames[tensor_name]
         self.NetOutTensors.append(idx)
 

@@ -59,7 +59,7 @@ class TensorType(object):
     Intermediate = 0
     Weight = 1
     Bias = 2
-    Parameter = 3
+    Shape = 3
     Input = 4
     Output = 5
 
@@ -75,23 +75,38 @@ class IRTensor:  # IR中，表示张量的class
     Q_max = None
     Data = None
     # 输出该张量的 算子的 在AllTensors中的 索引
-    OwnerOp = None
-    Consumer = []
     # NumpyData = None
     # Tensor_id = None
     Tensor_idx = None
 
     def __init__(self):
         self.Shape = Shape(0, 0, 0, 0)
+        self.ConsumerOp = []
+        self.OwnerOp = None
 
     def __repr__(self):
+        if self.Type == TensorType.Intermediate:
+            t = 'Intermediate'
+        elif self.Type == TensorType.Input:
+            t = 'Input'
+        elif self.Type == TensorType.Output:
+            t = 'Output'
+        elif self.Type == TensorType.Shape:
+            t = 'Shape'
+        elif self.Type == TensorType.Weight:
+            t = 'Weight'
+        elif self.Type == TensorType.Bias:
+            t = 'Bias'
+        else:
+            t = None
+
         return (f'############## Tensor.{self.Tensor_idx} ##############\n'
                 f"Name:{self.Name}\n"
-                f"Type:{self.Type}\n"
-                f'{self.OwnerOp} -> {self.Consumer}'
+                f"Type:{t}\n"
+                f'{self.OwnerOp} -> {self.ConsumerOp}\n'
                 f"Shape:{self.Shape}\n"
                 f"Format:{self.Format}\n"
-                f"Data:{self.Data}\n"
+                # f"Data:{self.Data}\n"
                 f'############## Tensor.{self.Tensor_idx} ##############\n'
                 )
 

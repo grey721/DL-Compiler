@@ -2,6 +2,7 @@
 *.onnx
 *.pt
 .venv/
+/frontend/tool/__pycache__/
 /frontend/__pycache__/
 .idea/
 /frontend/frontend-无注释.py

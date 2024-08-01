@@ -582,19 +582,20 @@ class Softmax(OpBase):
 
 # ###################  tensor related ############################
 class ResizeMode(object):
-    RESIZE_BILINEAR = 1
-    RESIZE_NEAREST = 0
+    RESIZE_BILINEAR = 1  # 双线性插值
+    RESIZE_NEAREST = 0  # 最近邻插值
 
 
 class Resize(OpBase):
-    ReMode = None
-    ScaleFactor = None
+    Type = "Resize"
+    ScaleFactor = None  # 缩放因子
     AlignCorners = None
     HalfPixelCenters = None
 
     def __init__(self):
         super().__init__()
-        self.Name = "Resize"
+        self.Name = None
+        self.Mode = None
 
     def shape_inference(self, shape_list):
         h, w, c = shape_list
@@ -605,22 +606,21 @@ class Resize(OpBase):
 
 
 class Concat(OpBase):
+    Type = "Concat"
     Axis = None
     FusedActFunc = 0
-    Input1H = 1
-    Input1W = 1
-    Input1C = 1
+    Input1Shape = Shape(1, 1, 1, 1)
 
     # quant_param
     RescaleInput = -1
 
     def __init__(self):
         super().__init__()
-        self.Name = "Concat"
+        self.Name = None
 
     def get_fmi_size(self):
-        fmi_size = self.InputC * self.InputH * self.InputW
-        fmi1_size = self.Input1C * self.Input1H * self.Input1W
+        fmi_size = self.InputShape.C * self.InputShape.H * self.InputShape.W
+        fmi1_size = self.Input1Shape.C * self.Input1Shape.H * self.Input1Shape.W
         return fmi_size + fmi1_size
 
     def GetQuantInputScaleNumpy(self, graph):
@@ -655,11 +655,34 @@ class Concat(OpBase):
 
 
 class Reshape(OpBase):
+    Type = "Reshape"
     out_shape = None
 
     def __init__(self):
         super().__init__()
-        self.Name = "Reshape"
+        self.Name = None
+
+
+class Transpose(OpBase):
+    Type = "Transpose"
+    OutDimOrder = None
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+
+
+class Pad(OpBase):
+    pad_val = None
+    pad_mode = "constant"
+    pad_top = None
+    pad_bottom = None
+    pad_left = None
+    pad_right = None
+
+    def __init__(self):
+        super().__init__()
+        self.Name = "Pad"
 
 
 class Squeeze(OpBase):
@@ -685,27 +708,6 @@ class Gather(OpBase):
     def __init__(self):
         super().__init__()
         self.Name = "Gather"
-
-
-class Transpose(OpBase):
-    OutDimOrder = None
-
-    def __init__(self):
-        super().__init__()
-        self.Name = "Transpose"
-
-
-class Pad(OpBase):
-    pad_val = None
-    pad_mode = "constant"
-    pad_top = None
-    pad_bottom = None
-    pad_left = None
-    pad_right = None
-
-    def __init__(self):
-        super().__init__()
-        self.Name = "Pad"
 
 
 class Mean(OpBase):
