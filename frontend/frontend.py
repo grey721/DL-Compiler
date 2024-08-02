@@ -5,7 +5,6 @@ import numpy as np
 import onnx
 import json
 
-
 from tool.my_tool import *
 
 
@@ -59,7 +58,7 @@ class ONNX2TopIR:
         if op.op_type not in ONNXType2OperatorType:
             raise NotImplementedError(f"Unconverted op type: {op.op_type}")
         op_code = ONNXType2OperatorType[op.op_type]
-        if op_code == 3:   # 卷积
+        if op_code == 3:  # 卷积
             if op.attribute[1].i != 1:  # "kernel_shape"假如是一维，那么i=1;二维时，则ins=[3，3]
                 return 4  # 2D卷积
         if op_code == 23:  # resize放缩
@@ -194,7 +193,7 @@ class ONNX2TopIR:
         # 算子初始化
         conv_op.Name = op.name
         conv_op.TopOpId = op_idx
-        
+
         # 加载输入输出ID
         conv_op.load_input_id(fea_tensor_id)
         conv_op.load_input_id(weight_tensor_id)
@@ -450,11 +449,11 @@ class ONNX2TopIR:
         transpose_op.InputShape = self.graph.AllTensors[in_tensor_id].Shape
         transpose_op.OutputShape = self.graph.AllTensors[out_tensor_id].Shape
 
-        # 可能是因为，后面直接根据NHCW的顺序而调用Shape的属性值，因此转置这里就最好提前改变成NHCW，以供之后直接通过np.transpose转置？
+        # NHWC模式下的转置，后续可能直接通过调用Shape各属性现成排序成NHWC所以直接在这里调整好转置顺序
         transpose_op.OutDimOrder = [op.attribute[0].ints[0],  # ints的顺序与Numpy中的transpose用法一致
                                     op.attribute[0].ints[3],
                                     op.attribute[0].ints[1],
-                                    op.attribute[0].ints[2]]  # 调整成 NHCW
+                                    op.attribute[0].ints[2]]  # 调整成 NHWC
 
         self.graph.insert_op(transpose_op, op_idx)
 
@@ -490,7 +489,7 @@ class ONNX2TopIR:
                 np_data, weights_dtype = get_np_data_from_attribute(tensor)
                 break
         else:
-             raise NotImplementedError(f'无法找到{op.name}的形状信息！')
+            raise NotImplementedError(f'无法找到{op.name}的形状信息！')
 
         self.graph.AllTensors[shape_tensor_id].load_data(np_data)
 
@@ -500,6 +499,40 @@ class ONNX2TopIR:
         assert self.graph.AllTensors[shape_tensor_id].Data[3] == reshape_op.OutputShape.W
 
         self.graph.insert_op(reshape_op, op_idx)
+
+    def load_concat(self, op, op_idx):
+        in_tensors_name = op.input
+        out_tensors_name = op.output
+
+        in1_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
+        in2_tensor_id = self.graph.AllTensorNames[in_tensors_name[1]]
+        out_tensors_id = self.graph.AllTensorNames[out_tensors_name[0]]
+
+        # 算子初始化
+        concat_op = Concat()
+        concat_op.Name = op.name
+        concat_op.TopOpId = op_idx
+
+        # 加载输入输出ID
+        concat_op.load_input_id(in1_tensor_id)
+        concat_op.load_input_id(in2_tensor_id)
+        concat_op.load_output_id(out_tensors_id)
+
+        self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx
+        self.graph.get_tensor(in_tensors_name[0]).ConsumerOp.append(op_idx)
+        self.graph.get_tensor(in_tensors_name[1]).ConsumerOp.append(op_idx)
+
+        # 输入输出形状
+        concat_op.InputShape = self.graph.AllTensors[in1_tensor_id].Shape
+        concat_op.Input1Shape = self.graph.AllTensors[in2_tensor_id].Shape
+        concat_op.OutputShape = self.graph.AllTensors[out_tensors_id].Shape
+
+        # 换成NHWC中对应的轴
+        concat_op.Axis = axis_map[op.attribute[0].i]
+
+        assert concat_op.FusedActFunc == 0
+
+        self.graph.insert_op(concat_op, op_idx)
 
     # op_idx是op在AllOps和AllOpIds中的索引值，index
     def parse_operator(self):
@@ -561,7 +594,7 @@ class ONNX2TopIR:
                 self.load_reshape(op, op_idx)
 
             elif op_code == OperatorType.CONCATENATION:
-                continue  # TODO
+                self.load_concat(op, op_idx)
 
             elif op_code == OperatorType.SPLIT:
                 continue  # TODO
@@ -573,7 +606,7 @@ class ONNX2TopIR:
                 print(f"Unhandled operator:{op_code}")
 
         if unsupported:
-            raise NotImplementedError(f"\nUnsupported operator:{unsupported}\n总计: {len(unsupported)}个")
+            raise NotImplementedError(f"\nUnsupported operator:{unsupported}\n总计: {len(unsupported)}种")
 
     def op2json(self, save_path):
         pass

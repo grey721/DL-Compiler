@@ -187,6 +187,7 @@ class Constant(OpBase):
             f'Output shape:{self.OutputShape}\n'
             f'############## Constant.{self.TopOpId} ##############\n'
         )
+
     def shape_inference(self):
         shape = self.OutputShape
         return [shape.N, shape.C, shape.H, shape.W]
@@ -441,6 +442,17 @@ class RELU(OpBase):
         super().__init__()
         self.Name = None
 
+    def __repr__(self):
+        return (
+            f'############## {self.Type}.{self.TopOpId} ##############\n'
+            f'Op Name:{self.Name}\n'
+            f'Input tensor Id:{self.InTensors[0]}\n'
+            f'Input shape:{self.InputShape}\n'            
+            f'Output tensor Id:{self.OutTensors[0]}\n'
+            f'Output shape:{self.OutputShape}\n'
+            f'############## {self.Type}.{self.TopOpId} ##############\n'
+        )
+
     def get_input_scale_numpy(self, graph):
         assert len(self.InTensors)
         return graph.AllTensors[self.InTensors[0]].Scale
@@ -468,6 +480,17 @@ class Sigmoid(OpBase):
         super().__init__()
         self.Name = None
 
+    def __repr__(self):
+        return (
+            f'############## Sigmoid.{self.TopOpId} ##############\n'
+            f'Op Name:{self.Name}\n'
+            f'Input tensor Id:{self.InTensors[0]}\n'
+            f'Input shape:{self.InputShape}\n'            
+            f'Output tensor Id:{self.OutTensors[0]}\n'
+            f'Output shape:{self.OutputShape}\n'
+            f'############## Sigmoid.{self.TopOpId} ##############\n'
+        )
+
     def get_input_scale_numpy(self, graph):
         assert len(self.InTensors)
         return graph.AllTensors[self.InTensors[0]].Scale
@@ -485,6 +508,178 @@ class Sigmoid(OpBase):
         return graph.AllTensors[self.OutTensors[0]].ZeroPoint
 
 
+# ###################  tensor related ############################
+class ResizeMode(object):
+    RESIZE_BILINEAR = 1  # 双线性插值
+    RESIZE_NEAREST = 0  # 最近邻插值
+
+
+class Resize(OpBase):
+    Type = "Resize"
+    ScaleFactor = None  # 缩放因子
+    AlignCorners = None
+    HalfPixelCenters = None
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+        self.Mode = None
+
+    def shape_inference(self, shape_list):
+        h, w, c = shape_list
+        n_h = h * self.ScaleFactor
+        n_w = w * self.ScaleFactor
+        n_c = c
+        return [n_h, n_w, n_c]
+
+
+class Concat(OpBase):
+    Type = "Concat"
+    # 链接的轴
+    Axis = None
+    FusedActFunc = False
+    Input1Shape = Shape(1, 1, 1, 1)
+
+    # TODO what this
+    # quant_param
+    RescaleInput = -1
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+
+    def __repr__(self):
+        return_map = {
+            0: 'N',
+            1: 'H',
+            2: 'W',
+            3: 'C'
+        }
+        return (
+            f'############## Concat.{self.TopOpId} ##############\n'
+            f'Op Name:{self.Name}\n'
+            f'Concat Axis:{return_map[self.Axis]}\n'
+            f'Input0 tensor Id:{self.InTensors[0]}\n'
+            f'Input0 shape:{self.InputShape}\n'    
+            f'Input1 tensor Id:{self.InTensors[1]}\n'
+            f'Input1 shape:{self.Input1Shape}\n'
+            f'Output tensor Id:{self.OutTensors[0]}\n'
+            f'Output shape:{self.OutputShape}\n'
+            f'############## Concat.{self.TopOpId} ##############\n'
+        )
+
+    def get_fmi_size(self):
+        fmi_size = self.InputShape.C * self.InputShape.H * self.InputShape.W
+        fmi1_size = self.Input1Shape.C * self.Input1Shape.H * self.Input1Shape.W
+        return fmi_size + fmi1_size
+
+    def get_input_scale_numpy(self, graph):
+        assert len(self.InTensors)
+        return graph.AllTensors[self.InTensors[0]].Scale
+
+    def get_input_zero_point_numpy(self, graph):
+        assert len(self.InTensors)
+        return graph.AllTensors[self.InTensors[0]].ZeroPoint
+
+    def get_input1_scale_numpy(self, graph):
+        assert len(self.InTensors)
+        return graph.AllTensors[self.InTensors[1]].Scale
+
+    def get_input1_zero_point_numpy(self, graph):
+        assert len(self.InTensors)
+        return graph.AllTensors[self.InTensors[1]].ZeroPoint
+
+    def get_output_scale_numpy(self, graph):
+        assert len(self.OutTensors)
+        return graph.AllTensors[self.OutTensors[0]].Scale
+
+    def get_output_zero_point_numpy(self, graph):
+        assert len(self.OutTensors)
+        return graph.AllTensors[self.OutTensors[0]].ZeroPoint
+
+    def shape_inference(self, shape1_list, shape2_list):
+        if len(shape1_list) == len(shape2_list) ==3:
+            n_shape = []
+            for i in range(3):
+                if i != self.Axis:
+                    n_shape.append(shape1_list[i])
+                else:
+                    n_shape.append(shape1_list[i] + shape2_list[i])
+            return n_shape
+
+
+class Reshape(OpBase):
+    Type = "Reshape"
+    out_shape = None
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+
+    def __repr__(self):
+        return (
+            f'############## Reshape.{self.TopOpId} ##############\n'
+            f'Op Name:{self.Name}\n'
+            f'Reshape:{self.OutputShape}\n'
+            f'Input tensor Id:{self.InTensors[0]}\n'
+            f'Input shape:{self.InputShape}\n'    
+            f'Output tensor Id:{self.OutTensors[0]}\n'
+            f'Output shape:{self.OutputShape}\n'
+            f'############## Reshape.{self.TopOpId} ##############\n'
+        )
+
+
+class Transpose(OpBase):
+    Type = "Transpose"
+    OutDimOrder = None
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+
+    def __repr__(self):
+        return (
+            f'############## Transpose.{self.TopOpId} ##############\n'
+            f'Op Name:{self.Name}\n'
+            f'ReDim(NHWC):{self.OutDimOrder}\n'
+            f'Input tensor Id:{self.InTensors[0]}\n'
+            f'Input shape:{self.InputShape}\n'    
+            f'Output tensor Id:{self.OutTensors[0]}\n'
+            f'Output shape:{self.OutputShape}\n'
+            f'############## Transpose.{self.TopOpId} ##############\n'
+        )
+
+
+class Pad(OpBase):
+    Type = "Pad"
+    pad_val = None
+    pad_mode = "constant"
+    pad_top = None
+    pad_bottom = None
+    pad_left = None
+    pad_right = None
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+
+    def __repr__(self):
+        return (
+            f'############## Pad.{self.TopOpId} ##############\n'
+            f'Op Name:{self.Name}\n'
+            f'Pad_val:{self.pad_val}'
+            f'          Top:{self.pad_top}'
+            f'Left:{self.pad_left}                    Right:{self.pad_right}'
+            f'          Bottom:{self.pad_bottom}'
+            f'Input tensor Id:{self.InTensors[0]}\n'
+            f'Input shape:{self.InputShape}\n'    
+            f'Output tensor Id:{self.OutTensors[0]}\n'
+            f'Output shape:{self.OutputShape}\n'
+            f'############## Pad.{self.TopOpId} ##############\n'
+        )
+
+
+# ===========================================未处理==============================================
 # ###################  FullConnected ############################
 class FullConnected(OpBase):
     Type = "FullConnected"
@@ -524,15 +719,15 @@ class FullConnected(OpBase):
             bias = np.full(self.OutputShape.C, zp[0], dtype=np.int32)
         return bias
 
-    def GetQuantInputScaleNumpy(self, graph):
+    def get_input_scal_numpy(self, graph):
         assert len(self.InTensors)
         return graph.get_tensor(self.InTensors[0]).Scale
 
-    def GetQuantInputZeroPointNumpy(self, graph):
+    def get_input_zero_point_numpy(self, graph):
         assert len(self.InTensors)
         return graph.get_tensor(self.InTensors[0]).ZeroPoint
 
-    def GetQuantOutputScaleNumpy(self, graph):
+    def get_output_scale_numpy(self, graph):
         assert len(self.OutTensors)
         return graph.get_tensor(self.OutTensors[0]).Scale
 
@@ -580,110 +775,7 @@ class Softmax(OpBase):
         return shape_list
 
 
-# ###################  tensor related ############################
-class ResizeMode(object):
-    RESIZE_BILINEAR = 1  # 双线性插值
-    RESIZE_NEAREST = 0  # 最近邻插值
-
-
-class Resize(OpBase):
-    Type = "Resize"
-    ScaleFactor = None  # 缩放因子
-    AlignCorners = None
-    HalfPixelCenters = None
-
-    def __init__(self):
-        super().__init__()
-        self.Name = None
-        self.Mode = None
-
-    def shape_inference(self, shape_list):
-        h, w, c = shape_list
-        n_h = h * self.ScaleFactor
-        n_w = w * self.ScaleFactor
-        n_c = c
-        return [n_h, n_w, n_c]
-
-
-class Concat(OpBase):
-    Type = "Concat"
-    Axis = None
-    FusedActFunc = 0
-    Input1Shape = Shape(1, 1, 1, 1)
-
-    # quant_param
-    RescaleInput = -1
-
-    def __init__(self):
-        super().__init__()
-        self.Name = None
-
-    def get_fmi_size(self):
-        fmi_size = self.InputShape.C * self.InputShape.H * self.InputShape.W
-        fmi1_size = self.Input1Shape.C * self.Input1Shape.H * self.Input1Shape.W
-        return fmi_size + fmi1_size
-
-    def GetQuantInputScaleNumpy(self, graph):
-        assert len(self.InTensors)
-        return graph.get_tensor(self.InTensors[0]).Scale
-
-    def GetQuantInputZeroPointNumpy(self, graph):
-        assert len(self.InTensors)
-        return graph.get_tensor(self.InTensors[0]).ZeroPoint
-
-    def GetQuantInput1ScaleNumpy(self, graph):
-        assert len(self.InTensors)
-        return graph.get_tensor(self.InTensors[1]).Scale
-
-    def GetQuantInput1ZeroPointNumpy(self, graph):
-        assert len(self.InTensors)
-        return graph.get_tensor(self.InTensors[1]).ZeroPoint
-
-    def GetQuantOutputScaleNumpy(self, graph):
-        assert len(self.OutTensors)
-        return graph.get_tensor(self.OutTensors[0]).Scale
-
-    def GetQuantOutputZeroPointNumpy(self, graph):
-        assert len(self.OutTensors)
-        return graph.get_tensor(self.OutTensors[0]).ZeroPoint
-
-    def shape_inference(self, shape1_list, shape2_list):
-        h1, w1, c1 = shape1_list
-        h2, w2, c2 = shape2_list
-        c3 = c1 + c2
-        return [h1, w1, c3]
-
-
-class Reshape(OpBase):
-    Type = "Reshape"
-    out_shape = None
-
-    def __init__(self):
-        super().__init__()
-        self.Name = None
-
-
-class Transpose(OpBase):
-    Type = "Transpose"
-    OutDimOrder = None
-
-    def __init__(self):
-        super().__init__()
-        self.Name = None
-
-
-class Pad(OpBase):
-    pad_val = None
-    pad_mode = "constant"
-    pad_top = None
-    pad_bottom = None
-    pad_left = None
-    pad_right = None
-
-    def __init__(self):
-        super().__init__()
-        self.Name = "Pad"
-
+# #################################################################
 
 class Squeeze(OpBase):
     SqueezedDims = None

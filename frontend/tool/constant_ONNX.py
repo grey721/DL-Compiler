@@ -16,7 +16,7 @@ SUPPORTED_OPs = [
     OperatorType.LEAKY_RELU,
     # OperatorType.RESIZE_NEAREST_NEIGHBOR,
     # OperatorType.RESIZE_BILINEAR,
-    # OperatorType.CONCATENATION,
+    OperatorType.CONCATENATION,
     OperatorType.TRANSPOSE,
     # OperatorType.MEAN,
     # OperatorType.PAD,
@@ -204,7 +204,7 @@ parameter_input = {
     OperatorType.RESIZE_NEAREST_NEIGHBOR,
     OperatorType.RESIZE_BILINEAR,
 }
-# TODO learn it
+# NCHW -> NHWC
 axis_map = {
     0: 0,
     1: 3,

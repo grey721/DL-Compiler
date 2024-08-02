@@ -85,30 +85,24 @@ class IRTensor:  # IR中，表示张量的class
         self.OwnerOp = None
 
     def __repr__(self):
-        if self.Type == TensorType.Intermediate:
-            t = 'Intermediate'
-        elif self.Type == TensorType.Input:
-            t = 'Input'
-        elif self.Type == TensorType.Output:
-            t = 'Output'
-        elif self.Type == TensorType.Shape:
-            t = 'Shape'
-        elif self.Type == TensorType.Weight:
-            t = 'Weight'
-        elif self.Type == TensorType.Bias:
-            t = 'Bias'
-        else:
-            t = None
-
-        return (f'############## Tensor.{self.Tensor_idx} ##############\n'
-                f"Name:{self.Name}\n"
-                f"Type:{t}\n"
-                f'{self.OwnerOp} -> {self.ConsumerOp}\n'
-                f"Shape:{self.Shape}\n"
-                f"Format:{self.Format}\n"
-                # f"Data:{self.Data}\n"
-                f'############## Tensor.{self.Tensor_idx} ##############\n'
-                )
+        mapping = {
+           0: 'Intermediate',
+           1: 'Weight',
+           2: 'Bias',
+           3: 'Shape',
+           4: 'Input',
+           5: 'Output'
+        }
+        return (
+            f'############## Tensor.{self.Tensor_idx} ##############\n'
+            f"Name:{self.Name}\n"
+            f"Type:{mapping[self.Type]}\n"
+            f'{self.OwnerOp} -> {self.ConsumerOp}\n'
+            f"Shape:{self.Shape}\n"
+            f"Format:{self.Format}\n"
+            # f"Data:{self.Data}\n"
+            f'############## Tensor.{self.Tensor_idx} ##############\n'
+        )
 
     def load_data(self, np_data):
         self.Data = np_data.copy()
