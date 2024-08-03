@@ -527,14 +527,33 @@ class ResizeMode(object):
 
 class Resize(OpBase):
     Type = "Resize"
-    ScaleFactor = None  # 缩放因子
-    AlignCorners = None  # 对齐角点
-    HalfPixelCenters = None  # 半像素中心，像素中心点位于像素网格的半像素位置
+
+    AlignCorners = False  # 对齐角点，考虑图像角点的精确对齐
+    HalfPixelCenters = False  # 半像素中心，像素中心点位于像素网格的半像素位置
 
     def __init__(self):
         super().__init__()
         self.Name = None
         self.Mode = None
+        self.ScaleFactor = None  # 缩放因子
+
+    def __repr__(self):
+        mapping = {
+            1: 'BILINEAR',
+            0: 'NEAREST'
+        }
+        return (
+            f'############## Resize.{self.TopOpId} ##############\n'
+            f'Op Name:{self.Name}\n'
+            f'Mode:{mapping[self.Mode]}\n'
+            f'ScaleFactor:{self.ScaleFactor}\n'
+            f'AlignCorners:{self.AlignCorners}; HalfPixelCenters:{self.HalfPixelCenters}\n'
+            f'Input tensor Id:{self.InTensors[0]}\n'
+            f'Input shape:{self.InputShape[0]}\n'            
+            f'Output tensor Id:{self.OutTensors[0]}\n'
+            f'Output shape:{self.OutputShape[0]}\n'
+            f'############## Resize.{self.TopOpId} ##############\n'
+        )
 
     def shape_inference(self, shape_list):
         h, w, c = shape_list
@@ -676,10 +695,10 @@ class Pad(OpBase):
         return (
             f'############## Pad.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
-            f'Pad_val:{self.pad_val}'
-            f'          Top:{self.pad_top}'
-            f'Left:{self.pad_left}                    Right:{self.pad_right}'
-            f'          Bottom:{self.pad_bottom}'
+            f'Pad_val:{self.pad_val}\n'
+            f'          Top:{self.pad_top}\n'
+            f'Left:{self.pad_left}                    Right:{self.pad_right}\n'
+            f'          Bottom:{self.pad_bottom}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
             f'Input shape:{self.InputShape[0]}\n'    
             f'Output tensor Id:{self.OutTensors[0]}\n'

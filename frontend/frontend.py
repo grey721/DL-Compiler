@@ -536,6 +536,115 @@ class ONNX2TopIR:
 
         self.graph.insert_op(concat_op, op_idx)
 
+    def load_resize(self, op, op_idx):
+        in_tensors_name = op.input
+        out_tensors_name = op.output
+
+        in_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
+        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+
+        resize_op = Resize()
+        resize_op.Name = op.name
+        resize_op.TopOpId = op_idx
+
+        resize_op.load_input_id(in_tensor_id)
+        resize_op.load_output_id(out_tensor_id)
+        self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx
+        self.graph.get_tensor(in_tensors_name[0]).ConsumerOp.append(op_idx)
+
+        resize_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
+        resize_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
+
+        # 缩放因子
+        for tensor in self.model.graph.initializer:
+            if tensor.name == in_tensors_name[1]:
+                np_scales, scales_dtype = get_np_data_from_attribute(tensor)
+                break
+        else:
+            raise NotImplementedError(f'无法找到{op.name}的设置信息！')
+
+        y_scale, x_scale = np_scales[2], np_scales[3]  # 放大倍数
+        assert resize_op.OutputShape[0].H / resize_op.InputShape[0].H == y_scale
+        assert resize_op.OutputShape[0].W / resize_op.InputShape[0].W == x_scale
+        assert y_scale == x_scale
+        resize_op.ScaleFactor = y_scale
+
+        # 插值方法 和 定位点
+        for a in op.attribute:
+            if a.name == "mode":
+                resize_model = a.s.decode()  # decode() 方法主要用于将字节串（byte string，即 bytes 类型）解码成字符串。
+                if resize_model == "nearest":
+                    resize_op.Type = "resize_nearest"
+                    resize_op.Mode = ResizeMode.RESIZE_NEAREST
+                elif resize_model == "linear":
+                    resize_op.Type = "resize_bilinear"
+                    resize_op.Mode = ResizeMode.RESIZE_BILINEAR
+                else:
+                    raise NotImplementedError('无法识别的Resize模式')
+
+            elif a.name == "coordinate_transformation_mode":
+                coordinate_transformation_mode = a.s
+                if coordinate_transformation_mode == "align_corners":
+                    resize_op.AlignCorners = True
+                if coordinate_transformation_mode == "half_pixel":
+                    resize_op.HalfPixelCenters = True
+
+        self.graph.insert_op(resize_op, op_idx)
+
+    def load_pad(self, op, op_idx):
+        in_tensors_name = op.input
+        out_tensors_name = op.output
+
+        in_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
+        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+
+        # 算子初始化
+        pad_op = Pad()
+        pad_op.Name = op.name
+        pad_op.TopOpId = op_idx
+
+        # 加载输入输出ID
+        pad_op.load_input_id(in_tensor_id)
+        pad_op.load_output_id(out_tensor_id)
+        self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx
+        self.graph.get_tensor(in_tensors_name[0]).ConsumerOp.append(op_idx)
+
+        for tensor in self.model.graph.initializer:
+            if tensor.name == in_tensors_name[1]:
+                np_loc_data, loc_dtype = get_np_data_from_attribute(tensor)
+                break
+        else:
+            raise NotImplementedError
+        pad_loc = list(np_loc_data)
+
+        # 填充的数值
+        for tensor in self.model.graph.initializer:
+            if tensor.name == in_tensors_name[2]:
+                np_pads_data, pads_dtype = get_np_data_from_attribute(tensor)
+                break
+        else:
+            raise NotImplementedError
+        float_pad_val = float(np_pads_data)
+
+        pad_op.pad_val = float_pad_val
+
+        # pad_op.pad_val = (float_pad_val / self.graph.get_tensor(in_tensors_name[0]).Scale[0]
+        #                  + self.graph.get_tensor(in_tensors_name[0]).ZeroPoint[0])
+
+        # pads should be a 1D tensor of shape [2 * input_rank]. pads format should be:
+        # [x1_begin, x2_begin,...,x1_end, x2_end,...], where xi_begin is the number of
+        # pad values added at the beginning of axis i and xi_end, the number of pad
+        # values added at the end of axis i.
+        # [前一半为各个维度开始的填充层数, 后一半为各维度结束的填充层数]
+
+        pad_op.pad_top, pad_op.pad_bottom = pad_loc[2], pad_loc[6]
+        pad_op.pad_left, pad_op.pad_right = pad_loc[3], pad_loc[7]
+
+        pad_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
+        pad_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
+
+        self.graph.insert_op(pad_op, op_idx)
+
     # op_idx是op在AllOps和AllOpIds中的索引值，index
     def parse_operator(self):
         unsupported = []
@@ -584,13 +693,13 @@ class ONNX2TopIR:
                 self.load_transpose(op, op_idx)
 
             elif op_code == OperatorType.PAD:
-                continue
+                self.load_pad(op, op_idx)
 
             elif op_code == OperatorType.RESIZE_NEAREST_NEIGHBOR:
-                continue  # TODO
+                self.load_resize(op, op_idx)
 
             elif op_code == OperatorType.RESIZE_BILINEAR:
-                continue  # TODO
+                self.load_resize(op, op_idx)
 
             elif op_code == OperatorType.RESHAPE:
                 self.load_reshape(op, op_idx)
@@ -606,8 +715,6 @@ class ONNX2TopIR:
 
             else:
                 print(f"Unhandled operator:{op_code}")
-
-        print(self.graph.AllOps)
 
         if unsupported:
             raise NotImplementedError(f"\nUnsupported operator:{unsupported}\n总计: {len(unsupported)}种")
