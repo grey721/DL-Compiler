@@ -46,11 +46,6 @@ class ONNX2TopIR:
                 self.fused_ops.append(op)
                 continue
             print(op.name, 'not in FUSIBLE_OPs')
-            # in_tensors_name = op.input
-            # if len(in_tensors_name) == 1:
-            # state = self.quantization_config["configs"][op.name][in_tensors_name[0]]['state']
-            # if state == "OVERLAPPED":  # 表示量化参数可能与其他参数重叠，为了安全暂时不对他们优化 ???可能表示该算子已经在其他部分的处理流程中被考虑或融合过??????????????不确定
-            #    continue
             self.fused_ops.append(op)
         print("Operators_len:", len(self.fused_ops))
 
@@ -148,31 +143,28 @@ class ONNX2TopIR:
             self.graph.get_tensor(t.name).ConsumerOp = [-2]
 
     def load_element(self, op, op_idx, mode):
-        in_tensors_name = op.input
-        out_tensors_name = op.output
-
-        in1_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
-        in2_tensor_id = self.graph.AllTensorNames[in_tensors_name[1]]
-        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
-
         # 算子初始化
         elem_op = ElemWise()  # 元张量操作
         elem_op.Name = op.name
         elem_op.Mode = mode
         elem_op.TopOpId = op_idx
 
-        # 添加到输入输出列表
-        elem_op.load_input_id(in1_tensor_id)
-        elem_op.load_input_id(in2_tensor_id)
+        # 输入
+        in_tensors_name = op.input
+        for name in in_tensors_name:
+            in_tensor_id = self.graph.AllTensorNames[name]
+            elem_op.load_input_id(in_tensor_id)
+            elem_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
+            self.graph.get_tensor(name).ConsumerOp.append(op_idx)
+
+        # 输出
+        out_tensors_name = op.output
+        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
         elem_op.load_output_id(out_tensor_id)
+        elem_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
         self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx  # 将指定张量的绑定到指定算子上
-        self.graph.get_tensor(in_tensors_name[0]).ConsumerOp.append(op_idx)
-        self.graph.get_tensor(in_tensors_name[1]).ConsumerOp.append(op_idx)
 
         # 不保留整个张量类信息，因为 其他信息不是经常用，所以 等用的时候直接通过函数查询，减少内存占用？
-        elem_op.InputShape = self.graph.AllTensors[in1_tensor_id].Shape
-        elem_op.Input1Shape = self.graph.AllTensors[in2_tensor_id].Shape
-        elem_op.OutputShape = self.graph.AllTensors[out_tensor_id].Shape
 
         self.graph.insert_op(elem_op, op_idx)
         # print(elem_op)
@@ -219,23 +211,26 @@ class ONNX2TopIR:
         # weight_data_int8_NHWC = np.transpose(weight_data_int8, [0, 2, 3, 1])
         self.graph.AllTensors[weight_tensor_id].load_data(np_data)  # weight_data_int8_NHWC
 
-        conv_op.InputShape = self.graph.AllTensors[fea_tensor_id].Shape
-        conv_op.OutputShape.C = self.graph.AllTensors[weight_tensor_id].Shape.N
+        c = self.graph.AllTensors[weight_tensor_id].Shape.N
+        h = self.graph.AllTensors[out_tensor_id].Shape.H
+        w = self.graph.AllTensors[out_tensor_id].Shape.W
+        n = self.graph.AllTensors[out_tensor_id].Shape.N
+
+        output_c = self.graph.AllTensors[out_tensor_id].Shape.C
+        assert c == output_c, f'op {op.name}中,weight:{weight_tensor_id}, OutTensor:{out_tensor_id}'
+
+        # 形状加载
+        conv_op.InputShape.append(self.graph.AllTensors[fea_tensor_id].Shape)
+        conv_op.OutputShape.append(Shape(n, c, h, w))
 
         if code == OperatorType.CONV_2D:
             conv_op.Group = 1
         elif code == OperatorType.DEPTHWISE_CONV_2D:
             conv_op.Type = "DepthWiseConv2d"
-            conv_op.Group = conv_op.InputShape.C
-
-        conv_op.OutputShape.H = self.graph.AllTensors[out_tensor_id].Shape.H
-        conv_op.OutputShape.W = self.graph.AllTensors[out_tensor_id].Shape.W
-        output_c = self.graph.AllTensors[out_tensor_id].Shape.C
-
-        assert conv_op.OutputShape.C == output_c, f'op {op.name}中,weight:{weight_tensor_id}, OutTensor:{out_tensor_id}'
+            conv_op.Group = conv_op.InputShape[0].C
 
         # TODO 正好CIM有什么用
-        conv_op.kerM_16 = True if conv_op.OutputShape.C % 16 == 0 else False
+        conv_op.kerM_16 = True if conv_op.OutputShape[0].C % 16 == 0 else False
 
         for a in op.attribute:
             if a.name == "strides":
@@ -297,8 +292,8 @@ class ONNX2TopIR:
         self.graph.get_tensor(in_tensors_name[0]).ConsumerOp.append(op_idx)
 
         # 输入输出形状
-        pool_op.InputShape = self.graph.AllTensors[in_tensor_id].Shape
-        pool_op.OutputShape = self.graph.AllTensors[out_tensor_id].Shape
+        pool_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
+        pool_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
 
         if op_code == OperatorType.MAX_POOL_2D:
             pool_op.Type = "MaxPool"
@@ -310,14 +305,14 @@ class ONNX2TopIR:
             raise ValueError(f'Unsupported code of pool was identified: {op.name}')
 
         # pool parameters
-        if pool_op.OutputShape.H == 1 and pool_op.OutputShape.W == 1 and len(op.attribute) == 0:  # GlobalPool
+        if pool_op.OutputShape[0].H == 1 and pool_op.OutputShape[0].W == 1 and len(op.attribute) == 0:  # GlobalPool
             pool_op.StrideH = 1
             pool_op.StrideW = 1
             pool_op.PadH = 0
             pool_op.PadW = 0
             pool_op.Padding = 1
-            pool_op.KerH = pool_op.InputShape.H
-            pool_op.KerW = pool_op.InputShape.W
+            pool_op.KerH = pool_op.InputShape[0].H
+            pool_op.KerW = pool_op.InputShape[0].W
             self.graph.insert_op(pool_op, op_idx)
             return
 
@@ -355,7 +350,7 @@ class ONNX2TopIR:
             constant_op.load_output_id(out_tensor_id)
             self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx
 
-            constant_op.OutputShape = self.graph.get_tensor(out_tensors_name[0]).Shape
+            constant_op.OutputShape[0].append(self.graph.get_tensor(out_tensors_name[0]).Shape)
 
             constant_op.Mode = op.attribute[0].type  # 确定常数类型
             if constant_op.Mode == onnx.AttributeProto.TENSOR:  # 是张量
@@ -387,10 +382,10 @@ class ONNX2TopIR:
         self.graph.get_tensor(in_tensors_name[0]).ConsumerOp.append(op_idx)
 
         # 输入输出形状
-        relu_op.InputShape = self.graph.AllTensors[in_tensor_id].Shape
-        relu_op.OutputShape = self.graph.AllTensors[out_tensor_id].Shape
+        relu_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
+        relu_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
 
-        assert relu_op.InputShape.H == relu_op.OutputShape.H
+        assert relu_op.InputShape[0].H == relu_op.OutputShape[0].H
 
         if op_code == OperatorType.LEAKY_RELU:
             relu_op.Type = 'LeakyRELU'
@@ -422,14 +417,14 @@ class ONNX2TopIR:
         self.graph.get_tensor(in_tensors_name[0]).ConsumerOp.append(op_idx)
 
         # 输入输出形状
-        sigmoid_op.InputShape = self.graph.AllTensors[in_tensor_id].Shape
-        sigmoid_op.OutputShape = self.graph.AllTensors[out_tensor_id].Shape
+        sigmoid_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
+        sigmoid_op.OutputShape[0].append(self.graph.AllTensors[out_tensor_id].Shape)
 
-        assert sigmoid_op.InputShape.H == sigmoid_op.OutputShape.H
+        assert sigmoid_op.InputShape[0].H == sigmoid_op.OutputShape[0].H
 
         self.graph.insert_op(sigmoid_op, op_idx)
 
-    def load_transpose(self, op, op_idx):
+    def load_transpose(self, op, op_idx):  # TODO 不一定四维
         in_tensors_name = op.input
         out_tensors_name = op.output
 
@@ -446,14 +441,23 @@ class ONNX2TopIR:
         self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx
         self.graph.get_tensor(in_tensors_name[0]).ConsumerOp.append(op_idx)
 
-        transpose_op.InputShape = self.graph.AllTensors[in_tensor_id].Shape
-        transpose_op.OutputShape = self.graph.AllTensors[out_tensor_id].Shape
+        transpose_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
+        transpose_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
 
         # NHWC模式下的转置，后续可能直接通过调用Shape各属性现成排序成NHWC所以直接在这里调整好转置顺序
-        transpose_op.OutDimOrder = [op.attribute[0].ints[0],  # ints的顺序与Numpy中的transpose用法一致
+        # ints的顺序与Numpy中的transpose用法一致
+        transpose_op.OutDimOrder = [op.attribute[0].ints[0],
                                     op.attribute[0].ints[3],
                                     op.attribute[0].ints[1],
-                                    op.attribute[0].ints[2]]  # 调整成 NHWC
+                                    op.attribute[0].ints[2]]
+        out_dim = []
+        for i in op.attribute[0].ints:
+            if i < 4:
+                out_dim.append(axis_map[i])  # 调整成 NHWC
+            else:
+                out_dim.append(i)
+
+        transpose_op.OutDimOrder = out_dim
 
         self.graph.insert_op(transpose_op, op_idx)
 
@@ -481,8 +485,8 @@ class ONNX2TopIR:
         self.graph.get_tensor(in_tensors_name[1]).ConsumerOp.append(op_idx)
 
         # 输入输出形状
-        reshape_op.InputShape = self.graph.AllTensors[in_tensor_id].Shape
-        reshape_op.OutputShape = self.graph.AllTensors[out_tensor_id].Shape  # 固定输出形状
+        reshape_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
+        reshape_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)  # 固定输出形状
 
         for tensor in self.model.graph.initializer:
             if tensor.name == in_tensors_name[1]:
@@ -492,40 +496,38 @@ class ONNX2TopIR:
             raise NotImplementedError(f'无法找到{op.name}的形状信息！')
 
         self.graph.AllTensors[shape_tensor_id].load_data(np_data)
+        reshape_op.Target = [np_data[0],
+                             np_data[2],
+                             np_data[3],
+                             np_data[1]]
 
-        assert self.graph.AllTensors[shape_tensor_id].Data[0] == reshape_op.OutputShape.N
-        assert self.graph.AllTensors[shape_tensor_id].Data[1] == reshape_op.OutputShape.C
-        assert self.graph.AllTensors[shape_tensor_id].Data[2] == reshape_op.OutputShape.H
-        assert self.graph.AllTensors[shape_tensor_id].Data[3] == reshape_op.OutputShape.W
+        assert np_data[0] == reshape_op.OutputShape[0].N
+        assert np_data[1] == reshape_op.OutputShape[0].C
+        assert np_data[2] == reshape_op.OutputShape[0].H
+        assert np_data[3] == reshape_op.OutputShape[0].W
 
         self.graph.insert_op(reshape_op, op_idx)
 
-    def load_concat(self, op, op_idx):
-        in_tensors_name = op.input
-        out_tensors_name = op.output
-
-        in1_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
-        in2_tensor_id = self.graph.AllTensorNames[in_tensors_name[1]]
-        out_tensors_id = self.graph.AllTensorNames[out_tensors_name[0]]
-
+    def load_concat(self, op, op_idx):  # TODO 有可能有多个串联
         # 算子初始化
         concat_op = Concat()
         concat_op.Name = op.name
         concat_op.TopOpId = op_idx
 
-        # 加载输入输出ID
-        concat_op.load_input_id(in1_tensor_id)
-        concat_op.load_input_id(in2_tensor_id)
+        # 输入
+        in_tensors_name = op.input
+        for name in in_tensors_name:
+            in_tensor_id = self.graph.AllTensorNames[name]
+            concat_op.load_input_id(in_tensor_id)
+            concat_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
+            self.graph.get_tensor(name).ConsumerOp.append(op_idx)
+
+        # 输出
+        out_tensors_name = op.output
+        out_tensors_id = self.graph.AllTensorNames[out_tensors_name[0]]
         concat_op.load_output_id(out_tensors_id)
-
+        concat_op.OutputShape.append(self.graph.AllTensors[out_tensors_id].Shape)
         self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx
-        self.graph.get_tensor(in_tensors_name[0]).ConsumerOp.append(op_idx)
-        self.graph.get_tensor(in_tensors_name[1]).ConsumerOp.append(op_idx)
-
-        # 输入输出形状
-        concat_op.InputShape = self.graph.AllTensors[in1_tensor_id].Shape
-        concat_op.Input1Shape = self.graph.AllTensors[in2_tensor_id].Shape
-        concat_op.OutputShape = self.graph.AllTensors[out_tensors_id].Shape
 
         # 换成NHWC中对应的轴
         concat_op.Axis = axis_map[op.attribute[0].i]
@@ -604,6 +606,8 @@ class ONNX2TopIR:
 
             else:
                 print(f"Unhandled operator:{op_code}")
+
+        print(self.graph.AllOps)
 
         if unsupported:
             raise NotImplementedError(f"\nUnsupported operator:{unsupported}\n总计: {len(unsupported)}种")

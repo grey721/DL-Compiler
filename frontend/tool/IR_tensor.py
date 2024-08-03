@@ -109,3 +109,15 @@ class IRTensor:  # IR中，表示张量的class
 
     def load_value(self, value):
         self.Data = value
+
+    def get_n_shape(self, tensor_format):
+        if tensor_format == Format.NCHW:
+            return [self.Shape.N, self.Shape.H, self.Shape.W, self.Shape.C]
+        else:
+            return [self.Shape.N, self.Shape.C, self.Shape.H, self.Shape.W]
+
+    def get_shape(self, tensor_format):
+        if tensor_format == Format.NCHW:
+            return [self.Shape.H, self.Shape.W, self.Shape.C]
+        else:
+            return [self.Shape.C, self.Shape.H, self.Shape.W]
