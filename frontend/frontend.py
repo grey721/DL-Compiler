@@ -424,7 +424,7 @@ class ONNX2TopIR:
 
         self.graph.insert_op(sigmoid_op, op_idx)
 
-    def load_transpose(self, op, op_idx):  # TODO 不一定四维
+    def load_transpose(self, op, op_idx):  # TODO 大于四维度？
         in_tensors_name = op.input
         out_tensors_name = op.output
 

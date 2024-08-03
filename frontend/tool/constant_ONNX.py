@@ -197,7 +197,7 @@ onnx2np_dtype_mapping = {
     onnx.TensorProto.UINT8: np.uint8,
     onnx.TensorProto.UINT16: np.uint16,
 }
-# TODO confirm it 需要参数输入的算子,像shape这种不能更改的参数，MUL、POW、ADD这种可以优化更改的就不算，onnx::Split_349？
+# TODO confirm it
 parameter_input = {
     OperatorType.PAD,
     OperatorType.PADV2,

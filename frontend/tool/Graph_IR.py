@@ -17,8 +17,8 @@ class GraphIR:
         self.NetOutOpId =           []
         self.NetInputOpId =         []
         # 参数
-        self.WeightTensorNames =    {}
-        self.WeightTensors =        []
+        # self.WeightTensorNames =    {}
+        # self.WeightTensors =        []
         # Npu
         self.NetOutNpuOpId =        []
         self.NetInputNpuOpId =      []
