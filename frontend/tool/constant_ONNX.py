@@ -178,6 +178,7 @@ ONNXType2OperatorType = {
     'CALL_ONCE': 129,  #
     'BROADCAST_TO': 130,  #
     'Constant': 131,
+    'Unsqueeze': 132,
 
     # vpu post op set
     'NPU_POST_OP_SET': 150  #
