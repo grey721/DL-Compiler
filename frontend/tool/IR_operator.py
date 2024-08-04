@@ -275,7 +275,6 @@ class Conv2d(OpBase):
     # BiasValue = None
     # 是否是首层
     FirstLayer = False
-    # TODO what this  表示考虑一个CIM中M最大为16？
     KerM_16 = False
     # 激活函数
     Do_relu = False
@@ -638,11 +637,11 @@ class Concat(OpBase):
 
 class Reshape(OpBase):
     Type = "Reshape"
-    out_shape = None
 
     def __init__(self):
         super().__init__()
         self.Name = None
+        self.out_shape = None
 
     def __repr__(self):
         return (
@@ -704,4 +703,26 @@ class Pad(OpBase):
             f'Output tensor Id:{self.OutTensors[0]}\n'
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## Pad.{self.TopOpId} ##############\n'
+        )
+
+
+class Split(OpBase):
+    Type = "Split"
+    Axis = None
+    split_shape = None
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+
+    def __repr__(self):
+        return (
+            f'############## Split.{self.TopOpId} ##############\n'
+            f'Op Name:{self.Name}\n'
+            f'Split:{self.split_shape}; Axis:{self.Axis}\n'
+            f'Input tensor Id:{self.InTensors[0]}\n'
+            f'Input shape:{self.InputShape[0]}\n'    
+            f'Output tensor Id:{self.OutTensors}\n'
+            f'Output shape:{self.OutputShape}\n'
+            f'############## Split.{self.TopOpId} ##############\n'
         )

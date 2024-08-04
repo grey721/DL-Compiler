@@ -29,7 +29,7 @@ SUPPORTED_OPs = [
     # New
     OperatorType.MUL,
     OperatorType.CONSTANT,
-    # OperatorType.SPLIT,
+    OperatorType.SPLIT,
     OperatorType.SIGMOID,
     OperatorType.PRELU,
     OperatorType.POW
@@ -204,6 +204,7 @@ parameter_input = {
     OperatorType.RESHAPE,
     OperatorType.RESIZE_NEAREST_NEIGHBOR,
     OperatorType.RESIZE_BILINEAR,
+    OperatorType.SPLIT
 }
 # NCHW -> NHWC
 axis_map = {
