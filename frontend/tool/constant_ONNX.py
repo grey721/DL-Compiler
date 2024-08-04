@@ -14,12 +14,12 @@ SUPPORTED_OPs = [
     # OperatorType.FULLY_CONNECTED,
     # OperatorType.SOFTMAX,
     OperatorType.LEAKY_RELU,
-    # OperatorType.RESIZE_NEAREST_NEIGHBOR,
-    # OperatorType.RESIZE_BILINEAR,
+    OperatorType.RESIZE_NEAREST_NEIGHBOR,
+    OperatorType.RESIZE_BILINEAR,
     OperatorType.CONCATENATION,
     OperatorType.TRANSPOSE,
     # OperatorType.MEAN,
-    # OperatorType.PAD,
+    OperatorType.PAD,
     OperatorType.ADD,
     # OperatorType.DEQUANTIZE,
     # OperatorType.CUSTOM,
@@ -29,7 +29,7 @@ SUPPORTED_OPs = [
     # New
     OperatorType.MUL,
     OperatorType.CONSTANT,
-    # OperatorType.SPLIT,
+    OperatorType.SPLIT,
     OperatorType.SIGMOID,
     OperatorType.PRELU,
     OperatorType.POW
@@ -178,6 +178,7 @@ ONNXType2OperatorType = {
     'CALL_ONCE': 129,  #
     'BROADCAST_TO': 130,  #
     'Constant': 131,
+    'Unsqueeze': 132,
 
     # vpu post op set
     'NPU_POST_OP_SET': 150  #
@@ -196,13 +197,14 @@ onnx2np_dtype_mapping = {
     onnx.TensorProto.UINT8: np.uint8,
     onnx.TensorProto.UINT16: np.uint16,
 }
-# TODO confirm it 需要参数输入的算子,像shape这种不能更改的参数，MUL、POW、ADD这种可以优化更改的就不算，onnx::Split_349？
+# TODO confirm it
 parameter_input = {
     OperatorType.PAD,
     OperatorType.PADV2,
     OperatorType.RESHAPE,
     OperatorType.RESIZE_NEAREST_NEIGHBOR,
     OperatorType.RESIZE_BILINEAR,
+    OperatorType.SPLIT
 }
 # NCHW -> NHWC
 axis_map = {

@@ -54,12 +54,19 @@ class Shape:  # 专门用于表示张量形状的class
         np_shape[3] = self.C
         return np_shape
 
+    def get_n_shape(self, tensor_format):
+        """tensor_format = 0:NCHW, 1: NHWC"""
+        if tensor_format == Format.NCHW:
+            return [self.N, self.H, self.W, self.C]
+        else:
+            return [self.N, self.C, self.H, self.W]
+
 
 class TensorType(object):
     Intermediate = 0
     Weight = 1
     Bias = 2
-    Shape = 3
+    Parameter = 3
     Input = 4
     Output = 5
 
@@ -109,3 +116,4 @@ class IRTensor:  # IR中，表示张量的class
 
     def load_value(self, value):
         self.Data = value
+

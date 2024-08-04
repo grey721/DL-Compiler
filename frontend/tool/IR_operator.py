@@ -137,6 +137,7 @@ class OperatorType(object):
     CALL_ONCE = 129
     BROADCAST_TO = 130
     CONSTANT = 131
+    Unsqueeze = 132
 
     # vpu post op set
     NPU_POST_OP_SET = 150
@@ -144,14 +145,15 @@ class OperatorType(object):
 
 class OpBase:  # 算子基类
     Skip = False
-    InputShape = Shape(1, 1, 1, 1)
-    OutputShape = Shape(1, 1, 1, 1)
+
     TopOpId = None  # 标记该算子在TopIR中的哈希值
 
     def __init__(self) -> None:
         self.Name = None
         self.InTensors = []
+        self.InputShape = []
         self.OutTensors = []
+        self.OutputShape = []
         # self.PreOpId = []  # 上一个op id
         # self.PostOpId = []  # 下一个op id
 
@@ -162,18 +164,17 @@ class OpBase:  # 算子基类
         self.OutTensors.append(ir_tensor_id)
 
     def get_fmi_size(self):
-        fmi_size = self.InputShape.C * self.InputShape.H * self.InputShape.W
+        fmi_size = self.InputShape[0].C * self.InputShape[0].H * self.InputShape[0].W
         return fmi_size
 
     def get_fmo_size(self):
-        fmo_size = self.OutputShape.C * self.OutputShape.H * self.OutputShape.W
+        fmo_size = self.OutputShape[0].C * self.OutputShape[0].H * self.OutputShape[0].W
         return fmo_size
 
 
 # ########################### Constant ########################
 class Constant(OpBase):
     Type = "Constant"
-    InputShape = Shape(0, 0, 0, 0)
 
     def __init__(self):
         super().__init__()
@@ -184,13 +185,13 @@ class Constant(OpBase):
             f'############## Constant.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
             f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape}\n'
+            f'Output shape:{self.OutputShape[0]}\n'
             f'############## Constant.{self.TopOpId} ##############\n'
         )
 
-    def shape_inference(self):
-        shape = self.OutputShape
-        return [shape.N, shape.C, shape.H, shape.W]
+    def shape_inference(self) -> list:
+        shape = self.OutputShape[0]
+        return [shape.H, shape.W, shape.C]
 
 
 # ########################### ElemWise ########################
@@ -203,7 +204,6 @@ class ElementWiseMode(object):  # 元操作代码
 
 
 class ElemWise(OpBase):
-    Input1Shape = Shape(1, 1, 1, 1)
     Type = "ElemWise"
     Do_relu = False
     FusedActFunc = 0
@@ -217,17 +217,15 @@ class ElemWise(OpBase):
             f'############## ElemWise.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
             f'Mode:{self.Mode}'
-            f'Input0 tensor Id:{self.InTensors[0]}\n'
-            f'Input0 shape:{self.InputShape}\n'
-            f'Input1 tensor Id:{self.InTensors[1]}\n'
-            f'Input1 shape:{self.Input1Shape}\n'
+            f'Input tensor Id:{self.InTensors}\n'
+            f'Input shape:{self.InputShape}\n'
             f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape}\n'
+            f'Output shape:{self.OutputShape[0]}\n'
             f'############## ElemWise.{self.TopOpId} ##############\n'
         )
 
     # def get_fmo_size(self):
-    # fmi_size = self.InputShape.C * self.InputShape.H * self.InputShape.W
+    # fmi_size = self.InputShape[0].C * self.InputShape[0].H * self.InputShape[0].W
     # return 2 * fmi_size
     def get_input0_scale_numpy(self, graph):
         assert len(self.InTensors), f'No input in {self.Name}'
@@ -253,6 +251,9 @@ class ElemWise(OpBase):
         assert len(self.OutTensors), f'No output in {self.Name}'
         return graph.Alltenors[self.OutTensors[0]].ZeroPoint
 
+    def shape_inference(self) -> list:
+        return [self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
+
 
 # ###################  conv related ############################
 class Conv2d(OpBase):
@@ -274,7 +275,6 @@ class Conv2d(OpBase):
     # BiasValue = None
     # 是否是首层
     FirstLayer = False
-    # TODO what this  表示考虑一个CIM中M最大为16？
     KerM_16 = False
     # 激活函数
     Do_relu = False
@@ -296,24 +296,24 @@ class Conv2d(OpBase):
             f'Kernel Shape: {[self.KerH, self.KerW]}\n'
             f'Stride: {[self.StrideH, self.StrideW]}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape}\n'
+            f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape}\n'
+            f'Output shape:{self.OutputShape[0]}\n'
             f'############## Conv2d.{self.TopOpId} ##############\n'
         )
 
     # TODO confirm 哪个正确？
     def get_mac(self):
-        # mac = self.OutputShape.H * self.OutputShape.W * self.OutputShape.C \
-        # * self.KerH * self.KerW * self.InputShape.C / self.Group * 2
-        ov = self.OutputShape.H * self.OutputShape.W * self.OutputShape.C
-        mac = ov * self.KerH * self.KerW * self.InputShape.C / self.Group
+        # mac = self.OutputShape[0].H * self.OutputShape[0].W * self.OutputShape[0].C \
+        # * self.KerH * self.KerW * self.InputShape[0].C / self.Group * 2
+        ov = self.OutputShape[0].H * self.OutputShape[0].W * self.OutputShape[0].C
+        mac = ov * self.KerH * self.KerW * self.InputShape[0].C / self.Group
         if self.Bias:
             mac = mac + ov
         return mac
 
     def get_weight_size(self):
-        weight_size = self.InputShape.C * self.OutputShape.C * self.KerW * self.KerH
+        weight_size = self.InputShape[0].C * self.OutputShape[0].C * self.KerW * self.KerH
         return weight_size
 
     def get_weight_numpy(self, graph):
@@ -334,7 +334,7 @@ class Conv2d(OpBase):
             bias_tensor = self.InTensors[2]
             bias = graph.get_tensor(bias_tensor).NumpyData
             return bias
-        return np.zeros(self.OutputShape.C, dtype=np.int32)
+        return np.zeros(self.OutputShape[0].C, dtype=np.int32)
 
     def get_input_scale_numpy(self, graph):
         assert len(self.InTensors)
@@ -365,12 +365,16 @@ class Conv2d(OpBase):
         return None
 
     # 推断经过padding和卷积后图像的新形状
-    def shape_inference(self, shape_list, padding_list):
-        h, w, c = shape_list
-        pad_top, pad_bottom, pad_left, pad_right = padding_list
-        n_h = int((h + pad_top + pad_bottom - self.KerH) / self.StrideH + 1)
-        n_w = int((w + pad_left + pad_right - self.KerW) / self.StrideW + 1)
-        n_c = c
+    def shape_inference(self) -> list:
+        h = self.InputShape[0].H
+        w = self.InputShape[0].W
+
+        pad_h = self.PadH
+        pad_w = self.PadW
+        n_h = int((h + pad_h * 2 - self.KerH) / self.StrideH + 1)
+        n_w = int((w + pad_w * 2 - self.KerW) / self.StrideW + 1)
+        n_c = self.InputShape[0].C
+
         return [n_h, n_w, n_c]
 
     # def GetQuantBiasZeroPointNumpy(self):
@@ -408,17 +412,20 @@ class Pool(OpBase):
             f'Kernel Shape: {[self.KerH, self.KerW]}\n'
             f'Stride: {[self.StrideH, self.StrideW]}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape}\n'
+            f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape}\n'
+            f'Output shape:{self.OutputShape[0]}\n'
             f'############## Conv2d.{self.TopOpId} ##############\n'
         )
 
-    def shape_inference(self, shape_list):
-        h, w, c = shape_list
+    def shape_inference(self) -> list:
+        h = self.InputShape[0].H
+        w = self.InputShape[0].W
+
         n_h = int(h / self.StrideH)
         n_w = int(w / self.StrideW)
-        n_c = c
+        n_c = self.InputShape[0].C
+
         return [n_h, n_w, n_c]
     
 
@@ -447,9 +454,9 @@ class RELU(OpBase):
             f'############## {self.Type}.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape}\n'            
+            f'Input shape:{self.InputShape[0]}\n'            
             f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape}\n'
+            f'Output shape:{self.OutputShape[0]}\n'
             f'############## {self.Type}.{self.TopOpId} ##############\n'
         )
 
@@ -469,8 +476,8 @@ class RELU(OpBase):
         assert len(self.OutTensors)
         return graph.AllTensors[self.OutTensors[0]].ZeroPoint
 
-    def shape_inference(self, shape_list):
-        return shape_list
+    def shape_inference(self) -> list:
+        return [self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
 
 
 class Sigmoid(OpBase):
@@ -485,9 +492,9 @@ class Sigmoid(OpBase):
             f'############## Sigmoid.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape}\n'            
+            f'Input shape:{self.InputShape[0]}\n'            
             f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape}\n'
+            f'Output shape:{self.OutputShape[0]}\n'
             f'############## Sigmoid.{self.TopOpId} ##############\n'
         )
 
@@ -507,6 +514,9 @@ class Sigmoid(OpBase):
         assert len(self.OutTensors)
         return graph.AllTensors[self.OutTensors[0]].ZeroPoint
 
+    def shape_inference(self) -> list:
+        return [self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
+
 
 # ###################  tensor related ############################
 class ResizeMode(object):
@@ -516,14 +526,33 @@ class ResizeMode(object):
 
 class Resize(OpBase):
     Type = "Resize"
-    ScaleFactor = None  # 缩放因子
-    AlignCorners = None
-    HalfPixelCenters = None
+
+    AlignCorners = False  # 对齐角点，考虑图像角点的精确对齐
+    HalfPixelCenters = False  # 半像素中心，像素中心点位于像素网格的半像素位置
 
     def __init__(self):
         super().__init__()
         self.Name = None
         self.Mode = None
+        self.ScaleFactor = None  # 缩放因子
+
+    def __repr__(self):
+        mapping = {
+            1: 'BILINEAR',
+            0: 'NEAREST'
+        }
+        return (
+            f'############## Resize.{self.TopOpId} ##############\n'
+            f'Op Name:{self.Name}\n'
+            f'Mode:{mapping[self.Mode]}\n'
+            f'ScaleFactor:{self.ScaleFactor}\n'
+            f'AlignCorners:{self.AlignCorners}; HalfPixelCenters:{self.HalfPixelCenters}\n'
+            f'Input tensor Id:{self.InTensors[0]}\n'
+            f'Input shape:{self.InputShape[0]}\n'            
+            f'Output tensor Id:{self.OutTensors[0]}\n'
+            f'Output shape:{self.OutputShape[0]}\n'
+            f'############## Resize.{self.TopOpId} ##############\n'
+        )
 
     def shape_inference(self, shape_list):
         h, w, c = shape_list
@@ -538,7 +567,6 @@ class Concat(OpBase):
     # 链接的轴
     Axis = None
     FusedActFunc = False
-    Input1Shape = Shape(1, 1, 1, 1)
 
     # TODO what this
     # quant_param
@@ -559,18 +587,16 @@ class Concat(OpBase):
             f'############## Concat.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
             f'Concat Axis:{return_map[self.Axis]}\n'
-            f'Input0 tensor Id:{self.InTensors[0]}\n'
-            f'Input0 shape:{self.InputShape}\n'    
-            f'Input1 tensor Id:{self.InTensors[1]}\n'
-            f'Input1 shape:{self.Input1Shape}\n'
+            f'Input tensors Id:{self.InTensors}\n'
+            f'Inputs shape:{self.InputShape}\n'
             f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape}\n'
+            f'Output shape:{self.OutputShape[0]}\n'
             f'############## Concat.{self.TopOpId} ##############\n'
         )
 
     def get_fmi_size(self):
-        fmi_size = self.InputShape.C * self.InputShape.H * self.InputShape.W
-        fmi1_size = self.Input1Shape.C * self.Input1Shape.H * self.Input1Shape.W
+        fmi_size = self.InputShape[0].C * self.InputShape[0].H * self.InputShape[0].W
+        fmi1_size = self.InputShape[1].C * self.InputShape[1].H * self.InputShape[1].W
         return fmi_size + fmi1_size
 
     def get_input_scale_numpy(self, graph):
@@ -597,34 +623,35 @@ class Concat(OpBase):
         assert len(self.OutTensors)
         return graph.AllTensors[self.OutTensors[0]].ZeroPoint
 
-    def shape_inference(self, shape1_list, shape2_list):
-        if len(shape1_list) == len(shape2_list) ==3:
-            n_shape = []
-            for i in range(3):
-                if i != self.Axis:
-                    n_shape.append(shape1_list[i])
-                else:
-                    n_shape.append(shape1_list[i] + shape2_list[i])
-            return n_shape
+    def shape_inference(self):
+        shape1_list = [self.InputShape[0].N, self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
+        shape2_list = [self.InputShape[1].N, self.InputShape[1].H, self.InputShape[1].W, self.InputShape[1].C]
+
+        for i in range(4):
+            if i != self.Axis:
+                assert shape1_list[i] == shape2_list[i]
+            else:
+                shape1_list[i] = shape1_list[i] + shape2_list[i]
+        return shape1_list
 
 
 class Reshape(OpBase):
     Type = "Reshape"
-    out_shape = None
 
     def __init__(self):
         super().__init__()
         self.Name = None
+        self.out_shape = None
 
     def __repr__(self):
         return (
             f'############## Reshape.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
-            f'Reshape:{self.OutputShape}\n'
+            f'Reshape:{self.out_shape}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape}\n'    
+            f'Input shape:{self.InputShape[0]}\n'    
             f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape}\n'
+            f'Output shape:{self.OutputShape[0]}\n'
             f'############## Reshape.{self.TopOpId} ##############\n'
         )
 
@@ -643,9 +670,9 @@ class Transpose(OpBase):
             f'Op Name:{self.Name}\n'
             f'ReDim(NHWC):{self.OutDimOrder}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape}\n'    
+            f'Input shape:{self.InputShape[0]}\n'    
             f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape}\n'
+            f'Output shape:{self.OutputShape[0]}\n'
             f'############## Transpose.{self.TopOpId} ##############\n'
         )
 
@@ -667,175 +694,49 @@ class Pad(OpBase):
         return (
             f'############## Pad.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
-            f'Pad_val:{self.pad_val}'
-            f'          Top:{self.pad_top}'
-            f'Left:{self.pad_left}                    Right:{self.pad_right}'
-            f'          Bottom:{self.pad_bottom}'
+            f'Pad_val:{self.pad_val}\n'
+            f'          Top:{self.pad_top}\n'
+            f'Left:{self.pad_left}                    Right:{self.pad_right}\n'
+            f'          Bottom:{self.pad_bottom}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape}\n'    
+            f'Input shape:{self.InputShape[0]}\n'    
             f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape}\n'
+            f'Output shape:{self.OutputShape[0]}\n'
             f'############## Pad.{self.TopOpId} ##############\n'
         )
 
 
-# ===========================================未处理==============================================
-# ###################  FullConnected ############################
-class FullConnected(OpBase):
-    Type = "FullConnected"
-    OutputDim = None
-    WeightValue = None
-    Bias = None
-    BiasValue = None
-    WeightsFormat = 0
-    FusedActFunc = 0
-    KeepNumDims = False
-    do_relu = False
-
-    def __init__(self):
-        super().__init__()
-
-    def GetMac(self):
-        mac = self.OutputShape.H * self.OutputShape.W * self.OutputShape.C \
-              * self.InputShape.H * self.InputShape.W * self.InputShape.C * 2
-        return mac
-
-    def GetWeightSize(self):
-        weight_size = self.get_fmi_size() * self.get_fmo_size()
-        return weight_size
-
-    def GetWeightNumpy(self, graph):
-        assert len(self.InTensors)
-        weight_tensor = self.InTensors[1]
-        weight = graph.get_tensor(weight_tensor).NumpyData
-        return weight
-
-    def GetBiasNumpy(self, graph):
-        if self.Bias:
-            bias_tensor = self.InTensors[2]
-            bias = graph.get_tensor(bias_tensor).NumpyData
-        else:
-            zp = self.GetQuantInputZeroPointNumpy(graph)
-            bias = np.full(self.OutputShape.C, zp[0], dtype=np.int32)
-        return bias
-
-    def get_input_scal_numpy(self, graph):
-        assert len(self.InTensors)
-        return graph.get_tensor(self.InTensors[0]).Scale
-
-    def get_input_zero_point_numpy(self, graph):
-        assert len(self.InTensors)
-        return graph.get_tensor(self.InTensors[0]).ZeroPoint
-
-    def get_output_scale_numpy(self, graph):
-        assert len(self.OutTensors)
-        return graph.get_tensor(self.OutTensors[0]).Scale
-
-    def GetQuantOutputZeroPointNumpy(self, graph):
-        assert len(self.OutTensors)
-        return graph.get_tensor(self.OutTensors[0]).ZeroPoint
-
-    def GetQuantWeightScaleNumpy(self, graph):
-        assert len(self.InTensors)
-        return graph.get_tensor(self.InTensors[1]).Scale
-
-    # def GetQuantWeightZeroPointNumpy(self):
-    #     return self.InTensors[1].ZeroPoint
-
-    def GetQuantBiasScaleNumpy(self, graph):
-        if self.Bias:
-            return graph.get_tensor(self.InTensors[2]).Scale
-        return None
-
-    # def GetQuantBiasZeroPointNumpy(self):
-    #     if self.Bias:
-    #         return self.InTensors[2].ZeroPoint
-    #     return None
-
-    # def GetQuantMultiplierAndShiftNumpy(self, graph):
-    #     weight_scale = self.GetQuantWeightScaleNumpy(graph)
-    #     Input_scale = self.GetQuantInputScaleNumpy(graph)
-    #     output_scale = self.GetQuantOutputScaleNumpy(graph)
-
-    #     scale = norm(weight_scale) * norm(Input_scale) / norm(output_scale)
-    #     return QuantizeMultiplier(scale)
-
-
-# ###################  math related ############################
-class Softmax(OpBase):
-    Type = "Softmax"
+class Split(OpBase):
+    Type = "Split"
     Axis = None
-    Beta = 1
+    split_shape = None
 
     def __init__(self):
         super().__init__()
         self.Name = None
 
-    def shape_inference(self, shape_list):
-        return shape_list
+    def __repr__(self):
+        return (
+            f'############## Split.{self.TopOpId} ##############\n'
+            f'Op Name:{self.Name}\n'
+            f'Split:{self.split_shape}; Axis:{self.Axis}\n'
+            f'Input tensor Id:{self.InTensors[0]}\n'
+            f'Input shape:{self.InputShape[0]}\n'    
+            f'Output tensor Id:{self.OutTensors}\n'
+            f'Output shape:{self.OutputShape}\n'
+            f'############## Split.{self.TopOpId} ##############\n'
+        )
 
+    def shape_inference(self):
+        shape_list = [self.InputShape[0].N, self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
+        n_shape = []
+        for i in range(len(self.split_shape)):
+            out = []
+            for j in range(4):
+                if j == self.Axis:
+                    out.append(self.split_shape[i])
+                else:
+                    out.append(shape_list[j])
+            n_shape.append(out)
 
-# #################################################################
-
-class Squeeze(OpBase):
-    SqueezedDims = None
-
-    def __init__(self):
-        super().__init__()
-        self.Name = "Squeeze"
-
-
-class Unsqueeze(OpBase):
-    SqueezeDims = None
-
-    def __init__(self):
-        super().__init__()
-
-        self.Name = "Unsqueeze"
-
-
-class Gather(OpBase):
-    Axis = None
-
-    def __init__(self):
-        super().__init__()
-        self.Name = "Gather"
-
-
-class Mean(OpBase):
-    axis = None
-    keep_dims = None
-
-    def __init__(self):
-        super().__init__()
-        self.Name = "Mean"
-
-
-class Dequantize(OpBase):
-    def __init__(self):
-        super().__init__()
-        self.Name = "Dequantize"
-
-
-class Custom(OpBase):
-    def __init__(self):
-        super().__init__()
-        self.Name = "Custom"
-
-
-class Quantize(OpBase):
-    def __init__(self):
-        super().__init__()
-        self.Name = "Quantize"
-
-
-class StridedSlice(OpBase):
-    BeginMask = None
-    EndMask = None
-    EllipsisMask = None
-    NewAxisMask = None
-    ShrinkAxisMask = None
-
-    def __init__(self):
-        super().__init__()
-        self.Name = "StridedSlice"
+        return n_shape
