@@ -25,7 +25,7 @@
 | Reshape   | 完成 |
 | Resize    | 完成 |
 | Pad       | 完成 |
-| Split     |    |
+| Split     | 完成 |
 
 加入量化后的设想：
 - 假如需要哈希值：

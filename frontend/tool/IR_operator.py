@@ -624,10 +624,10 @@ class Concat(OpBase):
         return graph.AllTensors[self.OutTensors[0]].ZeroPoint
 
     def shape_inference(self):
-        shape1_list = [self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
-        shape2_list = [self.InputShape[1].H, self.InputShape[1].W, self.InputShape[1].C]
+        shape1_list = [self.InputShape[0].N, self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
+        shape2_list = [self.InputShape[1].N, self.InputShape[1].H, self.InputShape[1].W, self.InputShape[1].C]
 
-        for i in range(3):
+        for i in range(4):
             if i != self.Axis:
                 assert shape1_list[i] == shape2_list[i]
             else:
@@ -726,3 +726,17 @@ class Split(OpBase):
             f'Output shape:{self.OutputShape}\n'
             f'############## Split.{self.TopOpId} ##############\n'
         )
+
+    def shape_inference(self):
+        shape_list = [self.InputShape[0].N, self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
+        n_shape = []
+        for i in range(len(self.split_shape)):
+            out = []
+            for j in range(4):
+                if j == self.Axis:
+                    out.append(self.split_shape[i])
+                else:
+                    out.append(shape_list[j])
+            n_shape.append(out)
+
+        return n_shape

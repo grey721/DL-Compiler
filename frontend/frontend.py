@@ -499,7 +499,7 @@ class ONNX2TopIR:
 
         self.graph.insert_op(reshape_op, op_idx)
 
-    def load_concat(self, op, op_idx):  # TODO 有可能有多个串联
+    def load_concat(self, op, op_idx):
         # 算子初始化
         concat_op = Concat()
         concat_op.Name = op.name
@@ -550,7 +550,6 @@ class ONNX2TopIR:
 
         resize_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
         resize_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
-        # TODO 他的参数由常数算子提供
         # 缩放因子
         if self.graph.AllTensors[resize_tensor_id].Data is None:
             for tensor in self.model.graph.initializer:
@@ -695,8 +694,17 @@ class ONNX2TopIR:
             else:
                 raise NotImplementedError
             self.graph.AllTensors[split_tensor_id].load_data(np_split_data)
-
         split_op.split_shape = list(self.graph.AllTensors[split_tensor_id].Data)
+
+        # Split Axis
+        split_op.Axis = axis_map[op.attribute[0].i]
+
+        in_axis = self.graph.AllTensors[in_tensor_id].get_n_shape(0)[op.attribute[0].i]
+        para_axis = sum(split_op.split_shape)
+        assert in_axis == para_axis
+
+        for i in range(len(split_op.OutTensors)):
+            assert split_op.split_shape[i] == split_op.OutputShape[i].get_n_shape(1)[op.attribute[0].i]
 
         self.graph.insert_op(split_op, op_idx)
 
@@ -712,11 +720,9 @@ class ONNX2TopIR:
                     unsupported.append(op.op_type)
 
             elif op_code == OperatorType.CONV_2D:
-                continue
                 self.load_conv(op, op_idx, op_code)
 
             elif op_code == OperatorType.DEPTHWISE_CONV_2D:
-                continue
                 self.load_conv(op, op_idx, op_code)
 
             elif op_code == OperatorType.FULLY_CONNECTED:
@@ -765,6 +771,7 @@ class ONNX2TopIR:
                 self.load_concat(op, op_idx)
 
             elif op_code == OperatorType.SPLIT:
+                print(op)
                 self.load_split(op, op_idx)
 
             else:
