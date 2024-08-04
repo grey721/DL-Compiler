@@ -19,7 +19,7 @@ def get_np_data_from_attribute(attr):
     # for n in attr.dims:
     #    shape.append(n)
     if len(attr.raw_data) != 0:  # 通常用于存储二进制格式的权重和偏置等参数
-        # raw_data是字节数组，所以用np.frombuffer读取数据;如果没有dtype，就默认类型，根据字节数据赋值
+        # raw_data是字节数组，所以用np.from buffer读取数据;如果没有dtype，就默认类型，根据字节数据赋值
         np_data = np.frombuffer(attr.raw_data, dtype=dtype) if dtype else np.frombuffer(attr.raw_data)
     elif len(attr.float_data) != 0:  # 用于存储浮点数类型的数据，如模型的某些参数或中间结果。
         np_data = np.array(attr.float_data, dtype=np.float32)
@@ -75,7 +75,7 @@ class ONNX2TopIR:
             f'onnx load failed, only ProtoBuffer object is expected here, while {type(self.model)} is loaded.'
 
     def load_ir_tensor_info(self, name, tensor_idx):
-        # assert self.model.graph.value_info[0], f'model.graph.value_info为空'
+
         ir_tensor = IRTensor()  # 张量类
         ir_tensor.Name = name
         tensor_shape = []
@@ -117,7 +117,6 @@ class ONNX2TopIR:
         index = 0
         for op in self.fused_ops:
             for name in op.output:
-                # print(f'load {index} tensor: {name}')
                 self.load_ir_tensor_info(name, index)
                 index += 1
             if op.op_type == "Constant":
@@ -126,7 +125,6 @@ class ONNX2TopIR:
         for op in self.fused_ops:
             for name in op.input:
                 if not self.graph.check_tensor(name):
-                    # print(f'load {index} tensor: {name}')
                     self.load_ir_tensor_info(name, index)
                     index += 1
         print(f'已导入 {index} 个张量')
@@ -785,7 +783,7 @@ class ONNX2TopIR:
 
 
 if __name__ == "__main__":
-    m = ONNX2TopIR('yolov3-tiny_128.onnx')
+    m = ONNX2TopIR('assets/yolov3-tiny_128.onnx')
     # m = ONNX2TopIR('yolov5n.onnx')
     m.load_all_tensor()
     # toolkit = ONNXToolkit('yolov3-tiny_128.onnx')

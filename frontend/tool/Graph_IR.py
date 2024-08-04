@@ -1,28 +1,27 @@
-from copy import deepcopy
 from .IR_tensor import *
 
 
 class GraphIR:
     def __init__(self) -> None:
         # 网络输入输出
-        self.NetInTensors =         []  # List[IRTensor]
-        self.NetOutTensors =        []  #
+        self.NetInTensors = []  # List[IRTensor]
+        self.NetOutTensors = []  #
         # 算子、中间张量
-        self.AllTensorNames =       {}  # Name:tensor_idx
-        self.AllOpIds =             []
-        self.AllTensors =           []  # List[IRTensor]
-        self.AllOps =               []  # List[OpBase]
+        self.AllTensorNames = {}  # Name:tensor_idx
+        self.AllOpIds = []
+        self.AllTensors = []  # List[IRTensor]
+        self.AllOps = []  # List[OpBase]
 
-        self.AllCpuOps =            []
-        self.NetOutOpId =           []
-        self.NetInputOpId =         []
+        self.AllCpuOps = []
+        self.NetOutOpId = []
+        self.NetInputOpId = []
         # 参数
         # self.WeightTensorNames =    {}
         # self.WeightTensors =        []
         # Npu
-        self.NetOutNpuOpId =        []
-        self.NetInputNpuOpId =      []
-        self.SubGraphs =            []
+        self.NetOutNpuOpId = []
+        self.NetInputNpuOpId = []
+        self.SubGraphs = []
 
     def load_input_id(self, tensor_name):
         idx = self.AllTensorNames[tensor_name]
