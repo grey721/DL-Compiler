@@ -1,7 +1,5 @@
 import onnx
-from .Graph_IR import *
-from .IR_tensor import *
-from .IR_operator import *
+from dialect.top.IR_operator import *
 
 SKIP_OPs = []
 # TODO: Handle RESHAPE during codegen

@@ -1,9 +1,7 @@
 from tool.constant_ONNX import *
-from tool.IR_operator import *
-from tool.IR_tensor import *
+from dialect.top.IR_operator import *
+from graph.Graph_IR import *
 import numpy as np
-import onnx
-import json
 
 from tool.my_tool import *
 
@@ -783,9 +781,9 @@ class ONNX2TopIR:
 
 
 if __name__ == "__main__":
-    m = ONNX2TopIR('assets/yolov3-tiny_128.onnx')
+    m = ONNX2TopIR('assets/yolov3.onnx')
     # m = ONNX2TopIR('yolov5n.onnx')
     m.load_all_tensor()
-    # toolkit = ONNXToolkit('yolov3-tiny_128.onnx')
+    # toolkit = ONNXToolkit('assets/yolov5s.onnx')
     # toolkit.check_requirement_based_code(m._get_op_code, SUPPORTED_OPs)
     m.parse_operator()

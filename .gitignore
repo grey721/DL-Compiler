@@ -2,7 +2,8 @@
 *.onnx
 *.pt
 .venv/
+.idea/
 /frontend/tool/__pycache__/
 /frontend/__pycache__/
-.idea/
 /frontend/tool/my_tool.py
+assets/

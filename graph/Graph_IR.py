@@ -1,4 +1,4 @@
-from .IR_tensor import *
+from dialect.top.IR_tensor import *
 
 
 class GraphIR:

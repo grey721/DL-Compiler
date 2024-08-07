@@ -1,6 +1,3 @@
-import onnx
-from .constant_ONNX import *
-from .Graph_IR import *
 from .IR_tensor import *
 
 
