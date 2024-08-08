@@ -37,7 +37,7 @@ class GraphIR:
         assert len(self.AllOpIds) == len(self.AllOps)  # 确保之前的操作都是正确执行
         assert op_idx is not None
         self.AllOps.insert(op_idx, op)
-        self.AllOpIds.insert(op_idx, id(op))
+        self.AllOpIds.insert(op_idx, id(op))  # op唯一身份标识
 
     def add_tensor(self, tensor):
         if tensor.Name not in self.AllTensorNames:

@@ -2,6 +2,7 @@ from tool.constant_ONNX import *
 from dialect.top.IR_operator import *
 from graph.Graph_IR import *
 import numpy as np
+import json
 
 from tool.my_tool import *
 
@@ -32,7 +33,7 @@ def get_np_data_from_attribute(attr):
 
 
 class ONNX2TopIR:
-    def __init__(self, model_path):
+    def __init__(self, model_path, config_path=None):
         # 初始化
         self.model = onnx.load(model_path)
         self.print_model_info()
@@ -46,6 +47,10 @@ class ONNX2TopIR:
             print(op.name, 'not in FUSIBLE_OPs')
             self.fused_ops.append(op)
         print("Operators_len:", len(self.fused_ops))
+
+        # 量化
+        with open(config_path,'rb') as f:
+            self.quantization_config = json.load(f)
 
     def _get_op_code(self, op):  # 获取算子类型的id
         if op.op_type not in ONNXType2OperatorType:
@@ -72,10 +77,38 @@ class ONNX2TopIR:
         assert isinstance(self.model, onnx.ModelProto), \
             f'onnx load failed, only ProtoBuffer object is expected here, while {type(self.model)} is loaded.'
 
-    def load_ir_tensor_info(self, name, tensor_idx):
+    def quantize2int(self, tensor_float, tensor_id, bit_width=8):
+        tensor = self.graph.AllTensors[tensor_id]
+        # 读取量化参数
+        scale = tensor.Scale[0]
+        zero_point = tensor.ZeroPoint[0]
+        q_min = tensor.Q_min
+        q_max = tensor.Q_max
+        N = tensor_float.shape[0]
 
+        tensor_int = np.zeros_like(tensor_float)  # 形状与tensor_float的零矩阵
+
+        if isinstance(scale, np.ndarray):  # per-channel
+            assert len(scale) == N
+            for i in range(N):
+                # TODO 加/减 Z?
+                # tensor_int[i, ...]第一个维度为i，第二个维度开始的所有维度及其对应的数据。
+                tensor_int[i, ...] = tensor_float[i, ...] / scale[i] + zero_point[i]
+        else:  # per-tensor
+            tensor_int = tensor_float / scale + zero_point
+
+        tensor_int[tensor_int < q_min] = q_min
+        tensor_int[tensor_int > q_max] = q_max
+
+        if bit_width == 8:
+            return np.round(tensor_int).astype(np.int8)  # 四舍五入，并且转换为8位有符号整数
+        elif bit_width == 32:
+            return np.round(tensor_int).astype(np.int32)
+        else:
+            raise "bit_width must be 8 or 32"
+
+    def load_ir_tensor_info(self, name, tensor_idx, op):
         ir_tensor = IRTensor()  # 张量类
-        ir_tensor.Name = name
         tensor_shape = []
         for t in self.model.graph.value_info:  # 在中间张量中寻找name
             if name == t.name:
@@ -106,6 +139,17 @@ class ONNX2TopIR:
         elif dims != 0:
             ir_tensor.Shape = tensor_shape
             print(f"张量{name}拥有未知的维度信息！{tensor_shape}")
+
+        # 量化参数加载
+        op_hash = self.quantization_config["configs"][op.name][name]['hash']
+        ir_tensor.name = op_hash
+        dominator = str(self.quantization_config["configs"][op.name][name]['dominator'])
+
+        ir_tensor.Scale = np.array([self.quantization_config["values"][dominator]['scale']])
+        ir_tensor.ZeroPoint = np.array([self.quantization_config["values"][dominator]['zero_point']]).astype(np.int8)
+        ir_tensor.Q_min = np.array([self.quantization_config["configs"][op.name][name]['quant_min']])
+        ir_tensor.Q_max = np.array([self.quantization_config["configs"][op.name][name]['quant_max']])
+
         # add tensor
         ir_tensor.Tensor_idx = tensor_idx
         self.graph.add_tensor(ir_tensor)
@@ -115,15 +159,15 @@ class ONNX2TopIR:
         index = 0
         for op in self.fused_ops:
             for name in op.output:
-                self.load_ir_tensor_info(name, index)
+                self.load_ir_tensor_info(name, index, op)
                 index += 1
             if op.op_type == "Constant":
                 self.load_constant(op)
-            # check tensors
+        # check tensors
         for op in self.fused_ops:
             for name in op.input:
                 if not self.graph.check_tensor(name):
-                    self.load_ir_tensor_info(name, index)
+                    self.load_ir_tensor_info(name, index, op)
                     index += 1
         print(f'已导入 {index} 个张量')
 
@@ -165,9 +209,6 @@ class ONNX2TopIR:
 
         self.graph.insert_op(elem_op, op_idx)
         # print(elem_op)
-
-    def quantize2int(self):
-        pass
 
     def load_conv(self, op, op_idx, code):
         conv_op = Conv2d()
@@ -776,9 +817,6 @@ class ONNX2TopIR:
         if unsupported:
             raise NotImplementedError(f"\nUnsupported operator:{unsupported}\n总计: {len(unsupported)}种")
 
-    def op2json(self, save_path):
-        pass
-
 
 if __name__ == "__main__":
     m = ONNX2TopIR('assets/yolov3.onnx')
@@ -787,3 +825,5 @@ if __name__ == "__main__":
     # toolkit = ONNXToolkit('assets/yolov5s.onnx')
     # toolkit.check_requirement_based_code(m._get_op_code, SUPPORTED_OPs)
     m.parse_operator()
+    import sys
+    print(sys.getsizeof(m.graph.AllTensorNames))
