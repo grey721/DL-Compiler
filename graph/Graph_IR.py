@@ -10,7 +10,7 @@ class GraphIR:
         self.NetInTensors = []  # List[IRTensor]
         self.NetOutTensors = []  #
         # 算子、中间张量
-        self.AllTensorNames = []  # Name:tensor_idx
+        self.AllTensorIds = []  # Name:tensor_idx
         self.AllOpIds = []
         self.AllTensors = []  # List[IRTensor]
         self.AllOps = []  # List[OpBase]
@@ -41,17 +41,17 @@ class GraphIR:
         self.AllOpIds.insert(op_idx, id(op))  # op唯一身份标识
 
     def add_tensor(self, tensor):
-        if tensor.Name not in self.AllTensorNames:
-            self.AllTensorNames.append(tensor.Name)
+        if tensor.Id not in self.AllTensorIds:
+            self.AllTensorIds.append(tensor.Id)
             self.AllTensors.append(tensor)
 
     def check_tensor(self, tensor_name) -> bool:
-        if tensor_name in self.AllTensorNames:
+        if tensor_name in self.AllTensorIds:
             return True
 
     # 根据哈希值, 找张量
     def get_tensor(self, tensor_name) -> IRTensor:
         """Find a tensor in AllTensors"""
-        assert tensor_name in self.AllTensorNames, f'{tensor_name} not in AllTensors'
-        index = self.AllTensorNames.index(tensor_name)  # .index(id)，返回内容是id在列表中首次出现的索引值
+        assert tensor_name in self.AllTensorIds, f'{tensor_name} not in AllTensors'
+        index = self.AllTensorIds.index(tensor_name)  # .index(id)，返回内容是id在列表中首次出现的索引值
         return self.AllTensors[index]

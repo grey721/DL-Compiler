@@ -109,6 +109,7 @@ class ONNX2TopIR:
 
     def load_ir_tensor_info(self, name, tensor_idx, op):
         ir_tensor = IRTensor()  # 张量类
+        ir_tensor.Name = name
         tensor_shape = []
         for t in self.model.graph.value_info:  # 在中间张量中寻找name
             if name == t.name:
@@ -144,7 +145,7 @@ class ONNX2TopIR:
         state = self.quantization_config["configs"][op.name][name]['state']
         if state != 'FP32':
             op_hash = self.quantization_config["configs"][op.name][name]['hash']
-            ir_tensor.Name = op_hash
+            ir_tensor.Id = op_hash
             dominator = str(self.quantization_config["configs"][op.name][name]['dominator'])
 
             ir_tensor.Scale = np.array([self.quantization_config["values"][dominator]['scale']])
@@ -152,7 +153,7 @@ class ONNX2TopIR:
             ir_tensor.Q_min = np.array([self.quantization_config["configs"][op.name][name]['quant_min']])
             ir_tensor.Q_max = np.array([self.quantization_config["configs"][op.name][name]['quant_max']])
         else:
-            ir_tensor.Name = name
+            ir_tensor.Id = name
 
         # add tensor
         ir_tensor.Tensor_idx = tensor_idx
@@ -201,7 +202,7 @@ class ONNX2TopIR:
         for name in in_tensors_name:
             input_name = self.quantization_config["configs"][op.name][name]['hash']
 
-            in_tensor_id = self.graph.AllTensorNames.index(input_name)
+            in_tensor_id = self.graph.AllTensorIds.index(input_name)
             elem_op.load_input_id(in_tensor_id)
             elem_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
             self.graph.AllTensors[in_tensor_id].ConsumerOp = op_idx
@@ -210,7 +211,7 @@ class ONNX2TopIR:
         out_tensors_name = op.output
         out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
 
-        out_tensor_id = self.graph.AllTensorNames.index(out_name)
+        out_tensor_id = self.graph.AllTensorIds.index(out_name)
         elem_op.load_output_id(out_tensor_id)
         elem_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
         self.graph.AllTensors[out_tensor_id].OwnerOp = op_idx  # 将指定张量的绑定到指定算子上
@@ -229,9 +230,9 @@ class ONNX2TopIR:
         weight_name = self.quantization_config["configs"][op.name][in_tensors_name[1]]['hash']
         out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
 
-        fea_tensor_id = self.graph.AllTensorNames.index(fea_name)
-        weight_tensor_id = self.graph.AllTensorNames.index(weight_name)
-        out_tensor_id = self.graph.AllTensorNames.index(out_name)
+        fea_tensor_id = self.graph.AllTensorIds.index(fea_name)
+        weight_tensor_id = self.graph.AllTensorIds.index(weight_name)
+        out_tensor_id = self.graph.AllTensorIds.index(out_name)
 
         # 算子初始化
         conv_op.Name = op.name
@@ -303,7 +304,7 @@ class ONNX2TopIR:
         # 偏置项
         if len(in_tensors_name) == 3:
             bias_name = self.quantization_config["configs"][op.name][in_tensors_name[2]]['hash']
-            bias_tensor_id = self.graph.AllTensorNames.index(bias_name)
+            bias_tensor_id = self.graph.AllTensorIds.index(bias_name)
 
             self.graph.AllTensors[bias_tensor_id].Type = TensorType.Bias
             self.graph.AllTensors[bias_tensor_id].ConsumerOp = op_idx
@@ -333,8 +334,8 @@ class ONNX2TopIR:
         input_name = self.quantization_config["configs"][op.name][in_tensors_name[0]]['hash']
         output_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
 
-        in_tensor_id = self.graph.AllTensorNames.index(input_name)
-        out_tensor_id = self.graph.AllTensorNames.index(output_name)
+        in_tensor_id = self.graph.AllTensorIds.index(input_name)
+        out_tensor_id = self.graph.AllTensorIds.index(output_name)
 
         # 算子初始化
         pool_op = Pool()
@@ -396,7 +397,7 @@ class ONNX2TopIR:
             out_tensors_name = op.output
 
             output_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
-            out_tensor_id = self.graph.AllTensorNames.index(output_name)
+            out_tensor_id = self.graph.AllTensorIds.index(output_name)
 
             val_type = op.attribute[0].type  # 确定常数类型
             if (val_type == onnx.AttributeProto.TENSOR and
@@ -414,8 +415,8 @@ class ONNX2TopIR:
         input_name = self.quantization_config["configs"][op.name][in_tensors_name[0]]['hash']
         out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
 
-        in_tensor_id = self.graph.AllTensorNames.index(input_name)
-        out_tensor_id = self.graph.AllTensorNames.index(out_name)
+        in_tensor_id = self.graph.AllTensorIds.index(input_name)
+        out_tensor_id = self.graph.AllTensorIds.index(out_name)
 
         # 算子初始化
         relu_op = RELU()
@@ -452,8 +453,8 @@ class ONNX2TopIR:
         input_name = self.quantization_config["configs"][op.name][in_tensors_name[0]]['hash']
         out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
 
-        in_tensor_id = self.graph.AllTensorNames.index(input_name)
-        out_tensor_id = self.graph.AllTensorNames.index(out_name)
+        in_tensor_id = self.graph.AllTensorIds.index(input_name)
+        out_tensor_id = self.graph.AllTensorIds.index(out_name)
         # 算子初始化
         sigmoid_op = Sigmoid()
         sigmoid_op.Name = op.name
@@ -480,8 +481,8 @@ class ONNX2TopIR:
         input_name = self.quantization_config["configs"][op.name][in_tensors_name[0]]['hash']
         out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
 
-        in_tensor_id = self.graph.AllTensorNames.index(input_name)
-        out_tensor_id = self.graph.AllTensorNames.index(out_name)
+        in_tensor_id = self.graph.AllTensorIds.index(input_name)
+        out_tensor_id = self.graph.AllTensorIds.index(out_name)
 
         # 算子初始化
         transpose_op = Transpose()
@@ -521,9 +522,9 @@ class ONNX2TopIR:
         shape_name = in_tensors_name[1]
         out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
 
-        in_tensor_id = self.graph.AllTensorNames.index(input_name)
-        shape_tensor_id = self.graph.AllTensorNames.index(shape_name)
-        out_tensor_id = self.graph.AllTensorNames.index(out_name)
+        in_tensor_id = self.graph.AllTensorIds.index(input_name)
+        shape_tensor_id = self.graph.AllTensorIds.index(shape_name)
+        out_tensor_id = self.graph.AllTensorIds.index(out_name)
 
         # 算子初始化
         reshape_op = Reshape()
@@ -576,7 +577,7 @@ class ONNX2TopIR:
         in_tensors_name = op.input
         for name in in_tensors_name:
             input_name = self.quantization_config["configs"][op.name][name]['hash']
-            in_tensor_id = self.graph.AllTensorNames.index(input_name)
+            in_tensor_id = self.graph.AllTensorIds.index(input_name)
             concat_op.load_input_id(in_tensor_id)
             concat_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
             self.graph.AllTensors[in_tensor_id].ConsumerOp = op_idx
@@ -585,7 +586,7 @@ class ONNX2TopIR:
         out_tensors_name = op.output
         out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
 
-        out_tensor_id = self.graph.AllTensorNames.index(out_name)
+        out_tensor_id = self.graph.AllTensorIds.index(out_name)
         concat_op.load_output_id(out_tensor_id)
         concat_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
         self.graph.AllTensors[out_tensor_id].OwnerOp = op_idx
@@ -606,9 +607,9 @@ class ONNX2TopIR:
         resize_name = in_tensors_name[1]
         out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
 
-        in_tensor_id = self.graph.AllTensorNames.index(input_name)
-        resize_tensor_id = self.graph.AllTensorNames.index(resize_name)
-        out_tensor_id = self.graph.AllTensorNames.index(out_name)
+        in_tensor_id = self.graph.AllTensorIds.index(input_name)
+        resize_tensor_id = self.graph.AllTensorIds.index(resize_name)
+        out_tensor_id = self.graph.AllTensorIds.index(out_name)
 
         resize_op = Resize()
         resize_op.Name = op.name
@@ -672,10 +673,10 @@ class ONNX2TopIR:
         val_name = self.quantization_config["configs"][op.name][in_tensors_name[2]]['hash']
         out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
 
-        in_tensor_id = self.graph.AllTensorNames.index(input_name)
-        loc_tensor_id = self.graph.AllTensorNames.index(loc_name)
-        val_tensor_id = self.graph.AllTensorNames.index(val_name)
-        out_tensor_id = self.graph.AllTensorNames.index(out_name)
+        in_tensor_id = self.graph.AllTensorIds.index(input_name)
+        loc_tensor_id = self.graph.AllTensorIds.index(loc_name)
+        val_tensor_id = self.graph.AllTensorIds.index(val_name)
+        out_tensor_id = self.graph.AllTensorIds.index(out_name)
 
         # 算子初始化
         pad_op = Pad()
@@ -750,12 +751,12 @@ class ONNX2TopIR:
         input_name = self.quantization_config["configs"][op.name][in_tensors_name[0]]['hash']
         split_name = in_tensors_name[1]
 
-        in_tensor_id = self.graph.AllTensorNames.index(input_name)
+        in_tensor_id = self.graph.AllTensorIds.index(input_name)
         split_op.load_input_id(in_tensor_id)
         self.graph.AllTensors[in_tensor_id].ConsumerOp = op_idx
         split_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
 
-        split_tensor_id = self.graph.AllTensorNames.index(split_name)
+        split_tensor_id = self.graph.AllTensorIds.index(split_name)
         split_op.load_input_id(split_tensor_id)
         self.graph.AllTensors[split_tensor_id].Type = TensorType.Parameter
         self.graph.AllTensors[split_tensor_id].ConsumerOp = op_idx
@@ -764,7 +765,7 @@ class ONNX2TopIR:
         out_tensors_name = op.output
         for name in out_tensors_name:
             out_name = self.quantization_config["configs"][op.name][name]['hash']
-            out_tensor_id = self.graph.AllTensorNames.index(out_name)
+            out_tensor_id = self.graph.AllTensorIds.index(out_name)
             split_op.load_output_id(out_tensor_id)
             split_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
             self.graph.AllTensors[out_tensor_id].OwnerOp = op_idx
@@ -872,3 +873,4 @@ if __name__ == "__main__":
     # toolkit = ONNXToolkit('assets/yolov5s.onnx')
     # toolkit.check_requirement_based_code(m._get_op_code, SUPPORTED_OPs)
     m.parse_operator()
+    print(m.graph.AllTensors)

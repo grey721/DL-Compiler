@@ -73,6 +73,7 @@ class TensorType(object):
 
 class IRTensor:  # IR中，表示张量的class
     Name = "top_ir_tensor"
+    Id = None
     Format = Format.NHWC
     Type = TensorType.Intermediate
     DataType = DataType.INT8
@@ -96,7 +97,7 @@ class IRTensor:  # IR中，表示张量的class
            0: 'Intermediate',
            1: 'Weight',
            2: 'Bias',
-           3: 'Shape',
+           3: 'Parameter',
            4: 'Input',
            5: 'Output'
         }
