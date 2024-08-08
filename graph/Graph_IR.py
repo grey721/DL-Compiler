@@ -1,7 +1,10 @@
+from typing import List, Any
+
 from dialect.top.IR_tensor import *
 
 
 class GraphIR:
+
     def __init__(self) -> None:
         # 网络输入输出
         self.NetInTensors = []  # List[IRTensor]

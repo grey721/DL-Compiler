@@ -88,7 +88,7 @@ class IRTensor:  # IR中，表示张量的class
 
     def __init__(self):
         self.Shape = Shape(0, 0, 0, 0)
-        self.ConsumerOp = []
+        self.ConsumerOp = None
         self.OwnerOp = None
 
     def __repr__(self):
