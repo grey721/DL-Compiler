@@ -49,7 +49,7 @@ class ONNX2TopIR:
         print("Operators_len:", len(self.fused_ops))
 
         # 量化
-        with open(config_path,'rb') as f:
+        with open(config_path, 'rb') as f:
             self.quantization_config = json.load(f)
 
     def _get_op_code(self, op):  # 获取算子类型的id
@@ -193,14 +193,14 @@ class ONNX2TopIR:
         # 输入
         in_tensors_name = op.input
         for name in in_tensors_name:
-            in_tensor_id = self.graph.AllTensorNames[name]
+            in_tensor_id = self.graph.AllTensorNames.index(name)
             elem_op.load_input_id(in_tensor_id)
             elem_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
             self.graph.get_tensor(name).ConsumerOp.append(op_idx)
 
         # 输出
         out_tensors_name = op.output
-        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+        out_tensor_id = self.graph.AllTensorNames.index(out_tensors_name[0])
         elem_op.load_output_id(out_tensor_id)
         elem_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
         self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx  # 将指定张量的绑定到指定算子上
@@ -216,9 +216,9 @@ class ONNX2TopIR:
         in_tensors_name = op.input
         out_tensors_name = op.output
 
-        fea_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
-        weight_tensor_id = self.graph.AllTensorNames[in_tensors_name[1]]
-        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+        fea_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[0])
+        weight_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[1])
+        out_tensor_id = self.graph.AllTensorNames.index(out_tensors_name[0])
 
         # 算子初始化
         conv_op.Name = op.name
@@ -292,7 +292,7 @@ class ONNX2TopIR:
             self.graph.get_tensor(in_tensors_name[2]).Type = TensorType.Bias
             self.graph.get_tensor(in_tensors_name[2]).ConsumerOp.append(op_idx)
 
-            bias_tensor_id = self.graph.AllTensorNames[in_tensors_name[2]]
+            bias_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[2])
             conv_op.load_input_id(bias_tensor_id)
 
             if self.graph.AllTensors[bias_tensor_id].Data is None:
@@ -316,8 +316,8 @@ class ONNX2TopIR:
         in_tensors_name = op.input
         out_tensors_name = op.output
 
-        in_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
-        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+        in_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[0])
+        out_tensor_id = self.graph.AllTensorNames.index(out_tensors_name[0])
 
         # 算子初始化
         pool_op = Pool()
@@ -377,7 +377,7 @@ class ONNX2TopIR:
     def load_constant(self, op):
         if op.attribute[0].name == 'value':
             out_tensors_name = op.output
-            out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+            out_tensor_id = self.graph.AllTensorNames.index(out_tensors_name[0])
 
             val_type = op.attribute[0].type  # 确定常数类型
             if (val_type == onnx.AttributeProto.TENSOR and
@@ -393,8 +393,8 @@ class ONNX2TopIR:
         in_tensors_name = op.input
         out_tensors_name = op.output
 
-        in_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
-        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+        in_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[0])
+        out_tensor_id = self.graph.AllTensorNames.index(out_tensors_name[0])
 
         # 算子初始化
         relu_op = RELU()
@@ -428,8 +428,8 @@ class ONNX2TopIR:
         in_tensors_name = op.input
         out_tensors_name = op.output
 
-        in_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
-        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+        in_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[0])
+        out_tensor_id = self.graph.AllTensorNames.index(out_tensors_name[0])
 
         # 算子初始化
         sigmoid_op = Sigmoid()
@@ -454,8 +454,8 @@ class ONNX2TopIR:
         in_tensors_name = op.input
         out_tensors_name = op.output
 
-        in_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
-        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+        in_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[0])
+        out_tensor_id = self.graph.AllTensorNames.index(out_tensors_name[0])
 
         # 算子初始化
         transpose_op = Transpose()
@@ -491,9 +491,9 @@ class ONNX2TopIR:
         in_tensors_name = op.input
         out_tensors_name = op.output
 
-        in_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
-        shape_tensor_id = self.graph.AllTensorNames[in_tensors_name[1]]
-        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+        in_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[0])
+        shape_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[1])
+        out_tensor_id = self.graph.AllTensorNames.index(out_tensors_name[0])
 
         # 算子初始化
         reshape_op = Reshape()
@@ -545,14 +545,14 @@ class ONNX2TopIR:
         # 输入
         in_tensors_name = op.input
         for name in in_tensors_name:
-            in_tensor_id = self.graph.AllTensorNames[name]
+            in_tensor_id = self.graph.AllTensorNames.index(name)
             concat_op.load_input_id(in_tensor_id)
             concat_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
             self.graph.get_tensor(name).ConsumerOp.append(op_idx)
 
         # 输出
         out_tensors_name = op.output
-        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+        out_tensor_id = self.graph.AllTensorNames.index(out_tensors_name[0])
         concat_op.load_output_id(out_tensor_id)
         concat_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
         self.graph.get_tensor(out_tensors_name[0]).OwnerOp = op_idx
@@ -569,9 +569,9 @@ class ONNX2TopIR:
         in_tensors_name = [item for item in in_tensors_name if item != ""]
         out_tensors_name = op.output
 
-        in_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
-        resize_tensor_id = self.graph.AllTensorNames[in_tensors_name[1]]
-        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+        in_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[0])
+        resize_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[1])
+        out_tensor_id = self.graph.AllTensorNames.index(out_tensors_name[0])
 
         resize_op = Resize()
         resize_op.Name = op.name
@@ -630,10 +630,10 @@ class ONNX2TopIR:
         in_tensors_name = op.input
         out_tensors_name = op.output
 
-        in_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
-        loc_tensor_id = self.graph.AllTensorNames[in_tensors_name[1]]
-        val_tensor_id = self.graph.AllTensorNames[in_tensors_name[2]]
-        out_tensor_id = self.graph.AllTensorNames[out_tensors_name[0]]
+        in_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[0])
+        loc_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[1])
+        val_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[2])
+        out_tensor_id = self.graph.AllTensorNames.index(out_tensors_name[0])
 
         # 算子初始化
         pad_op = Pad()
@@ -704,12 +704,12 @@ class ONNX2TopIR:
 
         # 输入
         in_tensors_name = op.input
-        in_tensor_id = self.graph.AllTensorNames[in_tensors_name[0]]
+        in_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[0])
         split_op.load_input_id(in_tensor_id)
         self.graph.get_tensor(in_tensors_name[0]).ConsumerOp.append(op_idx)
         split_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
 
-        split_tensor_id = self.graph.AllTensorNames[in_tensors_name[1]]
+        split_tensor_id = self.graph.AllTensorNames.index(in_tensors_name[1])
         split_op.load_input_id(split_tensor_id)
         self.graph.get_tensor(in_tensors_name[1]).Type = TensorType.Parameter
         self.graph.get_tensor(in_tensors_name[1]).ConsumerOp.append(op_idx)
@@ -717,7 +717,7 @@ class ONNX2TopIR:
         # 输出
         out_tensors_name = op.output
         for name in out_tensors_name:
-            out_tensor_id = self.graph.AllTensorNames[name]
+            out_tensor_id = self.graph.AllTensorNames.index(name)
             split_op.load_output_id(out_tensor_id)
             split_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
             self.graph.get_tensor(name).OwnerOp = op_idx
@@ -825,5 +825,3 @@ if __name__ == "__main__":
     # toolkit = ONNXToolkit('assets/yolov5s.onnx')
     # toolkit.check_requirement_based_code(m._get_op_code, SUPPORTED_OPs)
     m.parse_operator()
-    import sys
-    print(sys.getsizeof(m.graph.AllTensorNames))
