@@ -648,14 +648,14 @@ class Reshape(OpBase):
     def __init__(self):
         super().__init__()
         self.Name = None
-        self.out_shape = None
+        self.Target = None
 
     def __repr__(self):
         return (
             f'############## Reshape.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
             f'{self.PreOpId} -> self -> {self.PostOpId}\n'
-            f'Reshape:{self.out_shape}\n'
+            f'Reshape:{self.Target}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
             f'Input shape:{self.InputShape[0]}\n'    
             f'Output tensor Id:{self.OutTensors[0]}\n'

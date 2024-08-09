@@ -171,7 +171,7 @@ class ONNX2TopIR:
                 if name in outputs:
                     self.graph.load_output_id(index)
                     self.graph.AllTensors[index].Type = TensorType.Output
-                    self.graph.AllTensors[index].OwnerOp = [-2]
+                    self.graph.AllTensors[index].ConsumerOp = None
                 index += 1
             # 加载常数数值
             if op.op_type == "Constant":
@@ -185,7 +185,7 @@ class ONNX2TopIR:
                     if name in inputs:
                         self.graph.load_input_id(index)
                         self.graph.AllTensors[index].Type = TensorType.Input
-                        self.graph.AllTensors[index].OwnerOp = -1
+                        self.graph.AllTensors[index].OwnerOp = None
                     index += 1
         print(f'已导入 {index} 个张量')
 
@@ -866,7 +866,6 @@ class ONNX2TopIR:
 
         self.CompleteDAG()
 
-
     def CompleteDAG(self):
         dag = {}
         for tensor in self.graph.AllTensors:
@@ -884,23 +883,22 @@ class ONNX2TopIR:
                     # name = self.graph.AllOps[tensor.ConsumerOp].Name
                     # dag[tensor.Name][1].append(name)
                     dag[tensor.Name][1].append(tensor.ConsumerOp)
-
-        input_idx = self.graph.NetInTensors
-        input_name = self.graph.AllTensors[input_idx[0]].Name
+        print(dag)
 
         def setop(name):
             if dag[name][1]:
                 for op_idx in dag[name][1]:
-                    if op_idx not in self.graph.AllOps[dag[name][0]].PostOpId:
+                    if (dag[name][0] is not None) and (op_idx not in self.graph.AllOps[dag[name][0]].PostOpId):
                         self.graph.AllOps[dag[name][0]].PostOpId.append(op_idx)
                     if dag[name][0] not in self.graph.AllOps[op_idx].PreOpId:
                         self.graph.AllOps[op_idx].PreOpId.append(dag[name][0])
-                for op_idx in dag[name][1]:
+
                     for t_idx in self.graph.AllOps[op_idx].OutTensors:
                         next_name = self.graph.AllTensors[t_idx].Name
                         setop(next_name)
 
-        setop(input_name)
+        for in_idx in self.graph.NetInTensors:
+            setop(self.graph.AllTensors[in_idx].Name)
 
 
 if __name__ == "__main__":
