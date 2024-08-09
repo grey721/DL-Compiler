@@ -4,7 +4,6 @@ from dialect.top.IR_tensor import *
 
 
 class GraphIR:
-    AllTensors: list[IRTensor]
 
     def __init__(self) -> None:
         # 网络输入输出
