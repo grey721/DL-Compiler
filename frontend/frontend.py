@@ -77,7 +77,7 @@ class ONNX2TopIR:
         assert isinstance(self.model, onnx.ModelProto), \
             f'onnx load failed, only ProtoBuffer object is expected here, while {type(self.model)} is loaded.'
 
-    def quantize2int(self, tensor_float, tensor_id, bit_width=8):
+    def quantize2int(self, tensor_float, tensor_id, bit_width=8) -> np.ndarray:
         tensor = self.graph.AllTensors[tensor_id]
         # 读取量化参数
         scale = tensor.Scale[0]
@@ -97,8 +97,8 @@ class ONNX2TopIR:
         else:  # per-tensor
             tensor_int = tensor_float / scale + zero_point
 
-        tensor_int[tensor_int < q_min] = q_min
-        tensor_int[tensor_int > q_max] = q_max
+        tensor_int[tensor_int < q_min] = q_min  # 限幅，遍历tensor_int中的每一个元素,小于q_min的都是q_min
+        tensor_int[tensor_int > q_max] = q_max  # 大于的都是q_max
 
         if bit_width == 8:
             return np.round(tensor_int).astype(np.int8)  # 四舍五入，并且转换为8位有符号整数
@@ -258,9 +258,9 @@ class ONNX2TopIR:
                     break
             else:
                 raise NotImplementedError(f'无法找到{op.name}的权重信息！')
-            # weight_data_int8 = self.quantize2int(np_data, weight_tensor_id)
-            # weight_data_int8_NHWC = np.transpose(weight_data_int8, [0, 2, 3, 1])
-            self.graph.AllTensors[weight_tensor_id].load_data(np_data)  # weight_data_int8_NHWC
+            weight_data_int8 = self.quantize2int(np_data, weight_tensor_id)
+            weight_data_int8_NHWC = np.transpose(weight_data_int8, [0, 2, 3, 1])
+            self.graph.AllTensors[weight_tensor_id].load_data(weight_data_int8_NHWC)  # weight_data_int8_NHWC
 
         c = self.graph.AllTensors[weight_tensor_id].Shape.N
         h = self.graph.AllTensors[out_tensor_id].Shape.H
@@ -316,8 +316,8 @@ class ONNX2TopIR:
                         break
                 else:
                     raise NotImplementedError(f'无法找到{op.name}的偏置信息！')
-                # bias_data_int32 = self.quantize2int(np_data, weight_tensor_id, bit_width=32)
-                self.graph.AllTensors[bias_tensor_id].load_data(np_data)  # bias_data_int32
+                bias_data_int32 = self.quantize2int(np_data, weight_tensor_id, bit_width=32)
+                self.graph.AllTensors[bias_tensor_id].load_data(bias_data_int32)  # bias_data_int32
 
             conv_op.Bias = True
         else:
@@ -710,9 +710,6 @@ class ONNX2TopIR:
             self.graph.AllTensors[loc_tensor_id].load_data(np_loc_data)
         pad_loc = list(self.graph.AllTensors[loc_tensor_id].Data)
 
-        # pad_op.pad_val = (float_pad_val / self.graph.get_tensor(in_tensors_name[0]).Scale[0]
-        #                  + self.graph.get_tensor(in_tensors_name[0]).ZeroPoint[0])
-
         # pads should be a 1D tensor of shape [2 * input_rank]. pads format should be:
         # [x1_begin, x2_begin,...,x1_end, x2_end,...], where xi_begin is the number of
         # pad values added at the beginning of axis i and xi_end, the number of pad
@@ -734,6 +731,9 @@ class ONNX2TopIR:
 
         float_pad_val = float(self.graph.AllTensors[val_tensor_id].Data)
 
+        # 量化
+        pad_op.pad_val = (float_pad_val / self.graph.AllTensors[in_tensor_id].Scale[0]
+                          + self.graph.AllTensors[in_tensor_id].ZeroPoint[0])
         pad_op.pad_val = float_pad_val
 
         self.graph.insert_op(pad_op, op_idx)
@@ -876,16 +876,11 @@ class ONNX2TopIR:
                 if tensor.Name not in dag:
                     dag[tensor.Name] = [None, []]
                 if tensor.OwnerOp is not None:
-                    # name = self.graph.AllOps[tensor.OwnerOp].Name
-                    # dag[tensor.Name][0] = name
                     dag[tensor.Name][0] = tensor.OwnerOp
                 if tensor.ConsumerOp is not None:
-                    # name = self.graph.AllOps[tensor.ConsumerOp].Name
-                    # dag[tensor.Name][1].append(name)
                     dag[tensor.Name][1].append(tensor.ConsumerOp)
-        print(dag)
 
-        def setop(name):
+        def concat_all_op(name):
             if dag[name][1]:
                 for op_idx in dag[name][1]:
                     if (dag[name][0] is not None) and (op_idx not in self.graph.AllOps[dag[name][0]].PostOpId):
@@ -895,10 +890,10 @@ class ONNX2TopIR:
 
                     for t_idx in self.graph.AllOps[op_idx].OutTensors:
                         next_name = self.graph.AllTensors[t_idx].Name
-                        setop(next_name)
+                        concat_all_op(next_name)
 
         for in_idx in self.graph.NetInTensors:
-            setop(self.graph.AllTensors[in_idx].Name)
+            concat_all_op(self.graph.AllTensors[in_idx].Name)
 
 
 if __name__ == "__main__":
@@ -908,4 +903,6 @@ if __name__ == "__main__":
     # toolkit = ONNXToolkit('assets/yolov5s.onnx')
     # toolkit.check_requirement_based_code(m._get_op_code, SUPPORTED_OPs)
     m.parse_operator()
-    print(m.graph.AllOps)
+    import sys
+    print(sys.getsizeof(m.graph.AllTensors))
+    print(sys.getsizeof(m.graph.AllTensorIds))
