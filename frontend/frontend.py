@@ -160,8 +160,8 @@ class ONNX2TopIR:
         self.graph.add_tensor(ir_tensor)
 
     def load_all_tensor(self):
-        inputs = self.model.graph.input
-        outputs = self.model.graph.output
+        inputs = [t.name for t in self.model.graph.input]
+        outputs = [t.name for t in self.model.graph.output]
         # load all input tensor
         index = 0
         for op in self.fused_ops:
@@ -169,7 +169,6 @@ class ONNX2TopIR:
                 self.load_ir_tensor_info(name, index, op)
                 # 加载网络输出
                 if name in outputs:
-                    op_hash = self.quantization_config["configs"][op.name][name]['hash']
                     self.graph.load_output_id(index)
                     self.graph.AllTensors[index].Type = TensorType.Output
                     self.graph.AllTensors[index].OwnerOp = [-2]
@@ -865,6 +864,44 @@ class ONNX2TopIR:
         if unsupported:
             raise NotImplementedError(f"\nUnsupported operator:{unsupported}\n总计: {len(unsupported)}种")
 
+        self.CompleteDAG()
+
+
+    def CompleteDAG(self):
+        dag = {}
+        for tensor in self.graph.AllTensors:
+            if (tensor.Type == TensorType.Intermediate or
+                    tensor.Type == TensorType.Input or
+                    tensor.Type == TensorType.Output):
+
+                if tensor.Name not in dag:
+                    dag[tensor.Name] = [None, []]
+                if tensor.OwnerOp is not None:
+                    # name = self.graph.AllOps[tensor.OwnerOp].Name
+                    # dag[tensor.Name][0] = name
+                    dag[tensor.Name][0] = tensor.OwnerOp
+                if tensor.ConsumerOp is not None:
+                    # name = self.graph.AllOps[tensor.ConsumerOp].Name
+                    # dag[tensor.Name][1].append(name)
+                    dag[tensor.Name][1].append(tensor.ConsumerOp)
+
+        input_idx = self.graph.NetInTensors
+        input_name = self.graph.AllTensors[input_idx[0]].Name
+
+        def setop(name):
+            if dag[name][1]:
+                for op_idx in dag[name][1]:
+                    if op_idx not in self.graph.AllOps[dag[name][0]].PostOpId:
+                        self.graph.AllOps[dag[name][0]].PostOpId.append(op_idx)
+                    if dag[name][0] not in self.graph.AllOps[op_idx].PreOpId:
+                        self.graph.AllOps[op_idx].PreOpId.append(dag[name][0])
+                for op_idx in dag[name][1]:
+                    for t_idx in self.graph.AllOps[op_idx].OutTensors:
+                        next_name = self.graph.AllTensors[t_idx].Name
+                        setop(next_name)
+
+        setop(input_name)
+
 
 if __name__ == "__main__":
     m = ONNX2TopIR('assets/yolov3.onnx', 'assets/yolov3.json')
@@ -873,4 +910,4 @@ if __name__ == "__main__":
     # toolkit = ONNXToolkit('assets/yolov5s.onnx')
     # toolkit.check_requirement_based_code(m._get_op_code, SUPPORTED_OPs)
     m.parse_operator()
-    print(m.graph.AllTensors)
+    print(m.graph.AllOps)
