@@ -5,5 +5,4 @@
 .idea/
 /frontend/tool/__pycache__/
 /frontend/__pycache__/
-/frontend/tool/my_tool.py
 assets/

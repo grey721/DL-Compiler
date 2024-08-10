@@ -1,5 +1,6 @@
 from frontend.onnx_processor import *
 from frontend.tool.utils import *
+from ir.conversion.top2npu.top2npu_pass import *
 
 
 if __name__ == '__main__':
@@ -13,13 +14,21 @@ if __name__ == '__main__':
 
     top_graph = model_processor.graph
     top_graph_op_list = get_top_graph_op_list(top_graph)
+
+    t2n = Top2Npu()
+
+
 else:
-    t2n = top2npu()
+
     npu_graph = t2n.transform(top_graph)
 
     ir_transformer = IRTransformer()
     ir_transformer.add_transform_option(op_fuse_transform)
     ir_transformer.transform(npu_graph)
+
+    import pickle
+    with open("output/top_graph.pkl", "wb") as f:
+        pickle.dump(top_graph, f)
 
     # profile = False
     # if profile:
