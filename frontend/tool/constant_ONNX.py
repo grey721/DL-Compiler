@@ -1,5 +1,5 @@
 import onnx
-from dialect.top.IR_operator import *
+from ir.dialect.top.IR_operator import *
 
 SKIP_OPs = []
 # TODO: Handle RESHAPE during codegen

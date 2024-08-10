@@ -85,7 +85,7 @@ class IRTensor:  # IR中，表示张量的class
     # 输出该张量的 算子的 在AllTensors中的 索引
     # NumpyData = None
     # Tensor_id = None
-    Tensor_idx = None
+    tensor_id = None
 
     def __init__(self):
         self.Shape = Shape(0, 0, 0, 0)
@@ -102,14 +102,14 @@ class IRTensor:  # IR中，表示张量的class
            5: 'Output'
         }
         return (
-            f'############## Tensor.{self.Tensor_idx} ##############\n'
+            f'############## Tensor.{self.tensor_id} ##############\n'
             f"Name:{self.Name}\n"
             f"Type:{mapping[self.Type]}\n"
             f'{self.OwnerOp} -> {self.ConsumerOp}\n'
             f"Shape:{self.Shape}\n"
             f"Format:{self.Format}\n"
             # f"Data:{self.Data}\n"
-            f'############## Tensor.{self.Tensor_idx} ##############\n'
+            f'############## Tensor.{self.tensor_id} ##############\n'
         )
 
     def load_data(self, np_data):

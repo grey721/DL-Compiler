@@ -1,6 +1,4 @@
-from typing import List, Any
-
-from dialect.top.IR_tensor import *
+from ir.dialect.top.IR_tensor import *
 
 
 class GraphIR:

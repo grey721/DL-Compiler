@@ -12,26 +12,26 @@
 - Concat、Split加载加载
 - Pad、Resize加载
 
-| 近期完成 | 计划 |   待完成   |
-|:----:|:--:|:-------:|
-|      | 量化 | 输出op到文件 |
+| 近期完成 |  计划   |  待完成  |
+|:----:|:-----:|:-----:|
+|  量化  | NPU张量 | NPU算子 |
 
 算子支持状态：
 
-| 算子名       | 状态 |
-|-----------|----|
-| ElemWise  | 支持 |
-| Conv      | 支持 |
-| Pool      | 支持 |
-| Constant  | 支持 |
-| Transpose | 支持 |
-| ReLU      | 支持 |
-| Sigmoid   | 支持 |
-| Concat    | 支持 |
-| Reshape   | 支持 |
-| Resize    | 支持 |
-| Pad       | 支持 |
-| Split     | 支持 |
+| 算子名       |  状态  |
+|-----------|:----:|
+| ElemWise  |  √   |
+| Conv      |  √   |
+| Pool      |  √   |
+| Constant  |  √   |
+| Transpose |  √   |
+| ReLU      |  √   |
+| Sigmoid   |  √   |
+| Concat    |  √   |
+| Reshape   |  √   |
+| Resize    |  √   |
+| Pad       |  √   |
+| Split     |  √   |
 
 加入量化后的设想：
 - 假如需要哈希值：

@@ -162,11 +162,13 @@ class OpBase:  # 算子基类
     def load_output_id(self, ir_tensor_id):
         self.OutTensors.append(ir_tensor_id)
 
-    def get_fmi_size(self):
+    def get_fmi_size(self):  # 特征图输入大小
+        """Op Input: H*W*C"""
         fmi_size = self.InputShape[0].C * self.InputShape[0].H * self.InputShape[0].W
         return fmi_size
 
-    def get_fmo_size(self):
+    def get_fmo_size(self):  # 特征图输出大小
+        """Op Output: H*W*C"""
         fmo_size = self.OutputShape[0].C * self.OutputShape[0].H * self.OutputShape[0].W
         return fmo_size
 
@@ -257,8 +259,7 @@ class ElemWise(OpBase):
 
 
 # ###################  conv related ############################
-class Conv2d(OpBase):
-    Type = "Conv2d"  # ConvRelu2d
+class ConvBase(OpBase):
     # Pad
     Padding = None  # 开关
     PadH = None  # 分别表示高度和宽度方向上的填充大小
@@ -290,20 +291,6 @@ class Conv2d(OpBase):
         self.StrideH = None
         self.StrideW = None
 
-    def __repr__(self):
-        return (
-            f'############## {self.Type}.{self.TopOpId} ##############\n'
-            f'Op Name:{self.Name}\n'
-            f'{self.PreOpId} -> self -> {self.PostOpId}\n'
-            f'Kernel Shape: {[self.KerH, self.KerW]}\n'
-            f'Stride: {[self.StrideH, self.StrideW]}\n'
-            f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape[0]}\n'
-            f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape[0]}\n'
-            f'############## Conv2d.{self.TopOpId} ##############\n'
-        )
-
     # TODO confirm 哪个正确？
     def get_mac(self):
         # mac = self.OutputShape[0].H * self.OutputShape[0].W * self.OutputShape[0].C \
@@ -315,7 +302,8 @@ class Conv2d(OpBase):
         return mac
 
     def get_weight_size(self):
-        weight_size = self.InputShape[0].C * self.OutputShape[0].C * self.KerW * self.KerH
+        """weight: H*W*C*M"""
+        weight_size = self.KerH * self.KerW * self.InputShape[0].C * self.OutputShape[0].C
         return weight_size
 
     def get_weight_numpy(self, graph):
@@ -383,6 +371,29 @@ class Conv2d(OpBase):
     #     if self.Bias:
     #         return self.InTensors[2].ZeroPoint
     #     return None
+
+
+class Conv2d(ConvBase):
+    Type = "Conv2d"  # ConvRelu2d
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+
+    def __repr__(self):
+        return (
+            f'############## {self.Type}.{self.TopOpId} ##############\n'
+            f'Op Name:{self.Name}\n'
+            f'{self.PreOpId} -> self -> {self.PostOpId}\n'
+            f'Kernel Shape: {[self.KerH, self.KerW]}\n'
+            f'Stride: {[self.StrideH, self.StrideW]}\n'
+            f'Input tensor Id:{self.InTensors[0]}\n'
+            f'Input shape:{self.InputShape[0]}\n'
+            f'Output tensor Id:{self.OutTensors[0]}\n'
+            f'Output shape:{self.OutputShape[0]}\n'
+            f'############## Conv2d.{self.TopOpId} ##############\n'
+        )
+
 
 
 # ###################### Pool ######################

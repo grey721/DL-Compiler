@@ -1,10 +1,8 @@
-from tool.constant_ONNX import *
-from dialect.top.IR_operator import *
-from graph.Graph_IR import *
+from frontend.tool.constant_ONNX import *
+from ir.dialect.top.IR_operator import *
+from ir.graph.Graph_IR import *
 import numpy as np
 import json
-
-from tool.my_tool import *
 
 
 def get_np_data_from_attribute(attr):
@@ -156,7 +154,7 @@ class ONNX2TopIR:
             ir_tensor.Id = name
 
         # add tensor
-        ir_tensor.Tensor_idx = tensor_idx
+        ir_tensor.tensor_id = tensor_idx
         self.graph.add_tensor(ir_tensor)
 
     def load_all_tensor(self):
@@ -792,7 +790,6 @@ class ONNX2TopIR:
 
         self.graph.insert_op(split_op, op_idx)
 
-    # op_idx是op在AllOps和AllOpIds中的索引值，index
     def parse_operator(self):
         unsupported = []
         for op_idx, op in enumerate(self.fused_ops):
@@ -898,11 +895,5 @@ class ONNX2TopIR:
 
 if __name__ == "__main__":
     m = ONNX2TopIR('assets/yolov3.onnx', 'assets/yolov3.json')
-    # m = ONNX2TopIR('yolov5n.onnx')
     m.load_all_tensor()
-    # toolkit = ONNXToolkit('assets/yolov5s.onnx')
-    # toolkit.check_requirement_based_code(m._get_op_code, SUPPORTED_OPs)
     m.parse_operator()
-    import sys
-    print(sys.getsizeof(m.graph.AllTensors))
-    print(sys.getsizeof(m.graph.AllTensorIds))
