@@ -1,9 +1,9 @@
-from compiler.conversion.top2npu.ada200.base import TransformRule, _register_tranformation_rule
-from compiler.conversion.top2npu.top_lowing import *
-from compiler.dialect.npu.ir.ir_operator import *
+from ir.conversion.top2npu.ada200.operator_lowing.base import OpTransformRule, _register_op_transformation_rule
+from ir.conversion.top2npu.top_lowing import *
+from ir.dialect.npu.IR_operator import *
 
 
-@_register_tranformation_rule(TransformRule.POOL_LOWERING)
+@_register_op_transformation_rule(OpTransformRule.POOL_LOWERING)
 def _lowering(net, mode):
     for op in net.AllOps:
         if isinstance(op, Pool):
@@ -20,17 +20,21 @@ def _lowering(net, mode):
 def _lowering_int8(op, net):
     npu_pool = NpuPool()
     npu_pool.__dict__.update(op.__dict__)
-    npu_pool.Name = "NpuPool"
-    OutputH = op.OutputH
-    OutputW = op.OutputW
-    InputH = op.InputH
-    InputW = op.InputW
+    npu_pool.Type = "NpuPool"
+    OutputH = op.OutputShape[0].H
+    OutputW = op.OutputShape[0].W
+    InputH = op.InputShape[0].H
+    InputW = op.InputShape[0].W
     KerH = op.KerH
     KerW = op.KerW
     StrideH = op.StrideH
     StrideW = op.StrideW
-    H = OutputH*StrideH - StrideH + KerH
-    W = OutputW*StrideW - StrideW + KerW
+    # OutputH * StrideH，OutputH的每一个格子代表滑动过一次，则原图最大边长为滑动次数OutputH * 每次滑动的步长StrideH
+    # 但最后一次滑动后，filter应该正好覆盖图片（因为pad过），所以最后一个长度不一定是步长，而是filter的长度
+    H = OutputH * StrideH - StrideH + KerH
+    W = OutputW * StrideW - StrideW + KerW
+
+    # TODO 为什么不直接用Top IR中获取
     npu_pool.pad_top = op.PadH
     npu_pool.pad_bottom = H - op.PadH - InputH
     npu_pool.pad_left = op.PadW

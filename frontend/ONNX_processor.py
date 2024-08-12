@@ -36,19 +36,25 @@ class ONNX2TopIR:
         self.model = onnx.load(model_path)
         self.print_model_info()
         self.graph = GraphIR()  # 创建图IR对象
-        # TODO what this
+
+        # 量化
+        with open(config_path, 'rb') as f:
+            self.quantization_config = json.load(f)
+
+        # 解析
         self.fused_ops = []
         for n, op in enumerate(self.model.graph.node):
             if self._get_op_code(op) not in FUSIBLE_OPs:  # 不会存在一个不可融合算子，也是OVERLAPPED吗？？？？？
                 self.fused_ops.append(op)
                 continue
             print(op.name, 'not in FUSIBLE_OPs')
+            # TODO "OVERLAPPED"是什么状态？为什么跳过
+            in_tensors_name = op.input
+            state = self.quantization_config["configs"][op.name][in_tensors_name[0]]['state']
+            if state == "OVERLAPPED":  # 避免重复处理：在某些情况下，"OVERLAPPED"状态可能表示该算子已经以某种方式被处理过？
+                continue
             self.fused_ops.append(op)
         print("Operators_len:", len(self.fused_ops))
-
-        # 量化
-        with open(config_path, 'rb') as f:
-            self.quantization_config = json.load(f)
 
     def _get_op_code(self, op):  # 获取算子类型的id
         if op.op_type not in ONNXType2OperatorType:
@@ -140,18 +146,16 @@ class ONNX2TopIR:
             print(f"张量{name}拥有未知的维度信息！{tensor_shape}")
 
         # 量化参数加载
+        op_hash = self.quantization_config["configs"][op.name][name]['hash']
+        ir_tensor.Id = op_hash
         state = self.quantization_config["configs"][op.name][name]['state']
         if state != 'FP32':
-            op_hash = self.quantization_config["configs"][op.name][name]['hash']
-            ir_tensor.Id = op_hash
             dominator = str(self.quantization_config["configs"][op.name][name]['dominator'])
 
             ir_tensor.Scale = np.array([self.quantization_config["values"][dominator]['scale']])
             ir_tensor.ZeroPoint = np.array([self.quantization_config["values"][dominator]['zero_point']]).astype(np.int8)
             ir_tensor.Q_min = np.array([self.quantization_config["configs"][op.name][name]['quant_min']])
             ir_tensor.Q_max = np.array([self.quantization_config["configs"][op.name][name]['quant_max']])
-        else:
-            ir_tensor.Id = name
 
         # add tensor
         ir_tensor.tensor_id = tensor_idx
@@ -215,7 +219,6 @@ class ONNX2TopIR:
 
         # 不保留整个张量类信息，因为 其他信息不是经常用，所以 等用的时候直接通过函数查询，减少内存占用？
         self.graph.insert_op(elem_op, op_idx)
-        # print(elem_op)
 
     def load_conv(self, op, op_idx, code):
         conv_op = Conv2d()
@@ -396,6 +399,8 @@ class ONNX2TopIR:
             output_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
             out_tensor_id = self.graph.AllTensorIds.index(output_name)
 
+            self.graph.AllTensors[out_tensor_id].Type = TensorType.Const
+
             val_type = op.attribute[0].type  # 确定常数类型
             if (val_type == onnx.AttributeProto.TENSOR and
                     not self.graph.AllTensors[out_tensor_id].Data):  # 是张量
@@ -405,7 +410,7 @@ class ONNX2TopIR:
             else:
                 raise NotImplementedError("有非张量类型常数")
 
-    def load_relu(self, op, op_idx, op_code):
+    def load_activation(self, op, op_idx, op_code):
         in_tensors_name = op.input
         out_tensors_name = op.output
 
@@ -416,62 +421,40 @@ class ONNX2TopIR:
         out_tensor_id = self.graph.AllTensorIds.index(out_name)
 
         # 算子初始化
-        relu_op = RELU()
-        relu_op.Name = op.name
-        relu_op.TopOpId = op_idx
+        act_op = Activation()
+        act_op.Name = op.name
+        act_op.TopOpId = op_idx
 
         # 加载输入输出ID
-        relu_op.load_input_id(in_tensor_id)
-        relu_op.load_output_id(out_tensor_id)
+        act_op.load_input_id(in_tensor_id)
+        act_op.load_output_id(out_tensor_id)
         self.graph.AllTensors[out_tensor_id].OwnerOp = op_idx
         self.graph.AllTensors[in_tensor_id].ConsumerOp = op_idx
 
         # 输入输出形状
-        relu_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
-        relu_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
+        act_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
+        act_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
 
-        assert relu_op.InputShape[0].H == relu_op.OutputShape[0].H
+        assert act_op.InputShape[0].H == act_op.OutputShape[0].H
 
         if op_code == OperatorType.LEAKY_RELU:
-            relu_op.Type = 'LeakyRELU'
-            relu_op.Mode = RELUMode.LEAKY_RELU
-            relu_op.Alpha = op.attribute[0].f
+            act_op.Type = 'LeakyRELU'
+            act_op.Mode = ActivationMode.LEAKY_RELU
+            act_op.Alpha = op.attribute[0].f
         elif op_code == OperatorType.PRELU:
-            relu_op.Type = 'PRELU'
-            relu_op.Mode = RELUMode.PRELU
-            relu_op.Alpha = op.attribute[0].f
+            act_op.Type = 'PRELU'
+            act_op.Mode = ActivationMode.PRELU
+            act_op.Alpha = op.attribute[0].f
+        elif op_code == OperatorType.SIGMOID:
+            act_op.Type = 'Sigmoid'
+            act_op.Mode = ActivationMode.SIGMOID
+        elif op_code == OperatorType.RELU:
+            act_op.Type = 'RELU'
+            act_op.Mode = ActivationMode.RELU
 
-        self.graph.insert_op(relu_op, op_idx)
+        self.graph.insert_op(act_op, op_idx)
 
-    def load_sigmoid(self, op, op_idx):
-        in_tensors_name = op.input
-        out_tensors_name = op.output
-
-        input_name = self.quantization_config["configs"][op.name][in_tensors_name[0]]['hash']
-        out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
-
-        in_tensor_id = self.graph.AllTensorIds.index(input_name)
-        out_tensor_id = self.graph.AllTensorIds.index(out_name)
-        # 算子初始化
-        sigmoid_op = Sigmoid()
-        sigmoid_op.Name = op.name
-        sigmoid_op.TopOpId = op_idx
-
-        # 加载输入输出ID
-        sigmoid_op.load_input_id(in_tensor_id)
-        sigmoid_op.load_output_id(out_tensor_id)
-        self.graph.AllTensors[out_tensor_id].OwnerOp = op_idx
-        self.graph.AllTensors[in_tensor_id].ConsumerOp = op_idx
-
-        # 输入输出形状
-        sigmoid_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
-        sigmoid_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
-
-        assert sigmoid_op.InputShape[0].H == sigmoid_op.OutputShape[0].H
-
-        self.graph.insert_op(sigmoid_op, op_idx)
-
-    def load_transpose(self, op, op_idx):  # TODO 大于四维度？
+    def load_transpose(self, op, op_idx):
         in_tensors_name = op.input
         out_tensors_name = op.output
 
@@ -516,7 +499,7 @@ class ONNX2TopIR:
         out_tensors_name = op.output
 
         input_name = self.quantization_config["configs"][op.name][in_tensors_name[0]]['hash']
-        shape_name = in_tensors_name[1]
+        shape_name = self.quantization_config["configs"][op.name][in_tensors_name[1]]['hash']
         out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
 
         in_tensor_id = self.graph.AllTensorIds.index(input_name)
@@ -601,7 +584,7 @@ class ONNX2TopIR:
         out_tensors_name = op.output
 
         input_name = self.quantization_config["configs"][op.name][in_tensors_name[0]]['hash']
-        resize_name = in_tensors_name[1]
+        resize_name = self.quantization_config["configs"][op.name][in_tensors_name[1]]['hash']
         out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
 
         in_tensor_id = self.graph.AllTensorIds.index(input_name)
@@ -666,7 +649,7 @@ class ONNX2TopIR:
         out_tensors_name = op.output
 
         input_name = self.quantization_config["configs"][op.name][in_tensors_name[0]]['hash']
-        loc_name = in_tensors_name[1]
+        loc_name = self.quantization_config["configs"][op.name][in_tensors_name[1]]['hash']
         val_name = self.quantization_config["configs"][op.name][in_tensors_name[2]]['hash']
         out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
 
@@ -825,13 +808,13 @@ class ONNX2TopIR:
                 self.load_pool(op, op_idx, op_code)
 
             elif op_code == OperatorType.SIGMOID:
-                self.load_sigmoid(op, op_idx)
+                self.load_activation(op, op_idx, op_code)
 
             elif op_code == OperatorType.LEAKY_RELU:
-                self.load_relu(op, op_idx, op_code)
+                self.load_activation(op, op_idx, op_code)
 
             elif op_code == OperatorType.PRELU:
-                self.load_relu(op, op_idx, op_code)
+                self.load_activation(op, op_idx, op_code)
 
             elif op_code == OperatorType.TRANSPOSE:
                 self.load_transpose(op, op_idx)

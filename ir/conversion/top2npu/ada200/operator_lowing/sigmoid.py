@@ -1,21 +1,21 @@
-from compiler.conversion.top2npu.ada200.base import TransformRule, _register_tranformation_rule
-from compiler.dialect.npu.ir.ir_operator import *
+from ir.conversion.top2npu.ada200.operator_lowing.base import OpTransformRule, _register_op_transformation_rule
+from ir.dialect.npu.IR_operator import *
+from ir.conversion.top2npu.top_lowing import *
 from python.vpu import *
 from python.memory import *
 from python.util import *
 
 
-
-@_register_tranformation_rule(TransformRule.LOGISTIC_LOWERING)
+@_register_op_transformation_rule(OpTransformRule.LOGISTIC_LOWERING)
 def _lowering(net, mode):
     for op in net.AllOps:
         if isinstance(op, Activation):
-            if op.ActiMode != ActivationMode.AM_SIGMOID:
+            if op.Mode != ActivationMode.SIGMOID:
                 continue
             if mode == "int8":
-                NpuOp = _lowering_int8(op,net)
+                NpuOp = _lowering_int8(op, net)
             if mode == "fp32":
-                NpuOp = _lowering_fp32(op)
+                NpuOp = _lowering_fp32(op, net)
 
             op_id = net.get_op_idx(op)
             net.delete_op(op_id)
@@ -31,12 +31,13 @@ def _lowering_int8(op,net):
     input_scale = op.GetQuantInputScaleNumpy(net)
     output_scale = op.GetQuantOutputScaleNumpy(net)
     
-    input_zero_poiont = op.GetQuantInputZeroPointNumpy(net)
-    output_zero_poiont = op.GetQuantOutputZeroPointNumpy(net)
+    input_zero_point = op.get_input_zero_point_numpy(net)
+    output_zero_point = op.get_output_zero_point_numpy(net)
     
-    npu_logistic.input_offset = input_zero_poiont
-    npu_logistic.output_offset = output_zero_poiont
-    npu_logistic.output_multiplier = QuantizeMultiplier(input_scale,output_scale)
+    npu_logistic.input_offset = input_zero_point
+    npu_logistic.output_offset = output_zero_point
+
+    npu_logistic.output_multiplier = QuantizeMultiplier(input_scale, output_scale)
     #todo test logistic in test project 
     raise NotImplementedError
 

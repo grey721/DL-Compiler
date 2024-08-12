@@ -7,7 +7,7 @@ from compiler.dialect.npu.ir.ir_operator import *
 def _lowering(net, mode):
     for op in net.AllOps:
         if isinstance(op, Activation):
-            if op.ActiMode != ActivationMode.AM_RELU:
+            if op.ActivationMode != ActivationMode.AM_RELU:
                 continue
             if mode == "int8":
                 NpuOp = _lowering_int8(op, net)

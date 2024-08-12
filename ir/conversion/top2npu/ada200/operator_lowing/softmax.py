@@ -1,11 +1,11 @@
-from compiler.conversion.top2npu.ada200.base import TransformRule, _register_tranformation_rule
-from compiler.dialect.npu.ir.ir_operator import *
+from ir.conversion.top2npu.ada200.operator_lowing.base import OpTransformRule, _register_op_transformation_rule
+from ir.dialect.npu.IR_operator import *
 
 
-@_register_tranformation_rule(TransformRule.TRANSPOSE_LOWERING)
+@_register_op_transformation_rule(OpTransformRule.SOFTMAX_LOWERING)
 def _lowering(net, mode):
     for op in net.AllOps:
-        if isinstance(op, Transpose):
+        if isinstance(op, Softmax):
             if mode == "int8":
                 NpuOp = _lowering_int8(op)
             if mode == "fp32":
@@ -17,14 +17,14 @@ def _lowering(net, mode):
 
 
 def _lowering_int8(op):
-    npu_transpose = NpuTranspose()
+    npu_transpose = NpuSoftmax()
     npu_transpose.__dict__.update(op.__dict__)
-    npu_transpose.Name = "NpuTranspose"
+    npu_transpose.Name = "NpuSoftmax"
     return npu_transpose
 
 
 def _lowering_fp32(op):
-    npu_transpose = NpuTranspose()
+    npu_transpose = NpuSoftmax()
     npu_transpose.__dict__.update(op.__dict__)
-    npu_transpose.Name = "NpuTranspose"
+    npu_transpose.Name = "NpuSoftmax"
     return npu_transpose

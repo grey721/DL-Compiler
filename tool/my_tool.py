@@ -1,3 +1,4 @@
+import numpy as np
 import onnx
 
 
@@ -93,19 +94,13 @@ if __name__ == '__main__':
     #toolkit1 = ONNXToolkit('yolov5n.onnx')
     #for_seek(toolkit1.model.graph.node, 'op_type', 'Split',1,1)
     # print(sys.getsizeof(my_list))
-    ADA200_TRANSFORM_MAP = {}
-
-    def _register_transformation_rule(transform_rule):  # ADA200_TRANSFORM_MAP[rule]赋值为函数impl
-        def callback(impl):
-            print(impl)
-            ADA200_TRANSFORM_MAP[transform_rule] = impl
-
-        return callback
-
-    name = 1
-
-    @_register_transformation_rule(name)
-    def test():
-        print(1)
-
+    weight = np.array([[1, 2], [3, 4]])
+    print(weight.shape)
+    if len(weight.shape) == 2:
+        weight = np.transpose(weight, (1, 0))
+        # axis：这是你想要增加新维度的位置。axis=0意味着新维度将被添加到张量的最前面。
+        weight = np.expand_dims(weight, axis=0)
+        weight = np.expand_dims(weight, axis=0)
+        # 它根据提供的元组(3, 0, 1, 2)来改变weight数组维度的顺序。
+        weight = np.transpose(weight, (3, 0, 1, 2))
 

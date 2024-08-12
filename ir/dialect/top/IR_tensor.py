@@ -1,4 +1,6 @@
 import numpy as np
+
+
 # H高度，w宽度，C通道数，M卷积核数量，也是输出的深度
 # batch一次处理的数据个数，每次迭代中处理32张图像，那么输入张量的形状可能会是 [32, height, width, channels]，其中 32 就是batch大小
 # reshape函数用于改变张量的形状，即在不改变张量数据内容的情况下，重新排列张量的维度。
@@ -67,8 +69,9 @@ class TensorType(object):
     Weight = 1
     Bias = 2
     Parameter = 3
-    Input = 4
-    Output = 5
+    Const = 4
+    Input = 5
+    Output = 6
 
 
 class IRTensor:  # IR中，表示张量的class
@@ -94,12 +97,13 @@ class IRTensor:  # IR中，表示张量的class
 
     def __repr__(self):
         mapping = {
-           0: 'Intermediate',
-           1: 'Weight',
-           2: 'Bias',
-           3: 'Parameter',
-           4: 'Input',
-           5: 'Output'
+            0: 'Intermediate',
+            1: 'Weight',
+            2: 'Bias',
+            3: 'Parameter',
+            5: 'Constant',
+            4: 'Input',
+            6: 'Output'
         }
         return (
             f'############## Tensor.{self.tensor_id} ##############\n'
@@ -117,4 +121,3 @@ class IRTensor:  # IR中，表示张量的class
 
     def load_value(self, value):
         self.Data = value
-

@@ -176,10 +176,10 @@ class OpBase:  # 算子基类
 # ########################### Constant ########################
 class Constant(OpBase):
     Type = "Constant"
+    Mode = None
 
     def __init__(self):
         super().__init__()
-        self.Mode = None
 
     def __repr__(self):
         return (
@@ -207,12 +207,12 @@ class ElementWiseMode(object):  # 元操作代码
 
 class ElemWise(OpBase):
     Type = "ElemWise"
-    Do_relu = False
+    Mode = None
+    do_relu = False
     FusedActFunc = 0
 
     def __init__(self):
         super().__init__()  # 用于在子类实例中初始化父类中的__init__，必须先调用，子类才能有父类的初始化
-        self.Mode = None
 
     def __repr__(self):
         return (
@@ -272,14 +272,14 @@ class ConvBase(OpBase):
     # 偏置值,None则无偏置
     Bias = None
     # 卷积核权重值
-    # WeightValue = None
+    WeightValue = None
     # 偏置项
-    # BiasValue = None
+    BiasValue = None
     # 是否是首层
     FirstLayer = False
     KerM_16 = False
     # 激活函数
-    Do_relu = False
+    do_relu = False
 
     def __init__(self):
         super().__init__()
@@ -309,7 +309,8 @@ class ConvBase(OpBase):
     def get_weight_numpy(self, graph):
         assert len(self.InTensors)
         weight_tensor = self.InTensors[1]
-        weight = graph.get_tensor(weight_tensor).NumpyData
+        weight = graph.AllTensors[weight_tensor].Data
+        # TODO 为什么？(2, 0, 1, 3)，len == 2 说明什么？
         if len(weight.shape) == 2:
             weight = np.transpose(weight, (1, 0))
             # axis：这是你想要增加新维度的位置。axis=0意味着新维度将被添加到张量的最前面。
@@ -322,7 +323,7 @@ class ConvBase(OpBase):
     def get_bias_numpy(self, graph):
         if self.Bias:
             bias_tensor = self.InTensors[2]
-            bias = graph.get_tensor(bias_tensor).NumpyData
+            bias = graph.AllTensors[bias_tensor].Data
             return bias
         return np.zeros(self.OutputShape[0].C, dtype=np.int32)
 
@@ -378,7 +379,6 @@ class Conv2d(ConvBase):
 
     def __init__(self):
         super().__init__()
-        self.Name = None
 
     def __repr__(self):
         return (
@@ -395,7 +395,6 @@ class Conv2d(ConvBase):
         )
 
 
-
 # ###################### Pool ######################
 class PoolMode(object):
     POOL_AVG = 1
@@ -404,6 +403,7 @@ class PoolMode(object):
 
 class Pool(OpBase):
     Type = 'Pool'
+    Mode = None
     KerH = None
     KerW = None
     StrideH = None
@@ -415,7 +415,6 @@ class Pool(OpBase):
 
     def __init__(self):
         super().__init__()
-        self.Mode = None
 
     def __repr__(self):
         return (
@@ -444,24 +443,23 @@ class Pool(OpBase):
     
 
 # ############################ activation ###########################
-class RELUMode(object):
+class ActivationMode(object):
     RELU = 0
     PRELU = 1
     LEAKY_RELU = 2
-    # SIGMOID = 3
-    # HARDSWISH = 4
-    # SOFTMAX = 5
+    SIGMOID = 3
+    HARDSWISH = 4
+    SOFTMAX = 5
 
 
-class RELU(OpBase):
-    Type = "RELU"
-    Mode = RELUMode.RELU
+class Activation(OpBase):
+    Type = "Activation"
+    Mode = None
     Alpha = 0
     MaxLimit = None
 
     def __init__(self):
         super().__init__()
-        self.Name = None
 
     def __repr__(self):
         return (
@@ -473,45 +471,6 @@ class RELU(OpBase):
             f'Output tensor Id:{self.OutTensors[0]}\n'
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## {self.Type}.{self.TopOpId} ##############\n'
-        )
-
-    def get_input_scale_numpy(self, graph):
-        assert len(self.InTensors)
-        return graph.AllTensors[self.InTensors[0]].Scale
-
-    def get_input_zero_point_numpy(self, graph):
-        assert len(self.InTensors)
-        return graph.AllTensors[self.InTensors[0]].ZeroPoint
-
-    def get_output_scale_numpy(self, graph):
-        assert len(self.OutTensors)
-        return graph.AllTensors[self.OutTensors[0]].Scale
-
-    def get_output_zero_point_numpy(self, graph):
-        assert len(self.OutTensors)
-        return graph.AllTensors[self.OutTensors[0]].ZeroPoint
-
-    def shape_inference(self) -> list:
-        return [self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
-
-
-class Sigmoid(OpBase):
-    Type = 'Sigmoid'
-
-    def __init__(self):
-        super().__init__()
-        self.Name = None
-
-    def __repr__(self):
-        return (
-            f'############## Sigmoid.{self.TopOpId} ##############\n'
-            f'Op Name:{self.Name}\n'
-            f'{self.PreOpId} -> self -> {self.PostOpId}\n'
-            f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape[0]}\n'            
-            f'Output tensor Id:{self.OutTensors[0]}\n'
-            f'Output shape:{self.OutputShape[0]}\n'
-            f'############## Sigmoid.{self.TopOpId} ##############\n'
         )
 
     def get_input_scale_numpy(self, graph):
@@ -542,15 +501,13 @@ class ResizeMode(object):
 
 class Resize(OpBase):
     Type = "Resize"
-
+    Mode = None
     AlignCorners = False  # 对齐角点，考虑图像角点的精确对齐
     HalfPixelCenters = False  # 半像素中心，像素中心点位于像素网格的半像素位置
+    ScaleFactor = None  # 缩放因子
 
     def __init__(self):
         super().__init__()
-        self.Name = None
-        self.Mode = None
-        self.ScaleFactor = None  # 缩放因子
 
     def __repr__(self):
         mapping = {
@@ -591,7 +548,6 @@ class Concat(OpBase):
 
     def __init__(self):
         super().__init__()
-        self.Name = None
 
     def __repr__(self):
         return_map = {
@@ -655,11 +611,10 @@ class Concat(OpBase):
 
 class Reshape(OpBase):
     Type = "Reshape"
+    Target = None
 
     def __init__(self):
         super().__init__()
-        self.Name = None
-        self.Target = None
 
     def __repr__(self):
         return (
@@ -681,7 +636,7 @@ class Transpose(OpBase):
 
     def __init__(self):
         super().__init__()
-        self.Name = None
+
 
     def __repr__(self):
         return (
@@ -708,7 +663,6 @@ class Pad(OpBase):
 
     def __init__(self):
         super().__init__()
-        self.Name = None
 
     def __repr__(self):
         return (
@@ -734,7 +688,6 @@ class Split(OpBase):
 
     def __init__(self):
         super().__init__()
-        self.Name = None
 
     def __repr__(self):
         return (

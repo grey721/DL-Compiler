@@ -1,32 +1,34 @@
-from ir.conversion.top2npu.ada200.base import *
-# from ir.conversion.top2npu.ada200.conv import *
-# from ir.conversion.top2npu.ada200.leakyrelu import *
-# from ir.conversion.top2npu.ada200.pool import *
-# from ir.conversion.top2npu.ada200.resize import *
-# from ir.conversion.top2npu.ada200.logistic import *
-# from ir.conversion.top2npu.ada200.concat import *
-# from ir.conversion.top2npu.ada200.reshape import *
-# from ir.conversion.top2npu.ada200.transpose import *
-# from ir.conversion.top2npu.ada200.softmax import *
-# from ir.conversion.top2npu.ada200.mean import *
-# from ir.conversion.top2npu.ada200.elemwise import *
-# from ir.conversion.top2npu.ada200.pad import *
-# from ir.conversion.top2npu.ada200.fullconnect import *
-#todo
-# from compiler.conversion.top2npu.ada200.relu import *
+from ir.conversion.top2npu.ada200.operator_lowing.base import *
+# from ir.conversion.top2npu.ada200.operator_lowing.conv import *
+# from ir.conversion.top2npu.ada200.operator_lowing.leakyrelu import *
+from ir.conversion.top2npu.ada200.operator_lowing.pool import *
+# from ir.conversion.top2npu.ada200.operator_lowing.resize import *
+from ir.conversion.top2npu.ada200.operator_lowing.sigmoid import *
+from ir.conversion.top2npu.ada200.operator_lowing.concat import *
+from ir.conversion.top2npu.ada200.operator_lowing.reshape import *
+from ir.conversion.top2npu.ada200.operator_lowing.transpose import *
+# from ir.conversion.top2npu.ada200.operator_lowing.elemwise import *
+from ir.conversion.top2npu.ada200.operator_lowing.pad import *
 
-lowing_ada200_map = []
-lowing_ada200_map.append(TransformRule.CONV_LOWERING)
-lowing_ada200_map.append(TransformRule.LEAKYRELU_LOWERING)
-lowing_ada200_map.append(TransformRule.POOL_LOWERING)
-lowing_ada200_map.append(TransformRule.RESIZE_LOWERING)
-lowing_ada200_map.append(TransformRule.CONCAT_LOWERING)
-lowing_ada200_map.append(TransformRule.RESHAPE_LOWERING)
-lowing_ada200_map.append(TransformRule.TRANSPOSE_LOWERING)
-lowing_ada200_map.append(TransformRule.ELEMWISE_LOWERING)
-lowing_ada200_map.append(TransformRule.SOFTMAX_LOWERING)
-lowing_ada200_map.append(TransformRule.FULLCONNECT_LOWERING)
-lowing_ada200_map.append(TransformRule.MEAM_LOWERING)
-lowing_ada200_map.append(TransformRule.PAD_LOWERING)
-lowing_ada200_map.append(TransformRule.LOGISTIC_LOWERING)
-# lowing_ada200_map.append(TransformRule.RELU_LOWERING)
+# from ir.conversion.top2npu.ada200.operator_lowing.softmax import *
+# from ir.conversion.top2npu.ada200.operator_lowing.mean import *
+# from ir.conversion.top2npu.ada200.operator_lowing.fullconnect import *
+# todo
+#  from compiler.conversion.top2npu.ada200.relu import *
+
+
+lowing_ada200_list = [OpTransformRule.CONV_LOWERING,
+                      OpTransformRule.LEAKYRELU_LOWERING,
+                      OpTransformRule.POOL_LOWERING,
+                      OpTransformRule.RESIZE_LOWERING,
+                      OpTransformRule.CONCAT_LOWERING,
+                      OpTransformRule.RESHAPE_LOWERING,
+                      OpTransformRule.TRANSPOSE_LOWERING,
+                      OpTransformRule.ELEMWISE_LOWERING,
+                      OpTransformRule.SOFTMAX_LOWERING,
+                      OpTransformRule.FULLCONNECT_LOWERING,
+                      OpTransformRule.MEAM_LOWERING,
+                      OpTransformRule.PAD_LOWERING,
+                      OpTransformRule.LOGISTIC_LOWERING
+                      ]
+# lowing_ada200_map.append(OpTransformRule.RELU_LOWERING)

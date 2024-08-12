@@ -1,10 +1,12 @@
-from compiler.conversion.top2npu.ada200.base import TransformRule, _register_tranformation_rule
-from compiler.dialect.npu.ir.ir_operator import *
+from ir.conversion.top2npu.ada200.operator_lowing.base import OpTransformRule,  _register_op_transformation_rule
+from ir.dialect.npu.IR_operator import *
+
 from python.vpu import *
 from python.memory import *
 from python.util import *
 
-@_register_tranformation_rule(TransformRule.LEAKYRELU_LOWERING)
+
+@_register_op_transformation_rule(OpTransformRule.LEAKYRELU_LOWERING)
 def _lowering(net, mode):
     for op in net.AllOps:
         if isinstance(op, Activation):

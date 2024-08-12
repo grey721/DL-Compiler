@@ -195,15 +195,16 @@ onnx2np_dtype_mapping = {
     onnx.TensorProto.UINT8: np.uint8,
     onnx.TensorProto.UINT16: np.uint16,
 }
-# TODO confirm it
-parameter_input = {
-    OperatorType.PAD,
-    OperatorType.PADV2,
-    OperatorType.RESHAPE,
-    OperatorType.RESIZE_NEAREST_NEIGHBOR,
-    OperatorType.RESIZE_BILINEAR,
-    OperatorType.SPLIT
-}
+
+# parameter_input = {
+#     OperatorType.PAD,
+#     OperatorType.PADV2,
+#     OperatorType.RESHAPE,
+#     OperatorType.RESIZE_NEAREST_NEIGHBOR,
+#     OperatorType.RESIZE_BILINEAR,
+#     OperatorType.SPLIT
+# }
+
 # NCHW -> NHWC
 axis_map = {
     0: 0,
