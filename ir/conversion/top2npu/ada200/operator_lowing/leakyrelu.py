@@ -147,10 +147,10 @@ def _lowering_int8(op, net):
     npu_leakyrelu.__dict__.update(op.__dict__)
     npu_leakyrelu.Name = "NpuLeakyRelu"
 
-    npu_leakyrelu.input_offset = op.GetQuantInputZeroPointNumpy(net)
-    npu_leakyrelu.output_offset = op.GetQuantOutputZeroPointNumpy(net)
-    input_scale = op.GetQuantInputScaleNumpy(net)
-    output_scale = op.GetQuantOutputScaleNumpy(net)
+    npu_leakyrelu.input_offset = op.get_input_zero_point_numpy(net)
+    npu_leakyrelu.output_offset = op.get_output_zero_point_numpy(net)
+    input_scale = op.get_input_scale_numpy(net)
+    output_scale = op.get_output_scale_numpy(net)
     alpha_input_scale = [input_scale*op.Alpha]
     npu_leakyrelu.identity_output_multiplier, npu_leakyrelu.identity_output_shift \
                                         = _get_quant_para(input_scale, output_scale)

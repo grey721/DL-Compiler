@@ -9,8 +9,9 @@ class GraphIR:
         self.NetOutTensors = []  #
         # 算子、中间张量
         self.AllTensorIds = []  # Name:tensor_idx
-        self.AllOpIds = []
         self.AllTensors = []  # List[IRTensor]
+
+        self.AllOpIds = []
         self.AllOps = []  # List[OpBase]
 
         self.AllCpuOps = []
@@ -38,6 +39,10 @@ class GraphIR:
         self.AllOps.insert(op_idx, op)
         self.AllOpIds.insert(op_idx, id(op))  # op唯一身份标识
 
+    def delete_op(self, op_idx):
+        del self.AllOps[op_idx]
+        del self.AllOpIds[op_idx]
+
     def add_tensor(self, tensor):
         if tensor.Id not in self.AllTensorIds:
             self.AllTensorIds.append(tensor.Id)
@@ -53,3 +58,10 @@ class GraphIR:
         assert tensor_name in self.AllTensorIds, f'{tensor_name} not in AllTensors'
         index = self.AllTensorIds.index(tensor_name)  # .index(id)，返回内容是id在列表中首次出现的索引值
         return self.AllTensors[index]
+
+    def get_op(self, op_id):
+        return self.AllOps[op_id]
+
+    def get_op_idx(self, op):
+        if op in self.AllOps:
+            return self.AllOps.index(op)

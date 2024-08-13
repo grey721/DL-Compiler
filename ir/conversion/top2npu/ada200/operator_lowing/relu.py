@@ -1,13 +1,14 @@
-from compiler.conversion.top2npu.ada200.base import TransformRule, _register_tranformation_rule
-from compiler.conversion.top2npu.top_lowing import *
-from compiler.dialect.npu.ir.ir_operator import *
+from ir.conversion.top2npu.ada200.operator_lowing.base import OpTransformRule, _register_op_transformation_rule
+from ir.conversion.top2npu.top_lowing import *
+from ir.dialect.npu.IR_operator import *
 
-#todo 
-@_register_tranformation_rule(TransformRule.RELU_LOWERING)
+
+# todo
+@_register_op_transformation_rule(OpTransformRule.RELU_LOWERING)
 def _lowering(net, mode):
     for op in net.AllOps:
         if isinstance(op, Activation):
-            if op.ActivationMode != ActivationMode.AM_RELU:
+            if op.Mode != ActivationMode.RELU:
                 continue
             if mode == "int8":
                 NpuOp = _lowering_int8(op, net)
@@ -19,14 +20,13 @@ def _lowering(net, mode):
             net.insert_op(NpuOp, op_id)
 
 
-def _lowering_int8(op,net):
+def _lowering_int8(op, net):
     npu_activation = NpuActivation()
     npu_activation.__dict__.update(op.__dict__)
     npu_activation.Name = "NpuActivation_Relu"
 
-
     return npu_activation
 
 
-def _lowering_fp32(op):
+def _lowering_fp32(op, net):
     raise NotImplementedError

@@ -43,7 +43,7 @@ def _lowering_int8(op, net):
         twice_input_scale = max(norm(input1_scale), norm(input_scale)) * 2
         real_input_scale = norm(input_scale) / twice_input_scale
         real_input1_scale = norm(input1_scale) / twice_input_scale
-        real_output_scale = twice_input_scale / (norm(output_scale) * (1 << 20))
+        real_output_scale = twice_input_scale / (norm(output_scale) * (1 << 20))  # TODO ???
         npu_elemwise.left_shift = 20
         npu_elemwise.input_multiplier, npu_elemwise.input_shift \
             = QuantizeMultiplier(real_input_scale)

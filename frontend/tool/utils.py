@@ -28,7 +28,7 @@ def get_top_graph_op_list(top_graph):
             base_dict['pad_h'] = op.PadH
             base_dict['pad_w'] = op.PadW
 
-        if isinstance(op, ConvBase):  # or isinstance(op, FullConnected):
+        if isinstance(op, ConvBase) or isinstance(op, FullConnected):
             base_dict['group'] = op.Group if isinstance(op, ConvBase) else None
             base_dict['bias'] = op.Bias
             base_dict['MAC'] = op.get_mac()

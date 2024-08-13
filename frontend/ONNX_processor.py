@@ -445,7 +445,7 @@ class ONNX2TopIR:
             act_op.Type = 'PRELU'
             act_op.Mode = ActivationMode.PRELU
             act_op.Alpha = op.attribute[0].f
-        elif op_code == OperatorType.SIGMOID:
+        elif op_code == OperatorType.LOGISTIC:
             act_op.Type = 'Sigmoid'
             act_op.Mode = ActivationMode.SIGMOID
         elif op_code == OperatorType.RELU:
@@ -807,7 +807,7 @@ class ONNX2TopIR:
             elif op_code == OperatorType.AVERAGE_POOL_2D:
                 self.load_pool(op, op_idx, op_code)
 
-            elif op_code == OperatorType.SIGMOID:
+            elif op_code == OperatorType.LOGISTIC:
                 self.load_activation(op, op_idx, op_code)
 
             elif op_code == OperatorType.LEAKY_RELU:
@@ -844,7 +844,7 @@ class ONNX2TopIR:
         if unsupported:
             raise NotImplementedError(f"\nUnsupported operator:{unsupported}\n总计: {len(unsupported)}种")
 
-        self.CompleteDAG()
+        # self.CompleteDAG()
 
     def CompleteDAG(self):
         dag = {}

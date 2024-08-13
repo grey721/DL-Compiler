@@ -3,7 +3,7 @@ from ir.conversion.top2npu.ada200.operator_lowing.base import *
 # from ir.conversion.top2npu.ada200.operator_lowing.leakyrelu import *
 from ir.conversion.top2npu.ada200.operator_lowing.pool import *
 # from ir.conversion.top2npu.ada200.operator_lowing.resize import *
-from ir.conversion.top2npu.ada200.operator_lowing.sigmoid import *
+from ir.conversion.top2npu.ada200.operator_lowing.logistic import *
 from ir.conversion.top2npu.ada200.operator_lowing.concat import *
 from ir.conversion.top2npu.ada200.operator_lowing.reshape import *
 from ir.conversion.top2npu.ada200.operator_lowing.transpose import *

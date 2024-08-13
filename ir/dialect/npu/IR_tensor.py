@@ -10,6 +10,7 @@ class NpuIRTensor(IRTensor):
     # from_shared_memory = True
     # from_global_memory = False
 
+    # TODO Learn it
     def __init__(self, top_ir_tensor=None):
         super().__init__()
         self.Name = "npu_ir_tensor"
@@ -32,7 +33,7 @@ class NpuIRTensor(IRTensor):
         self.__dict__.update(top_ir_tensor.__dict__)  # 将属性值复制
 
         if top_ir_tensor.DataType == DataType.INT8:
-            tensor_size = np.prod(top_ir_tensor.Shape.get_shape_as_np())  # 列表内所有元素乘积
+            tensor_size = np.prod(top_ir_tensor.Shape.get_shape_as_np())  # 列表内所有元素乘积，单位字节
         if top_ir_tensor.DataType == DataType.INT32:
             tensor_size = np.prod(top_ir_tensor.Shape.get_shape_as_np()) * 4
 

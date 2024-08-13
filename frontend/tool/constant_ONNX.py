@@ -28,7 +28,7 @@ SUPPORTED_OPs = [
     OperatorType.MUL,
     OperatorType.CONSTANT,
     OperatorType.SPLIT,
-    OperatorType.SIGMOID,
+    OperatorType.LOGISTIC,
     OperatorType.PRELU,
     OperatorType.POW
 ]

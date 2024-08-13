@@ -16,7 +16,7 @@ class OperatorType(object):
     L2_NORMALIZATION = 11
     L2_POOL_2D = 12
     LOCAL_RESPONSE_NORMALIZATION = 13
-    SIGMOID = 14
+    LOGISTIC = 14
     LSH_PROJECTION = 15
     LSTM = 16
     MAX_POOL_2D = 17
@@ -395,6 +395,88 @@ class Conv2d(ConvBase):
         )
 
 
+class FullConnected(OpBase):
+    Type = "FullConnected"
+    OutputDim = None
+    WeightValue = None
+    Bias = None
+    BiasValue = None
+    WeightsFormat = 0
+    FusedActFunc = 0
+    # TODO learn
+    KeepNumDims = False
+    do_relu = False
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+
+    def get_mac(self):
+        mac = self.OutputShape[0].H * self.OutputShape[0].W * self.OutputShape[0].C \
+                * self.InputShape[0].H * self.InputShape[0].W * self.InputShape[0].C * 2
+        return mac
+
+    def get_weight_size(self):
+        weight_size = self.get_fmi_size() * self.get_fmo_size()
+        return weight_size
+
+    def get_weight_numpy(self, graph):
+        assert len(self.InTensors)
+        weight_tensor = self.InTensors[1]
+        weight = graph.get_tensor(weight_tensor).NumpyData
+        return weight
+
+    def get_bias_numpy(self, graph):
+        if self.Bias:
+            bias_tensor = self.InTensors[2]
+            bias = graph.get_tensor(bias_tensor).NumpyData
+        else:
+            zp = self.get_input_zero_point_numpy(graph)
+            bias = np.full(self.OutputShape[0].C, zp[0], dtype=np.int32)
+        return bias
+
+    def get_input_scale_numpy(self, graph):
+        assert len(self.InTensors)
+        return graph.get_tensor(self.InTensors[0]).Scale
+
+    def get_input_zero_point_numpy(self, graph):
+        assert len(self.InTensors)
+        return graph.get_tensor(self.InTensors[0]).ZeroPoint
+
+    def get_output_scale_numpy(self, graph):
+        assert len(self.OutTensors)
+        return graph.get_tensor(self.OutTensors[0]).Scale
+
+    def get_output_zero_point_numpy(self, graph):
+        assert len(self.OutTensors)
+        return graph.get_tensor(self.OutTensors[0]).ZeroPoint
+
+    def get_weight_scale_numpy(self, graph):
+        assert len(self.InTensors)
+        return graph.get_tensor(self.InTensors[1]).Scale
+
+    # def GetQuantWeightZeroPointNumpy(self):
+    #     return self.InTensors[1].ZeroPoint
+
+    def get_bias_scale_numpy(self, graph):
+        if self.Bias:
+            return graph.get_tensor(self.InTensors[2]).Scale
+        return None
+
+    # def GetQuantBiasZeroPointNumpy(self):
+    #     if self.Bias:
+    #         return self.InTensors[2].ZeroPoint
+    #     return None
+
+    # def GetQuantMultiplierAndShiftNumpy(self, graph):
+    #     weight_scale = self.GetQuantWeightScaleNumpy(graph)
+    #     Input_scale = self.GetQuantInputScaleNumpy(graph)
+    #     output_scale = self.GetQuantOutputScaleNumpy(graph)
+
+    #     scale = norm(weight_scale) * norm(Input_scale) / norm(output_scale)
+    #     return QuantizeMultiplier(scale)
+
+
 # ###################### Pool ######################
 class PoolMode(object):
     POOL_AVG = 1
@@ -715,3 +797,14 @@ class Split(OpBase):
             n_shape.append(out)
 
         return n_shape
+
+
+class Mean(OpBase):
+    Type = "Mean"
+    axis = None
+    keep_dims = None  # 输出数据的维度与原始输入数据的维度相同
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+

@@ -28,8 +28,8 @@ def _lowering_int8(op,net):
     npu_logistic.__dict__.update(op.__dict__)
     npu_logistic.Name = "NpuActivation_Logistic"
 
-    input_scale = op.GetQuantInputScaleNumpy(net)
-    output_scale = op.GetQuantOutputScaleNumpy(net)
+    input_scale = op.get_input_scale_numpy(net)
+    output_scale = op.get_output_scale_numpy(net)
     
     input_zero_point = op.get_input_zero_point_numpy(net)
     output_zero_point = op.get_output_zero_point_numpy(net)
