@@ -835,7 +835,6 @@ class ONNX2TopIR:
                 self.load_concat(op, op_idx)
 
             elif op_code == OperatorType.SPLIT:
-                print(op)
                 self.load_split(op, op_idx)
 
             else:
@@ -844,7 +843,7 @@ class ONNX2TopIR:
         if unsupported:
             raise NotImplementedError(f"\nUnsupported operator:{unsupported}\n总计: {len(unsupported)}种")
 
-        # self.CompleteDAG()
+        self.CompleteDAG()
 
     def CompleteDAG(self):
         dag = {}
@@ -863,10 +862,10 @@ class ONNX2TopIR:
         def concat_all_op(name):
             if dag[name][1]:
                 for op_idx in dag[name][1]:
-                    if (dag[name][0] is not None) and (op_idx not in self.graph.AllOps[dag[name][0]].PostOpId):
-                        self.graph.AllOps[dag[name][0]].PostOpId.append(op_idx)
-                    if dag[name][0] not in self.graph.AllOps[op_idx].PreOpId:
-                        self.graph.AllOps[op_idx].PreOpId.append(dag[name][0])
+                    if (dag[name][0] is not None) and (op_idx not in self.graph.AllOps[dag[name][0]].PostTopOpId):
+                        self.graph.AllOps[dag[name][0]].PostTopOpId.append(op_idx)
+                    if dag[name][0] not in self.graph.AllOps[op_idx].PreTopOpId:
+                        self.graph.AllOps[op_idx].PreTopOpId.append(dag[name][0])
 
                     for t_idx in self.graph.AllOps[op_idx].OutTensors:
                         next_name = self.graph.AllTensors[t_idx].Name
