@@ -1,7 +1,7 @@
 from ir.graph.Graph_IR import *
 from ir.dialect.top.IR_tensor import *
 from ir.dialect.npu.IR_operator import *
-from ir.conversion.ir_pass.ir_transform import _register_ir_transformation_rule, \
+from ir.conversion.optimize.ir_transform import _register_ir_transformation_rule, \
     _find_pre_npu_op, \
     _find_post_npu_op
 # from backend.ada200.ada200 import ada200
@@ -11,10 +11,10 @@ import copy
 
 class TransformRule(Enum):
     NOPE = 1
-    SUBNET = 2
-    ORDER_NPU_OPS = 3
-    REORDER_NPU_OPS = 4
-    UPDATE_CONCAT_OPS = 5
+    SUBNET = 2  # 区分NPU OP 和 CPU OP到不同的列表
+    ORDER_NPU_OPS = 3  # 排序，找前后
+    REORDER_NPU_OPS = 4  # 获得子图
+    UPDATE_CONCAT_OPS = 5  # 为带有串联的OP和其前一个Op更新串联信息
 
 
 @_register_ir_transformation_rule(TransformRule.SUBNET)
@@ -168,18 +168,18 @@ def _update_concat_ops(net: GraphIR):
     for op in net.AllOps:
         outputs = deepcopy(op.fmo_tensor)
         outputs.extend(op.short_cut_out_tensor)
-        if len(op.PostOpId) > 0:
+        if len(op.PostOpId) > 0:  # 还有下一个op
             for post_op_id in op.PostOpId:
                 post_op = net.get_npu_op(post_op_id)
-                if len(post_op.concat_input_tensor) > 0:
+                if len(post_op.concat_input_tensor) > 0:  # 如果下一个NPU OP中有串联
                     for output in outputs:
-                        if output == post_op.concat_input_tensor[0]:
+                        if output == post_op.concat_input_tensor[0]:  # 如果当前Op的输出是下一个串联的输入
                             assert len(post_op.fmo_tensor) == 1
                             post_op_fmo_tensor = net.get_tensor(post_op.fmo_tensor[0])
                             concat_output_shape = post_op_fmo_tensor.Shape.get_shape_as_np()
                             concat_in_tensor_list = post_op.NpuOpConcatOp.InTensors
-                            op.add_output_tensor_for_cancat(output)
-                            op.concat_in_tensor_list = concat_in_tensor_list
+                            op.add_output_tensor_for_cancat(output)  # 将当前张量标记为，为串联准备
+                            op.concat_in_tensor_list = concat_in_tensor_list  # 记录下一个串联的输入列表
                             op.concat_output = True
                             op.concat_output_shape = concat_output_shape
                             post_op.concat_output_shape = concat_output_shape

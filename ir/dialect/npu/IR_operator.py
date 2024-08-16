@@ -266,7 +266,7 @@ class NpuOp(OpBase):
         self.fmo_tensor = []
         self.weight_tensor = []
         self.concat_input_tensor = []
-        self.short_cut_out_tensor = []
+        self.short_cut_out_tensor = []  # 允许网络中的某些层直接跳过一些层与后续层相连?
         self.elemwise_input_tensor = []
         self.output_tensor_for_cancat = []
         self.concat_output = False

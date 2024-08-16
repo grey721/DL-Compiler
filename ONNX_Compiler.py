@@ -1,8 +1,9 @@
 from frontend.ONNX_processor import *
 from frontend.tool.utils import *
 from ir.conversion.top2npu.top2npu_pass import *
-from ir.conversion.ir_pass.ir_transform import *
-from ir.conversion.ir_pass.op_fuse import *
+from ir.conversion.optimize.ir_transform import *
+from ir.conversion.optimize.op_fuse import *
+from ir.conversion.optimize.subnet import *
 
 
 if __name__ == '__main__':
@@ -26,9 +27,10 @@ if __name__ == '__main__':
     ir_transformer.add_transform_option(op_fuse_transform)
     ir_transformer.transform(npu_graph)
 
-else:
     ir_transformer.add_transform_option(subnet_transform)
     ir_transformer.transform(npu_graph)
+
+else:
 
     ir_transformer.add_transform_option(layer_group_transform)
     ir_transformer.transform(npu_graph)

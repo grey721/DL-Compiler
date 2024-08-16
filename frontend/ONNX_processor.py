@@ -141,7 +141,8 @@ class ONNX2TopIR:
             ir_tensor.Shape.N = 1
             ir_tensor.Shape.H = 1
             ir_tensor.Shape.W = 1
-        elif dims != 0:
+        else:
+            ir_tensor.Shape.N, ir_tensor.Shape.C, ir_tensor.Shape.H, ir_tensor.Shape.W, _ = tensor_shape
             ir_tensor.Shape = tensor_shape
             print(f"张量{name}拥有未知的维度信息！{tensor_shape}")
 

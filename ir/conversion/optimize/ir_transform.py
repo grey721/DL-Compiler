@@ -75,9 +75,9 @@ def _find_pre_npu_op(net, op):
                 outputs = deepcopy(pre_op.short_cut_out_tensor)
             else:
                 outputs = []
-            outputs.extend(pre_op.fmo_tensor)
-            for t_name in inputs:
-                if t_name in outputs:
+            outputs.extend(pre_op.fmo_tensor)  # 当前Op的所有输出
+            for tensor in inputs:  # 指定op的输入
+                if tensor in outputs:
                     op_id = pre_op.NpuOpId
                     if op_id is not None:
                         pre_op_id.append(op_id)

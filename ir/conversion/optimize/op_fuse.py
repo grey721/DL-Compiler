@@ -1,6 +1,6 @@
 from ir.graph.Graph_IR import *
 from ir.dialect.npu.IR_operator import *
-from ir.conversion.ir_pass.ir_transform import _find_post_op, _find_pre_op, \
+from ir.conversion.optimize.ir_transform import _find_post_op, _find_pre_op, \
     _register_ir_transformation_rule, \
     _copy_opbase_input_info, \
     _copy_opbase_output_info, \
