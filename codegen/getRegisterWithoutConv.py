@@ -742,12 +742,12 @@ def getRegisterWithoutConv(npuop, path, nn_sb, _weight_, sub_block_register_list
                     vpu_dict[VpuRegister.vpu_1_para_clus_1_scr_l2_step] = 1
 
                     vpu_dict = vpu_jump(VpuRegister.vpu_1_para_clus_1_scr_l1_condition,
-                                        VpuRegister.vpu_1_para_clus_1_scr_l2_condition, \
+                                        VpuRegister.vpu_1_para_clus_1_scr_l2_condition,
                                         VpuRegister.vpu_1_para_clus_1_scr_l3_condition,
-                                        VpuRegister.vpu_1_para_clus_1_scr_l1_addr_step, \
+                                        VpuRegister.vpu_1_para_clus_1_scr_l1_addr_step,
                                         VpuRegister.vpu_1_para_clus_1_scr_l2_addr_step,
-                                        VpuRegister.vpu_1_para_clus_1_scr_l3_addr_step, \
-                                        VpuRegister.vpu_TOP_para_interface_write_mode, \
+                                        VpuRegister.vpu_1_para_clus_1_scr_l3_addr_step,
+                                        VpuRegister.vpu_TOP_para_interface_write_mode,
                                         fmo_c, fmo_w, fmo_h, cluster_fmo_c, cluster_fmo_w, cluster_fmo_h, vpu_dict,
                                         tot_bank=4)
 
@@ -802,12 +802,12 @@ def getRegisterWithoutConv(npuop, path, nn_sb, _weight_, sub_block_register_list
                 cluster_fmo_h = shape_tem[1]
 
                 vpu_dict = vpu_jump(VpuRegister.vpu_2_para_clus_2_output_l1_condition,
-                                    VpuRegister.vpu_2_para_clus_2_output_l2_condition, \
+                                    VpuRegister.vpu_2_para_clus_2_output_l2_condition,
                                     VpuRegister.vpu_2_para_clus_2_output_l3_condition,
-                                    VpuRegister.vpu_2_para_clus_2_output_l1_addr_step, \
+                                    VpuRegister.vpu_2_para_clus_2_output_l1_addr_step,
                                     VpuRegister.vpu_2_para_clus_2_output_l2_addr_step,
-                                    VpuRegister.vpu_2_para_clus_2_output_l3_addr_step, \
-                                    VpuRegister.vpu_TOP_para_interface_write_mode, \
+                                    VpuRegister.vpu_2_para_clus_2_output_l3_addr_step,
+                                    VpuRegister.vpu_TOP_para_interface_write_mode,
                                     fmo_c, fmo_w, fmo_h, cluster_fmo_c, cluster_fmo_w, cluster_fmo_h, vpu_dict,
                                     tot_bank=4)
 
@@ -834,12 +834,12 @@ def getRegisterWithoutConv(npuop, path, nn_sb, _weight_, sub_block_register_list
                     vpu_dict[VpuRegister.vpu_2_para_clus_2_scr_l2_step] = 1
 
                     vpu_dict = vpu_jump(VpuRegister.vpu_2_para_clus_2_scr_l1_condition,
-                                        VpuRegister.vpu_2_para_clus_2_scr_l2_condition, \
+                                        VpuRegister.vpu_2_para_clus_2_scr_l2_condition,
                                         VpuRegister.vpu_2_para_clus_2_scr_l3_condition,
-                                        VpuRegister.vpu_2_para_clus_2_scr_l1_addr_step, \
+                                        VpuRegister.vpu_2_para_clus_2_scr_l1_addr_step,
                                         VpuRegister.vpu_2_para_clus_2_scr_l2_addr_step,
-                                        VpuRegister.vpu_2_para_clus_2_scr_l3_addr_step, \
-                                        VpuRegister.vpu_TOP_para_interface_write_mode, \
+                                        VpuRegister.vpu_2_para_clus_2_scr_l3_addr_step,
+                                        VpuRegister.vpu_TOP_para_interface_write_mode,
                                         fmo_c, fmo_w, fmo_h, cluster_fmo_c, cluster_fmo_w, cluster_fmo_h, vpu_dict,
                                         tot_bank=4)
 
@@ -872,12 +872,12 @@ def getRegisterWithoutConv(npuop, path, nn_sb, _weight_, sub_block_register_list
                     cluster_fmo_h = sc_shape[1]
 
                     vpu_dict = vpu_jump(VpuRegister.vpu_2_para_clus_2_scw_l1_condition,
-                                        VpuRegister.vpu_2_para_clus_2_scw_l2_condition, \
+                                        VpuRegister.vpu_2_para_clus_2_scw_l2_condition,
                                         VpuRegister.vpu_2_para_clus_2_scw_l3_condition,
-                                        VpuRegister.vpu_2_para_clus_2_scw_l1_addr_step, \
+                                        VpuRegister.vpu_2_para_clus_2_scw_l1_addr_step,
                                         VpuRegister.vpu_2_para_clus_2_scw_l2_addr_step,
-                                        VpuRegister.vpu_2_para_clus_2_scw_l3_addr_step, \
-                                        VpuRegister.vpu_TOP_para_interface_write_mode, \
+                                        VpuRegister.vpu_2_para_clus_2_scw_l3_addr_step,
+                                        VpuRegister.vpu_TOP_para_interface_write_mode,
                                         fmo_c, fmo_w, fmo_h, cluster_fmo_c, cluster_fmo_w, cluster_fmo_h, vpu_dict,
                                         tot_bank=4)
 
@@ -1000,12 +1000,12 @@ def getRegisterWithoutConv(npuop, path, nn_sb, _weight_, sub_block_register_list
                 cluster_fmo_h = sc_shape[1]
 
                 vpu_dict = vpu_jump(VpuRegister.vpu_0_para_clus_0_scw_l1_condition,
-                                    VpuRegister.vpu_0_para_clus_0_scw_l2_condition, \
+                                    VpuRegister.vpu_0_para_clus_0_scw_l2_condition,
                                     VpuRegister.vpu_0_para_clus_0_scw_l3_condition,
-                                    VpuRegister.vpu_0_para_clus_0_scw_l1_addr_step, \
+                                    VpuRegister.vpu_0_para_clus_0_scw_l1_addr_step,
                                     VpuRegister.vpu_0_para_clus_0_scw_l2_addr_step,
-                                    VpuRegister.vpu_0_para_clus_0_scw_l3_addr_step, \
-                                    VpuRegister.vpu_TOP_para_interface_write_mode, \
+                                    VpuRegister.vpu_0_para_clus_0_scw_l3_addr_step,
+                                    VpuRegister.vpu_TOP_para_interface_write_mode,
                                     fmo_c, fmo_w, fmo_h, cluster_fmo_c, cluster_fmo_w, cluster_fmo_h, vpu_dict,
                                     tot_bank=4)
 
@@ -1064,12 +1064,12 @@ def getRegisterWithoutConv(npuop, path, nn_sb, _weight_, sub_block_register_list
             vpu_dict[VpuRegister.vpu_TOP_para_interface_write_mode] = 1
 
             vpu_dict = vpu_jump(VpuRegister.vpu_0_para_clus_0_output_l1_condition,
-                                VpuRegister.vpu_0_para_clus_0_output_l2_condition, \
+                                VpuRegister.vpu_0_para_clus_0_output_l2_condition,
                                 VpuRegister.vpu_0_para_clus_0_output_l3_condition,
-                                VpuRegister.vpu_0_para_clus_0_output_l1_addr_step, \
+                                VpuRegister.vpu_0_para_clus_0_output_l1_addr_step,
                                 VpuRegister.vpu_0_para_clus_0_output_l2_addr_step,
-                                VpuRegister.vpu_0_para_clus_0_output_l3_addr_step, \
-                                VpuRegister.vpu_TOP_para_interface_write_mode, \
+                                VpuRegister.vpu_0_para_clus_0_output_l3_addr_step,
+                                VpuRegister.vpu_TOP_para_interface_write_mode,
                                 fmo_c, fmo_w, fmo_h, cluster_fmo_c, cluster_fmo_w, cluster_fmo_h, vpu_dict, tot_bank=4)
 
             if npuop.npu_psum_add:

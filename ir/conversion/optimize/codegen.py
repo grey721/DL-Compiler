@@ -1,6 +1,6 @@
 from codegen.utils import *
 from ir.graph.Graph_IR import *
-from backend.ada200.ada200 import ada200
+# from backend.ada200.ada200 import ada200
 from ir.conversion.optimize.ir_transform import _register_ir_transformation_rule
 from codegen.cimPreparingParam import *
 from codegen.perPreparingParamWithConv import *
@@ -833,10 +833,10 @@ def create_register(npu_graph):
             dma_read = True
         sub_block_nums[npu_op_block_list[i].npu_op_group_id] += get_all_res(npu_op_block_list[i], f"{path}/",
                                                                             sub_block_nums[
-                                                                                npu_op_block_list[i].npu_op_group_id], \
+                                                                                npu_op_block_list[i].npu_op_group_id],
                                                                             npu_graph.get_weight_tensor(
                                                                                 npu_op_block_list[i].npu_op_id),
-                                                                            sub_block_register_list, input_output_dict, \
+                                                                            sub_block_register_list, input_output_dict,
                                                                             npu_graph.get_weight_base_addr(
                                                                                 npu_op_block_list[i].npu_op_id),
                                                                             SubBlockWeightInfo, dma_read_list)
@@ -1035,10 +1035,10 @@ def calculating_the_weight(npu_graph):
     pass
 
 
-codegen_transform = []
-codegen_transform.append(TransformRule.CALCULATING_THE_WEIGHT)
-codegen_transform.append(TransformRule.CREATE_REGISTER)
-codegen_transform.append(TransformRule.CREATE_INFO)
-codegen_transform.append(TransformRule.CREATE_XLSX)
-codegen_transform.append(TransformRule.CREATE_TOP_INFO)
-codegen_transform.append(TransformRule.CREATE_REGISTER_WITH_DMA)
+codegen_transform = [TransformRule.CALCULATING_THE_WEIGHT,
+                     TransformRule.CREATE_REGISTER,
+                     TransformRule.CREATE_INFO,
+                     TransformRule.CREATE_XLSX,
+                     TransformRule.CREATE_TOP_INFO,
+                     TransformRule.CREATE_REGISTER_WITH_DMA
+                     ]

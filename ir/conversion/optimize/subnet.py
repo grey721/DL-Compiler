@@ -13,7 +13,7 @@ class TransformRule(Enum):
     NOPE = 1
     SUBNET = 2  # 区分NPU OP 和 CPU OP到不同的列表
     ORDER_NPU_OPS = 3  # 排序，找前后
-    REORDER_NPU_OPS = 4  # 获得子图
+    REORDER_NPU_OPS = 4  # 获得子图，从输入到输出的任意一条路径？
     UPDATE_CONCAT_OPS = 5  # 为带有串联的OP和其前一个Op更新串联信息
 
 
