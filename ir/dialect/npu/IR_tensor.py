@@ -3,7 +3,7 @@ from copy import deepcopy
 
 
 class NpuIRTensor(IRTensor):
-    tensor_id = None
+    idx = None
     tensor_type = None
     tensor_size = None
 
