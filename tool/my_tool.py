@@ -94,13 +94,6 @@ if __name__ == '__main__':
     #toolkit1 = ONNXToolkit('yolov5n.onnx')
     #for_seek(toolkit1.model.graph.node, 'op_type', 'Split',1,1)
     # print(sys.getsizeof(my_list))
-    weight = np.array([[1, 2], [3, 4]])
-    print(weight.shape)
-    if len(weight.shape) == 2:
-        weight = np.transpose(weight, (1, 0))
-        # axis：这是你想要增加新维度的位置。axis=0意味着新维度将被添加到张量的最前面。
-        weight = np.expand_dims(weight, axis=0)
-        weight = np.expand_dims(weight, axis=0)
-        # 它根据提供的元组(3, 0, 1, 2)来改变weight数组维度的顺序。
-        weight = np.transpose(weight, (3, 0, 1, 2))
-
+    a = [1,2,3,4,5]
+    N, C, H, W, _ = a
+    print(N,C,H,W)

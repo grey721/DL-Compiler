@@ -17,7 +17,8 @@ class OpTransformRule(Enum):
     MEAM_LOWERING = 12
     PAD_LOWERING = 13
     LOGISTIC_LOWERING = 14
-    RELU_LOWERING = 15 
+    RELU_LOWERING = 15
+    SPLIT_LOWERING = 16
 
 
 ADA200_TRANSFORM_MAP: Dict[Enum, Callable] = {}

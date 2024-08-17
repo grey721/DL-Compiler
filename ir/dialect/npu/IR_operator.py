@@ -5,6 +5,7 @@ import math
 
 
 class NpuConv2d(ConvBase):
+    Type = "NpuConv2d"
     fmi_size = None
     fmo_size = None
     weight_size = None
@@ -24,21 +25,21 @@ class NpuConv2d(ConvBase):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuConv2d"
         self.conv_type = 0
 
 
 class NpuActivation(Activation):
+    Type = "NpuActivation"
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuActivation"
 
     def shape_reverse_inference(self, address_list):
         return address_list
 
 
 class NpuLeakyRelu(NpuActivation):
+    Type = "NpuLeakyRelu"
     input_offset = None
     output_offset = None
     identity_output_multiplier = None
@@ -48,11 +49,11 @@ class NpuLeakyRelu(NpuActivation):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuLeakyRelu"
         self.lut_dict = None
 
 
 class NpuLogistic(NpuActivation):
+    Type = "NpuLogistic"
     input_offset = None
     input_multiplier = None
     output_offset = None
@@ -63,11 +64,11 @@ class NpuLogistic(NpuActivation):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuLogistic"
         self.lut_dict = None
 
 
 class NpuPool(Pool):
+    Type = "NpuPool"
     pad_top = None
     pad_bottom = None
     pad_left = None
@@ -75,27 +76,25 @@ class NpuPool(Pool):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuPool"
 
 
 class NpuResize(Resize):
+    Type = "NpuResize"
     ratio_w = None
     ratio_h = None
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuResize"
-
 
 class NpuConcat(Concat):
-
+    Type =  "NpuConcat"
     def __init__(self):
         super().__init__()
-        self.Name = "NpuConcat"
         self.main_input_tensor_id = None
 
 
 class NpuElemWise(ElemWise):
+    Type = "NpuElemWise"
     left_shift = None
     input_multiplier = None
     input_shift = None
@@ -111,74 +110,86 @@ class NpuElemWise(ElemWise):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuElemWise"
 
     def shape_reverse_inference(self, address_list):
         return address_list
 
 
+class NpuSplit(Split):
+    Device = "cpu"
+    TimeStep = None
+    Type = "NpuSplit"
+
+    def __init__(self):
+        super().__init__()
+
+
+    def set_time_step(self, time_step):
+        self.TimeStep = time_step
+
+
 class NpuReshape(Reshape):
+    Type ="NpuReshape"
     Device = "cpu"
     TimeStep = None
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuReshape"
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
 
 
 class NpuTranspose(Transpose):
+    Type = "NpuTranspose"
     Device = "cpu"
     TimeStep = None
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuTranspose"
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
 
 
 class NpuMean(Mean):
-
+    Type = "NpuMean"
     Device = "cpu"
     TimeStep = None
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuMean"
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
 
 
 class NpuSoftmax(NpuActivation):
+    Type = "NpuSoftmax"
     Device = "cpu"
     TimeStep = None
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuSoftmax"
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
 
 
 class NpuPad(Pad):
+    Type = "NpuPad"
     Device = "npu"
     TimeStep = None
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuPad"
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
 
 
 class NpuFullConnected(FullConnected):
+    Type = "NpuFullConnected"
     fmi_size = None
     fmo_size = None
     weight_size = None
@@ -193,10 +204,10 @@ class NpuFullConnected(FullConnected):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuFullConnected"
 
 
 class NpuOp(OpBase):
+    Type = "NpuOp"
     # NPU OP MODE
     NpuOpMode = None
     NpuShortCutMode = None
@@ -216,8 +227,8 @@ class NpuOp(OpBase):
     NpuOpActivate = False
     NpuOpActivateOp = None
 
-    NpuOpElemwise = False
-    NpuOpElemwiseOp = None
+    NpuOpElemWise = False
+    NpuOpElemWiseOp = None
 
     NpuOpPool = False
     NpuOpPoolOp = None
@@ -255,7 +266,7 @@ class NpuOp(OpBase):
         self.fmo_tensor = []
         self.weight_tensor = []
         self.concat_input_tensor = []
-        self.short_cut_out_tensor = []
+        self.short_cut_out_tensor = []  # 允许网络中的某些层直接跳过一些层与后续层相连?
         self.elemwise_input_tensor = []
         self.output_tensor_for_cancat = []
         self.concat_output = False
@@ -320,7 +331,7 @@ class NpuOp(OpBase):
                 if in_tensor not in npu_flow_tensor_record:
                     self.add_concat_input_tensor(in_tensor)
 
-        if self.NpuOpElemwise:
+        if self.NpuOpElemWise:
             npu_flow_tensor_record = []
             for npu_op in self.NpuOpFlow:
                 if not isinstance(npu_op, NpuElemWise):
@@ -329,16 +340,16 @@ class NpuOp(OpBase):
                 else:
                     break
 
-            for in_tensor in self.NpuOpElemwiseOp.InTensors:
+            for in_tensor in self.NpuOpElemWiseOp.InTensors:
                 if in_tensor not in npu_flow_tensor_record:
                     self.add_elemwise_input_tensor(in_tensor)
-                    elew_input_len = len(self.NpuOpElemwiseOp.InTensors)
+                    elew_input_len = len(self.NpuOpElemWiseOp.InTensors)
                     assert elew_input_len == 2
-                    other_inp_index = self.NpuOpElemwiseOp.InTensors.index(in_tensor)
+                    other_inp_index = self.NpuOpElemWiseOp.InTensors.index(in_tensor)
                     if other_inp_index == 0:
-                        self.NpuOpElemwiseOp.input_index_for_tflite = 1
+                        self.NpuOpElemWiseOp.input_index_for_tflite = 1
                     else:
-                        self.NpuOpElemwiseOp.input_index_for_tflite = 0
+                        self.NpuOpElemWiseOp.input_index_for_tflite = 0
 
     def set_short_cut_op(self):
         flow_len = len(self.NpuOpFlow)
@@ -348,23 +359,23 @@ class NpuOp(OpBase):
                     self.NpuOpShortCutOut = True
                     self.NpuOpShortCutOp = p
                     if isinstance(p, NpuActivation):
-                        vpu_add_out_mode = VpuAdditionOuputSelection()
+                        vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.ACTIVATION_SHORT_CUT_OUTPUT
 
                     if isinstance(p, NpuConv2d):
-                        vpu_add_out_mode = VpuAdditionOuputSelection()
+                        vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.INPUT_SHORT_CUT_OUTPUT
 
                     if isinstance(p, NpuPool):
-                        vpu_add_out_mode = VpuAdditionOuputSelection()
+                        vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.POOL_SHORT_CUT_OUTPUT
 
                     if isinstance(p, NpuResize):
-                        vpu_add_out_mode = VpuAdditionOuputSelection()
+                        vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.RESIZE_SHORT_CUT_OUTPUT
 
                     if isinstance(p, NpuElemWise):
-                        vpu_add_out_mode = VpuAdditionOuputSelection()
+                        vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.ELEW_SHORT_CUT_OUTPUT
 
     def init_all(self):
@@ -416,7 +427,7 @@ class VpuPostOpSetMode(object):
     RESIZE_ACTIVATION_ELW = 15
 
 
-class VpuAdditionOuputSelection(object):
+class VpuAdditionOutputSelection(object):
     INPUT_SHORT_CUT_OUTPUT = 0
     ACTIVATION_SHORT_CUT_OUTPUT = 1
     RESIZE_SHORT_CUT_OUTPUT = 2

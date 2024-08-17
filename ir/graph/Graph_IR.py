@@ -1,3 +1,4 @@
+from ir.dialect.npu.IR_operator import *
 from ir.dialect.top.IR_tensor import *
 
 
@@ -65,3 +66,18 @@ class GraphIR:
     def get_op_idx(self, op):
         if op in self.AllOps:
             return self.AllOps.index(op)
+
+    def get_npu_op(self, npu_op_id):  # TODO learn it
+        for npu_op in self.AllOps:
+            if isinstance(npu_op, NpuOp):
+                if npu_op.NpuOpId == npu_op_id:
+                    return npu_op
+
+            elif isinstance(npu_op, npu_op_group):
+                for op in npu_op.npu_op_list:
+                    if op.NpuOpId == npu_op_id:
+                        return op
+            else:
+                raise Exception(NotImplementedError)
+
+        raise ValueError
