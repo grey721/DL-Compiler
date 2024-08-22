@@ -1,7 +1,7 @@
 from codegen.utils import *
 from ir.graph.Graph_IR import *
 # from backend.ada200.ada200 import ada200
-from ir.conversion.optimize.ir_transform import _register_ir_transformation_rule
+from ir.conversion.optimization.ir_transform import _register_ir_transformation_rule
 from codegen.cimPreparingParam import *
 from codegen.perPreparingParamWithConv import *
 from codegen.vpuPreparingParam import *

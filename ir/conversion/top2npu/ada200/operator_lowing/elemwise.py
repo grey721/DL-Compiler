@@ -34,16 +34,18 @@ def _lowering_int8(op, net):
 
     if npu_elemwise.do_relu:
         npu_elemwise.quantized_activation_max, npu_elemwise.quantized_activation_min \
-            = get_activation_range(output_scale, npu_elemwise.output_offset, "RELU")
+            = get_activation_range(output_scale, npu_elemwise.output_offset, "SIGMOID")
     else:
         npu_elemwise.quantized_activation_max, npu_elemwise.quantized_activation_min \
             = get_activation_range(output_scale, npu_elemwise.output_offset, None)
 
     if op.Mode == ElementWiseMode.ELW_ADD or op.Mode == ElementWiseMode.ELW_SUB:
-        twice_input_scale = max(norm(input1_scale), norm(input_scale)) * 2
+        # TODO  real_input_scale不就变成单纯的倍数了？且其中一个固定为0.5
+        twice_input_scale = max(norm(input1_scale), norm(input_scale)) * 2  # 加法范围变成双倍
         real_input_scale = norm(input_scale) / twice_input_scale
         real_input1_scale = norm(input1_scale) / twice_input_scale
-        real_output_scale = twice_input_scale / (norm(output_scale) * (1 << 20))  # TODO ???
+        # TODO 为什么是 20
+        real_output_scale = twice_input_scale / (norm(output_scale) * (1 << 20))
         npu_elemwise.left_shift = 20
         npu_elemwise.input_multiplier, npu_elemwise.input_shift \
             = QuantizeMultiplier(real_input_scale)
@@ -58,6 +60,11 @@ def _lowering_int8(op, net):
             = QuantizeMultiplier(real_scale)
 
     if op.Mode == ElementWiseMode.ELW_DIV:
+        real_scale = norm(input_scale) / (norm(input1_scale) * norm(output_scale))
+        npu_elemwise.input_multiplier, npu_elemwise.input_shift \
+            = QuantizeMultiplier(real_scale)
+
+    if op.Mode == ElementWiseMode.ELW_POW:
         real_scale = norm(input_scale) / (norm(input1_scale) * norm(output_scale))
         npu_elemwise.input_multiplier, npu_elemwise.input_shift \
             = QuantizeMultiplier(real_scale)

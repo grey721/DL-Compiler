@@ -64,6 +64,35 @@ class Shape:  # 专门用于表示张量形状的class
             return [self.N, self.C, self.H, self.W]
 
 
+# TODO 讨论
+class ShapeSp:  # 专门用于表示特殊形状的张量
+    N = 1
+    C = None
+    H = None
+    W = None
+
+    def __init__(self, shape):
+        self.list = shape
+        dims = len(shape)
+        if dims == 5:
+            self.N, self.BoxNum, self.BoxInfo, self.fiH, self.fiW = shape
+
+    def get_shape(self):
+        return self.list
+
+    def __repr__(self):
+        return f"{self.list}"
+
+    def get_shape_as_np(self):
+        np_shape = np.zeros(5).astype(int)
+        np_shape[0] = self.N
+        np_shape[1] = self.BoxNum
+        np_shape[2] = self.BoxInfo
+        np_shape[3] = self.fiH
+        np_shape[4] = self.fiW
+        return np_shape
+
+
 class TensorType(object):
     Intermediate = 0
     Weight = 1

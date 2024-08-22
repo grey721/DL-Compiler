@@ -1,7 +1,7 @@
 from ir.graph.Graph_IR import *
 from ir.dialect.top.IR_tensor import *
 from ir.dialect.npu.IR_operator import *
-from ir.conversion.optimize.ir_transform import _register_ir_transformation_rule, \
+from ir.conversion.optimization.ir_transform import _register_ir_transformation_rule, \
     _find_pre_npu_op, \
     _find_post_npu_op
 # from backend.ada200.ada200 import ada200
@@ -178,7 +178,7 @@ def _update_concat_ops(net: GraphIR):
                             post_op_fmo_tensor = net.get_tensor(post_op.fmo_tensor[0])
                             concat_output_shape = post_op_fmo_tensor.Shape.get_shape_as_np()
                             concat_in_tensor_list = post_op.NpuOpConcatOp.InTensors
-                            op.add_output_tensor_for_cancat(output)  # 将当前张量标记为，为串联准备
+                            op.add_output_tensor_for_cancat(output)  # 将当前张量标记为下一个Op串联需要，为串联准备
                             op.concat_in_tensor_list = concat_in_tensor_list  # 记录下一个串联的输入列表
                             op.concat_output = True
                             op.concat_output_shape = concat_output_shape

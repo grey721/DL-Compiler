@@ -1,3 +1,5 @@
+import numpy as np
+
 from ir.conversion.top2npu.ada200.operator_lowing.base import OpTransformRule,  _register_op_transformation_rule
 from ir.conversion.top2npu.top_lowing import *
 from ir.dialect.npu.IR_operator import *
@@ -26,19 +28,22 @@ def _lowering_int8(op, net):
     input_scale = op.get_input_scale_numpy(net)
     output_scale = op.get_output_scale_numpy(net)
 
-    # TODO ?
+    # 浮点数Scale, 可以转换成Multiplier和rshift，替代传统的浮点数运算
+    # 使用乘法器 M 的目的是在整数运算中实现对原始浮点数乘法的近似。
+    # 这样，在执行矩阵乘法或其他涉及权重的运算时，可以通过整数乘法和后续的右移位操作来模拟浮点数的乘法。
     scale = norm(weight_scale) * norm(input_scale) / norm(output_scale)
     # bias + weight * input_zp
     weight = op.get_weight_numpy(net)
     zp = op.get_input_zero_point_numpy(net)
     bias = op.get_bias_numpy(net)
-
+    # TODO 溢出了 是否需要改为int32和int16存储offset？
     for oc in range(op.OutputShape[0].C):
         offset_sum = 0
         for ic in range(int(op.InputShape[0].C / op.Group)):
             for kh in range(op.KerH):
                 for kw in range(op.KerW):
                     offset_sum += weight[oc][kh][kw][ic] * zp[0]
+        # TODO 推导中为什么直接将B_3 换成了 B ?
         bias[oc] -= offset_sum
     NpuConv.BiasValue = bias
     NpuConv.WeightValue = NpuConv.get_weight_numpy(net)
@@ -61,7 +66,7 @@ def _lowering_int8(op, net):
 
     if NpuConv.do_relu:
         NpuConv.quantized_activation_max, NpuConv.quantized_activation_min \
-            = get_activation_range(output_scale, NpuConv.output_offset, "RELU")
+            = get_activation_range(output_scale, NpuConv.output_offset, "SIGMOID")
 
     # TODO 为什么还需要校验一下pad的形状
     OutputH = op.OutputShape[0].H

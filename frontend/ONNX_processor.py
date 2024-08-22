@@ -47,7 +47,7 @@ class ONNX2TopIR:
         # 解析
         self.fused_ops = []
         for n, op in enumerate(self.model.graph.node):
-            if self._get_op_code(op) not in FUSIBLE_OPs:  # 不会存在一个不可融合算子，也是OVERLAPPED吗？？？？？
+            if self._get_op_code(op) not in FUSIBLE_OPs:
                 self.fused_ops.append(op)
                 continue
             print(op.name, 'not in FUSIBLE_OPs')
@@ -98,7 +98,6 @@ class ONNX2TopIR:
         if isinstance(scale, np.ndarray):  # per-channel
             assert len(scale) == n
             for i in range(n):
-                # TODO 加/减 Z?
                 # tensor_int[i, ...]第一个维度为i，第二个维度开始的所有维度及其对应的数据。
                 tensor_int[i, ...] = tensor_float[i, ...] / scale[i] + zero_point[i]
         else:  # per-tensor
@@ -146,10 +145,15 @@ class ONNX2TopIR:
             ir_tensor.Shape.W = 1
         elif dims == 0:
             pass
+        # elif dims == 5:
+        #     # (x, y, w h,confidence)
+        #     # 批次，3个预测框，预选框信息，尺度且单位像素
+        # 维度i,j,f,k,v含义：第 i 张图，第 j 个锚框， 锚框的信息f，第 k 行单元格，第 v 列单元格
+        # 网格尺度有三种，小、中、大三个尺度检测目标对象
+
         else:
-            # (x, y, w h,confidence)
+            # ir_tensor.Shape = ShapeSp(tensor_shape)
             ir_tensor.Shape.N, ir_tensor.Shape.C, ir_tensor.Shape.H, ir_tensor.Shape.W, _ = tensor_shape
-            ir_tensor.Shape = tensor_shape
             print(f"张量{name}拥有未知的维度信息！{tensor_shape}")
 
         if self.quantization_config is None:
@@ -163,8 +167,7 @@ class ONNX2TopIR:
                 dominator = str(self.quantization_config["configs"][op.name][name]['dominator'])
 
                 ir_tensor.Scale = np.array([self.quantization_config["values"][dominator]['scale']])
-                ir_tensor.ZeroPoint = np.array([self.quantization_config["values"][dominator]['zero_point']]).astype(
-                    np.int8)
+                ir_tensor.ZeroPoint = np.array([self.quantization_config["values"][dominator]['zero_point']]).astype(np.int8)
                 ir_tensor.Q_min = np.array([self.quantization_config["configs"][op.name][name]['quant_min']])
                 ir_tensor.Q_max = np.array([self.quantization_config["configs"][op.name][name]['quant_max']])
 
@@ -340,7 +343,7 @@ class ONNX2TopIR:
             if self.graph.AllTensors[bias_tensor_id].Data is None:
                 for tensor in self.model.graph.initializer:
                     if tensor.name == in_tensors_name[2]:
-                        np_data, weights_dtype = get_np_data_from_attribute(tensor)
+                        np_data, dtype = get_np_data_from_attribute(tensor)
                         break
                 else:
                     raise NotImplementedError(f'无法找到{op.name}的偏置信息！')
@@ -356,6 +359,92 @@ class ONNX2TopIR:
 
         self.graph.insert_op(conv_op, op_idx)
         # print(conv_op)
+
+    def load_fullconnected(self, op, op_idx):
+        fc_op = FullConnected()
+
+        in_tensors_name = op.input
+        out_tensors_name = op.output
+
+        if self.quantization_config is None:
+            fea_name = in_tensors_name[0]
+            weight_name = in_tensors_name[1]
+            out_name = out_tensors_name[0]
+        else:
+            fea_name = self.quantization_config["configs"][op.name][in_tensors_name[0]]['hash']
+            weight_name = self.quantization_config["configs"][op.name][in_tensors_name[1]]['hash']
+            out_name = self.quantization_config["configs"][op.name][out_tensors_name[0]]['hash']
+
+        fea_tensor_id = self.graph.AllTensorIds.index(fea_name)
+        weight_tensor_id = self.graph.AllTensorIds.index(weight_name)
+        out_tensor_id = self.graph.AllTensorIds.index(out_name)
+
+        # 算子初始化
+        fc_op.Name = op.name
+        fc_op.TopOpId = op_idx
+
+        # 加载输入输出ID
+        fc_op.load_input_id(fea_tensor_id)
+        fc_op.load_input_id(weight_tensor_id)
+        fc_op.load_output_id(out_tensor_id)
+
+        self.graph.AllTensors[out_tensor_id].OwnerOp = op_idx
+        self.graph.AllTensors[fea_tensor_id].ConsumerOp = op_idx
+        self.graph.AllTensors[weight_tensor_id].Type = TensorType.Weight
+        self.graph.AllTensors[weight_tensor_id].ConsumerOp = op_idx
+
+        if self.graph.AllTensors[weight_tensor_id].Data is None:
+            for tensor in self.model.graph.initializer:
+                if tensor.name == in_tensors_name[1]:
+                    np_data, weights_dtype = get_np_data_from_attribute(tensor)
+                    break
+            else:
+                raise NotImplementedError(f'无法找到{op.name}的偏置信息！')
+            if self.quantization_config is None:
+                weight_data = np_data
+            else:
+                weight_data = self.quantize2int(np_data, weight_tensor_id, bit_width=8)
+            self.graph.get_tensor(weight_tensor_id).load_data(weight_data)
+
+        # 形状加载
+        fc_op.InputShape.append(self.graph.AllTensors[fea_tensor_id].Shape)
+        fc_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
+
+        weight_data = self.graph.AllTensors[weight_tensor_id].Data
+        outc, input_c = weight_data.shape
+        fc_op.OutputDim, output_c = len(weight_data.shape), self.graph.AllTensors[out_tensor_id].Shape.C
+        assert outc == output_c
+        assert fc_op.InputShape[0].C == input_c
+
+        if len(in_tensors_name) == 3:
+            if self.quantization_config is None:
+                bias_name = in_tensors_name[2]
+            else:
+                bias_name = self.quantization_config["configs"][op.name][in_tensors_name[2]]['hash']
+            bias_tensor_id = self.graph.AllTensorIds.index(bias_name)
+
+            self.graph.AllTensors[bias_tensor_id].Type = TensorType.Bias
+            self.graph.AllTensors[bias_tensor_id].ConsumerOp = op_idx
+            fc_op.load_input_id(bias_tensor_id)
+
+            if self.graph.AllTensors[bias_tensor_id].Data is None:
+                for tensor in self.model.graph.initializer:
+                    if tensor.name == in_tensors_name[2]:
+                        np_data, dtype = get_np_data_from_attribute(tensor)
+                        break
+                else:
+                    raise NotImplementedError(f'无法找到{op.name}的偏置信息！')
+                if self.quantization_config is None:
+                    bias_data = np_data
+                else:
+                    bias_data = self.quantize2int(np_data, weight_tensor_id, bit_width=32)
+                self.graph.AllTensors[bias_tensor_id].load_data(bias_data)  # bias_data_int32
+
+            fc_op.Bias = True
+        else:
+            fc_op.Bias = False
+
+        self.graph.insert_op(fc_op, op_idx)
 
     def load_pool(self, op, op_idx, op_code):
         in_tensors_name = op.input
@@ -522,20 +611,8 @@ class ONNX2TopIR:
         transpose_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
         transpose_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
 
-        # NHWC模式下的转置，后续可能直接通过调用Shape各属性现成排序成NHWC所以直接在这里调整好转置顺序
         # ints的顺序与Numpy中的transpose用法一致
-        transpose_op.OutDimOrder = [op.attribute[0].ints[0],
-                                    op.attribute[0].ints[3],
-                                    op.attribute[0].ints[1],
-                                    op.attribute[0].ints[2]]
-        out_dim = []
-        for i in op.attribute[0].ints:
-            if i < 4:
-                out_dim.append(axis_map[i])  # 调整成 NHWC
-            else:
-                out_dim.append(i)
-
-        transpose_op.OutDimOrder = out_dim
+        transpose_op.OutDimOrder = arr = np.array(op.attribute[0].ints)
 
         self.graph.insert_op(transpose_op, op_idx)
 
@@ -585,10 +662,7 @@ class ONNX2TopIR:
             self.graph.AllTensors[shape_tensor_id].load_data(np_data)
 
         np_data = self.graph.AllTensors[shape_tensor_id].Data
-        reshape_op.Target = [np_data[0],
-                             np_data[2],
-                             np_data[3],
-                             np_data[1]]
+        reshape_op.Target = np_data
 
         assert np_data[0] == reshape_op.OutputShape[0].N
         assert np_data[1] == reshape_op.OutputShape[0].C
@@ -674,7 +748,7 @@ class ONNX2TopIR:
                     np_scales, scales_dtype = get_np_data_from_attribute(tensor)
                     break
             else:
-                raise NotImplementedError(f'无法找到{op.name}的设置信息！')
+                raise NotImplementedError(f'无法找到"{op.name}"的设置信息"{in_tensors_name[1]}"！')
             self.graph.AllTensors[resize_tensor_id].load_data(np_scales)
 
         np_scales = self.graph.AllTensors[resize_tensor_id].Data
@@ -913,6 +987,8 @@ class ONNX2TopIR:
 
             else:
                 print(f"Unhandled operator:{op_code}")
+
+            print(self.graph.AllOps[-1])
 
         if unsupported:
             raise NotImplementedError(f"\nUnsupported operator:{unsupported}\n总计: {len(unsupported)}种")

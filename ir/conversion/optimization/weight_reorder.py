@@ -1,6 +1,6 @@
 from ir.graph.Graph_IR import *
 from ir.dialect.npu.IR_operator import *
-from ir.conversion.optimize.ir_transform import _register_ir_transformation_rule
+from ir.conversion.optimization.ir_transform import _register_ir_transformation_rule
 import multiprocessing
 from enum import Enum
 import math
@@ -456,7 +456,8 @@ def _weight_mapping_multi_procss(net: GraphIR):
 
 
 # weight_mapping_pass
-weight_mapping_transform = []
-weight_mapping_transform.append(TransformRule.WEIGHT_PADDING)
-# weight_mapping_transform.append(TransformRule.WEIGHT_MAPPING)
-weight_mapping_transform.append(TransformRule.WEIGHT_MAPPING_MULTI_PROCSS)
+weight_mapping_transform = [TransformRule.WEIGHT_PADDING,
+                            # weight_mapping_transform.append(TransformRule.WEIGHT_MAPPING)
+                            TransformRule.WEIGHT_MAPPING_MULTI_PROCSS
+                            ]
+

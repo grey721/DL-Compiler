@@ -10,7 +10,7 @@ class NpuIRTensor(IRTensor):
     # from_shared_memory = True
     # from_global_memory = False
 
-    # TODO Learn it
+
     def __init__(self, top_ir_tensor=None):
         super().__init__()
         self.Name = "npu_ir_tensor"

@@ -232,27 +232,27 @@ class ElemWise(OpBase):
     # return 2 * fmi_size
     def get_input0_scale_numpy(self, graph):
         assert len(self.InTensors), f'No input in {self.Name}'
-        return graph.Alltenors[self.InTensors[0]].Scale
+        return graph.AllTensors[self.InTensors[0]].Scale
 
     def get_input0_zero_point_numpy(self, graph):
         assert len(self.InTensors), f'No input in {self.Name}'
-        return graph.Alltenors[self.InTensors[0]].ZeroPoint
+        return graph.AllTensors[self.InTensors[0]].ZeroPoint
 
     def get_input1_scale_numpy(self, graph):
         assert len(self.InTensors), f'No input in {self.Name}'
-        return graph.Alltenors[self.InTensors[1]].Scale
+        return graph.AllTensors[self.InTensors[1]].Scale
 
     def get_input1_zero_point_numpy(self, graph):
         assert len(self.InTensors), f'No input in {self.Name}'
-        return graph.Alltenors[self.InTensors[1]].ZeroPoint
+        return graph.AllTensors[self.InTensors[1]].ZeroPoint
 
     def get_output_scale_numpy(self, graph):
         assert len(self.OutTensors), f'No output in {self.Name}'
-        return graph.Alltenors[self.OutTensors[0]].Scale
+        return graph.AllTensors[self.OutTensors[0]].Scale
 
     def get_output_zero_point_numpy(self, graph):
         assert len(self.OutTensors), f'No output in {self.Name}'
-        return graph.Alltenors[self.OutTensors[0]].ZeroPoint
+        return graph.AllTensors[self.OutTensors[0]].ZeroPoint
 
     def shape_inference(self) -> list:
         return [self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
@@ -329,30 +329,30 @@ class ConvBase(OpBase):
 
     def get_input_scale_numpy(self, graph):
         assert len(self.InTensors)
-        return graph.Alltenors[self.InTensors[0]].Scale
+        return graph.AllTensors[self.InTensors[0]].Scale
 
     def get_output_scale_numpy(self, graph):
         assert len(self.OutTensors)
-        return graph.Alltenors[self.OutTensors[0]].Scale
+        return graph.AllTensors[self.OutTensors[0]].Scale
 
     def get_input_zero_point_numpy(self, graph):
         assert len(self.InTensors)
-        return graph.Alltenors[self.InTensors[0]].ZeroPoint
+        return graph.AllTensors[self.InTensors[0]].ZeroPoint
 
     def get_output_zero_point_numpy(self, graph):
         assert len(self.OutTensors)
-        return graph.Alltenors[self.OutTensors[0]].ZeroPoint
+        return graph.AllTensors[self.OutTensors[0]].ZeroPoint
 
     def get_weight_scale_numpy(self, graph):
         assert len(self.InTensors)
-        return graph.Alltenors[self.InTensors[1]].Scale
+        return graph.AllTensors[self.InTensors[1]].Scale
 
     # def GetQuantWeightZeroPointNumpy(self):
     #     return self.InTensors[1].ZeroPoint
 
     def get_bias_scale_numpy(self, graph):
         if self.Bias:
-            return graph.Alltenors[self.InTensors[2]].Scale
+            return graph.AllTensors[self.InTensors[2]].Scale
         return None
 
     # 推断经过padding和卷积后图像的新形状
@@ -403,8 +403,7 @@ class FullConnected(OpBase):
     BiasValue = None
     WeightsFormat = 0
     FusedActFunc = 0
-    # TODO learn
-    KeepNumDims = False
+    KeepNumDims = False  # 参数维度固定，需要输入固定数量
     do_relu = False
 
     def __init__(self):
@@ -624,7 +623,7 @@ class Concat(OpBase):
     Axis = None
     FusedActFunc = False
 
-    # TODO what this
+    # TODO ？
     # quant_param
     RescaleInput = -1
 
@@ -802,9 +801,44 @@ class Split(OpBase):
 class Mean(OpBase):
     Type = "Mean"
     axis = None
-    keep_dims = None  # 输出数据的维度与原始输入数据的维度相同
+    keep_dims = None  # 输出数据的维度与原始输入数据的维度相同，否者该维度长度将为1？
 
     def __init__(self):
         super().__init__()
         self.Name = None
 
+
+# TODO
+class OpShape(OpBase):
+    Type = "Shape"
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+
+
+class Unsqueeze(OpBase):
+    Type = "Unsqueeze"
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+
+
+class Floor(OpBase):
+    Type = "Floor"
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None
+
+
+class Slice(OpBase):
+    Type = "Slice"
+    start = None
+    end = None
+    axis = None
+
+    def __init__(self):
+        super().__init__()
+        self.Name = None

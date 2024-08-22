@@ -1,6 +1,6 @@
 from ir.graph.Graph_IR import *
 from ir.dialect.npu.IR_operator import *
-from ir.conversion.optimize.ir_transform import _find_post_op, _find_pre_op, \
+from ir.conversion.optimization.ir_transform import _find_post_op, _find_pre_op, \
     _register_ir_transformation_rule, \
     _copy_opbase_input_info, \
     _copy_opbase_output_info, \
@@ -619,12 +619,12 @@ def _post_fuse_activation_single(net: GraphIR):
 @_register_ir_transformation_rule(TransformRule.NPU_CONV_ACTIVATION_POOL)
 def _post_fuse_activation_pool(net: GraphIR):
     print("-----TransformRule NPU_CONV_ACTIVATION_POOL-----")
-    iter = 0
+    i = 0
     tensor_record = []
     for op in net.AllOps:
         _update_tensor_record(tensor_record, op)
-        print("iter: ", iter, op.Name)
-        iter += 1
+        print("iter: ", i, op.Name)
+        i += 1
         if isinstance(op, NpuConv2d):
             flag = False
             mode = -1
@@ -664,30 +664,25 @@ def _post_fuse_activation_pool(net: GraphIR):
                     for op_post_acti in pool_ops:
                         if isinstance(op_post_acti, NpuPool):
                             post_acti_pool_num += 1
+                        elif isinstance(op_post_acti, NpuConcat):
+                            if _check_post_op_only_conv_or_out(net, op_post_acti):
+                                post_acti_concat_num += 1
+                        elif isinstance(op_post_acti, NpuElemWise):
+                            if _check_post_op_only_conv_or_out(net, op_post_acti):
+                                post_acti_elw_num += 1
+                        elif isinstance(op_post_acti, NpuConv2d) \
+                                or isinstance(op_post_acti, NpuOp):
+                            post_acti_conv_num += 1
                         else:
-                            if isinstance(op_post_acti, NpuConcat):
-                                if _check_post_op_only_conv_or_out(net, op_post_acti):
-                                    post_acti_concat_num += 1
-                            else:
-                                if isinstance(op_post_acti, NpuElemWise):
-                                    if _check_post_op_only_conv_or_out(net, op_post_acti):
-                                        post_acti_elw_num += 1
-
-                                elif isinstance(op_post_acti, NpuConv2d) \
-                                        or isinstance(op_post_acti, NpuOp):
-                                    post_acti_conv_num += 1
-
-                                else:
-                                    post_acti_other_num += 1
+                            post_acti_other_num += 1
                     for op_post_pool in post_pool_ops:
                         if isinstance(op_post_pool, NpuConv2d) or isinstance(op_post_pool, NpuOp):
                             post_pool_conv_num += 1
+                        elif isinstance(op_post_pool, NpuConcat):
+                            if _check_post_op_only_conv_or_out(net, op_post_pool):
+                                post_pool_concat_num += 1
                         else:
-                            if isinstance(op_post_pool, NpuConcat):
-                                if _check_post_op_only_conv_or_out(net, op_post_pool):
-                                    post_pool_concat_num += 1
-                            else:
-                                post_pool_other_num += 1
+                            post_pool_other_num += 1
 
                     print("post_acti_pool_num: ", post_acti_pool_num)
                     print("post_acti_concat_num: ", post_acti_concat_num)
@@ -707,15 +702,12 @@ def _post_fuse_activation_pool(net: GraphIR):
                 op_id = net.get_op_idx(op)
                 if post_acti_concat_num + post_acti_elw_num + post_pool_concat_num == 0:
                     mode = 0
-                else:
-                    if (post_acti_concat_num + post_acti_elw_num) > 0 and post_pool_concat_num == 0:
-                        mode = 1
-                    else:
-                        if (post_acti_concat_num + post_acti_elw_num) == 0 and post_pool_concat_num > 0:
-                            mode = 2
-                        else:
-                            if (post_acti_concat_num + post_acti_elw_num) > 0 and post_pool_concat_num > 0:
-                                mode = 3
+                elif (post_acti_concat_num + post_acti_elw_num) > 0 and post_pool_concat_num == 0:
+                    mode = 1
+                elif (post_acti_concat_num + post_acti_elw_num) == 0 and post_pool_concat_num > 0:
+                    mode = 2
+                elif (post_acti_concat_num + post_acti_elw_num) > 0 and post_pool_concat_num > 0:
+                    mode = 3
                 print("mode: ", mode)
                 npu_op = NpuOp()
                 npu_op.InTensors = op.InTensors
@@ -765,12 +757,12 @@ def _post_fuse_activation_pool(net: GraphIR):
 @_register_ir_transformation_rule(TransformRule.NPU_CONV_ACTIVATION_ELW)
 def _post_fuse_activation_pool(net: GraphIR):
     print("-----TransformRule NPU_CONV_ACTIVATION_ELW-----")
-    iter = 0
+    i = 0
     tensor_record = []
     for op in net.AllOps:
         _update_tensor_record(tensor_record, op)
-        print("iter: ", iter, op.Name)
-        iter += 1
+        print("iter: ", i, op.Name)
+        i += 1
         if isinstance(op, NpuConv2d):
             flag = False
             mode = -1
@@ -810,58 +802,50 @@ def _post_fuse_activation_pool(net: GraphIR):
                     for op_post_acti in elw_ops:
                         if isinstance(op_post_acti, NpuElemWise):
                             post_acti_elw_num += 1
+                        elif isinstance(op_post_acti, NpuConcat):
+                            if _check_post_op_only_conv_or_out(net, op_post_acti):
+                                post_acti_concat_num += 1
+                        elif isinstance(op_post_acti, NpuPool):
+                            if _check_post_op_only_conv_or_out(net, op_post_acti):
+                                post_acti_pool_num += 1
+                        elif isinstance(op_post_acti, (NpuConv2d, NpuOp)):
+                            post_acti_conv_num += 1
                         else:
-                            if isinstance(op_post_acti, NpuConcat):
-                                if _check_post_op_only_conv_or_out(net, op_post_acti):
-                                    post_acti_concat_num += 1
-                            else:
-                                if isinstance(op_post_acti, NpuPool):
-                                    if _check_post_op_only_conv_or_out(net, op_post_acti):
-                                        post_acti_pool_num += 1
+                            post_acti_other_num += 1
 
-                                elif isinstance(op_post_acti, NpuConv2d) \
-                                        or isinstance(op_post_acti, NpuOp):
-                                    post_acti_conv_num += 1
+            for op_post_elw in post_elw_ops:
+                if isinstance(op_post_elw, NpuConv2d) or isinstance(op_post_elw, NpuOp):
+                    post_elw_conv_num += 1
+                elif isinstance(op_post_elw, NpuConcat):
+                    if _check_post_op_only_conv_or_out(net, op_post_elw):
+                        post_elw_concat_num += 1
+                else:
+                    post_elw_other_num += 1
 
-                                else:
-                                    post_acti_other_num += 1
-                    for op_post_elw in post_elw_ops:
-                        if isinstance(op_post_elw, NpuConv2d) or isinstance(op_post_elw, NpuOp):
-                            post_elw_conv_num += 1
-                        else:
-                            if isinstance(op_post_elw, NpuConcat):
-                                if _check_post_op_only_conv_or_out(net, op_post_elw):
-                                    post_elw_concat_num += 1
-                            else:
-                                post_elw_other_num += 1
+            print("post_acti_elw_num: ", post_acti_elw_num)
+            print("post_acti_concat_num: ", post_acti_concat_num)
+            print("post_acti_pool_num: ", post_acti_pool_num)
+            print("post_acti_conv_num: ", post_acti_conv_num)
+            print("post_acti_other_num: ", post_acti_other_num)
+            print("post_elw_conv_num: ", post_elw_conv_num)
+            print("post_elw_concat_num: ", post_elw_concat_num)
+            print("post_elw_other_num: ", post_elw_other_num)
 
-                    print("post_acti_elw_num: ", post_acti_elw_num)
-                    print("post_acti_concat_num: ", post_acti_concat_num)
-                    print("post_acti_pool_num: ", post_acti_pool_num)
-                    print("post_acti_conv_num: ", post_acti_conv_num)
-                    print("post_acti_other_num: ", post_acti_other_num)
-                    print("post_elw_conv_num: ", post_elw_conv_num)
-                    print("post_elw_concat_num: ", post_elw_concat_num)
-                    print("post_elw_other_num: ", post_elw_other_num)
-
-                    if post_acti_other_num == 0 and post_elw_other_num == 0 and \
-                            post_acti_elw_num > 0:
-                        flag = True
+            if post_acti_other_num == 0 and post_elw_other_num == 0 and \
+                    post_acti_elw_num > 0:
+                flag = True
 
             print("flag: ", flag)
             if flag:
                 op_id = net.get_op_idx(op)
                 if post_acti_concat_num + post_acti_pool_num + post_elw_concat_num == 0:
                     mode = 0
-                else:
-                    if (post_acti_concat_num + post_acti_pool_num) > 0 and post_elw_concat_num == 0:
-                        mode = 1
-                    else:
-                        if (post_acti_concat_num + post_acti_pool_num) == 0 and post_elw_concat_num > 0:
-                            mode = 2
-                        else:
-                            if (post_acti_concat_num + post_acti_pool_num) > 0 and post_elw_concat_num > 0:
-                                mode = 3
+                elif (post_acti_concat_num + post_acti_pool_num) > 0 and post_elw_concat_num == 0:
+                    mode = 1
+                elif (post_acti_concat_num + post_acti_pool_num) == 0 and post_elw_concat_num > 0:
+                    mode = 2
+                elif (post_acti_concat_num + post_acti_pool_num) > 0 and post_elw_concat_num > 0:
+                    mode = 3
                 print("mode: ", mode)
                 npu_op = NpuOp()
                 npu_op.InTensors = op.InTensors
@@ -912,12 +896,12 @@ def _post_fuse_activation_pool(net: GraphIR):
 @_register_ir_transformation_rule(TransformRule.NPU_CONV_POOL)
 def _post_fuse_pool_single(net: GraphIR):
     print("-----TransformRule NPU_CONV_POOL-----")
-    iter = 0
+    i = 0
     tensor_record = []
     for _op_id, op in enumerate(net.AllOps):
         _update_tensor_record(tensor_record, op)
-        print("iter: ", iter, op.Name)
-        iter += 1
+        print("iter: ", i, op.Name)
+        i += 1
         if isinstance(op, NpuConv2d):
             flag = False
             mode = -1
@@ -942,20 +926,19 @@ def _post_fuse_pool_single(net: GraphIR):
                                 conv_ops.append(post_pool_op)
                                 conv_op_ids.append(post_pool_op_id_idx)
                                 continue
+                            elif isinstance(post_pool_op, NpuConcat):
+                                concat_flag = True
+                                post_concat_op_ids = _find_post_op(net, post_pool_op)
+                                for post_concat_op_ids_idx in post_concat_op_ids:
+                                    post_concat_op = net.get_op(post_concat_op_ids_idx)
+                                    if not isinstance(post_concat_op, NpuConv2d):
+                                        concat_flag = False
+                                if concat_flag:
+                                    concat_ops.append(post_pool_op)
+                                    concat_op_ids.append(post_pool_op_id_idx)
+                                continue
                             else:
-                                if isinstance(post_pool_op, NpuConcat):
-                                    concat_flag = True
-                                    post_concat_op_ids = _find_post_op(net, post_pool_op)
-                                    for post_concat_op_ids_idx in post_concat_op_ids:
-                                        post_concat_op = net.get_op(post_concat_op_ids_idx)
-                                        if not isinstance(post_concat_op, NpuConv2d):
-                                            concat_flag = False
-                                    if concat_flag:
-                                        concat_ops.append(post_pool_op)
-                                        concat_op_ids.append(post_pool_op_id_idx)
-                                    continue
-                                else:
-                                    other_ops.append(post_pool_op)
+                                other_ops.append(post_pool_op)
 
                         print(len(concat_ops), len(conv_ops), len(other_ops))
                         if ((len(concat_ops) > 0) or (len(conv_ops) > 0)) and (len(other_ops) == 0):
@@ -1008,10 +991,10 @@ def _post_fuse_pool_single(net: GraphIR):
 @_register_ir_transformation_rule(TransformRule.NPU_CONV_POOL_ACTIVATION)
 def _post_fuse_pool_activation(net: GraphIR):
     print("-----TransformRule NPU_CONV_POOL_ACTIVATION-----")
-    iter = 0
+    i = 0
     for op in net.AllOps:
-        print("iter: ", iter, op.Name)
-        iter += 1
+        print("iter: ", i, op.Name)
+        i += 1
         if isinstance(op, NpuConv2d):
             flag = False
             mode = -1
@@ -1049,32 +1032,26 @@ def _post_fuse_pool_activation(net: GraphIR):
                     for op_post_pool in acti_ops:
                         if isinstance(op_post_pool, NpuActivation):
                             post_pool_acti_num += 1
+                        elif isinstance(op_post_pool, NpuConcat):
+                            if _check_post_op_only_conv_or_out(net, op_post_pool):
+                                post_pool_concat_num += 1
+                        elif isinstance(op_post_pool, NpuElemWise):
+                            if _check_post_op_only_conv_or_out(net, op_post_pool):
+                                post_pool_elw_num += 1
+                        elif isinstance(op_post_pool, (NpuOp, NpuConv2d)):
+                            post_pool_conv_num += 1
                         else:
-                            if isinstance(op_post_pool, NpuConcat):
-                                if _check_post_op_only_conv_or_out(net, op_post_pool):
-                                    post_pool_concat_num += 1
-                            else:
-                                if isinstance(op_post_pool, NpuElemWise):
-                                    if _check_post_op_only_conv_or_out(net, op_post_pool):
-                                        post_pool_elw_num += 1
-
-                                elif isinstance(op_post_pool, NpuOp) \
-                                        or isinstance(op_post_pool, NpuConv2d):
-                                    post_pool_conv_num += 1
-
-                                else:
-                                    post_pool_other_num += 1
+                            post_pool_other_num += 1
 
                     print(len(post_acti_ops))
                     for op_post_acti in post_acti_ops:
                         if isinstance(op_post_acti, NpuConv2d) or isinstance(op_post_acti, NpuOp):
                             post_acti_conv_num += 1
+                        elif isinstance(op_post_acti, NpuConcat):
+                            if _check_post_op_only_conv_or_out(net, op_post_acti):
+                                post_acti_concat_num += 1
                         else:
-                            if isinstance(op_post_acti, NpuConcat):
-                                if _check_post_op_only_conv_or_out(net, op_post_acti):
-                                    post_acti_concat_num += 1
-                            else:
-                                post_acti_other_num += 1
+                            post_acti_other_num += 1
                     print("post_pool_acti_num: ", post_pool_acti_num)
                     print("post_pool_concat_num: ", post_pool_concat_num)
                     print("post_pool_elw_num: ", post_pool_elw_num)
@@ -1152,10 +1129,10 @@ def _post_fuse_pool_activation(net: GraphIR):
 @_register_ir_transformation_rule(TransformRule.NPU_CONV_POOL_ELW)
 def _post_fuse_pool_elw(net: GraphIR):
     print("-----TransformRule NPU_CONV_POOL_ELW-----")
-    iter = 0
+    i = 0
     for op in net.AllOps:
-        print("iter: ", iter, op.Name)
-        iter += 1
+        print("iter: ", i, op.Name)
+        i += 1
         if isinstance(op, NpuConv2d):
             flag = False
             mode = -1
@@ -1192,26 +1169,23 @@ def _post_fuse_pool_elw(net: GraphIR):
                     for op_post_pool in elw_ops:
                         if isinstance(op_post_pool, NpuElemWise):
                             post_pool_elw_num += 1
+                        elif isinstance(op_post_pool, NpuConcat):
+                            if _check_post_op_only_conv_or_out(net, op_post_pool):
+                                post_pool_concat_num += 1
+                        elif isinstance(op_post_pool, NpuActivation):
+                            if _check_post_op_only_conv_or_out(net, op_post_pool):
+                                post_pool_acti_num += 1
                         else:
-                            if isinstance(op_post_pool, NpuConcat):
-                                if _check_post_op_only_conv_or_out(net, op_post_pool):
-                                    post_pool_concat_num += 1
-                            else:
-                                if isinstance(op_post_pool, NpuActivation):
-                                    if _check_post_op_only_conv_or_out(net, op_post_pool):
-                                        post_pool_acti_num += 1
-                                else:
-                                    post_pool_other_num += 1
+                            post_pool_other_num += 1
                     print(len(post_elw_ops))
                     for op_post_elw in post_elw_ops:
                         if isinstance(op_post_elw, NpuConv2d) or isinstance(op_post_elw, NpuOp):
                             post_elw_conv_num += 1
+                        elif isinstance(op_post_elw, NpuConcat):
+                            if _check_post_op_only_conv_or_out(net, op_post_elw):
+                                post_elw_concat_num += 1
                         else:
-                            if isinstance(op_post_elw, NpuConcat):
-                                if _check_post_op_only_conv_or_out(net, op_post_elw):
-                                    post_elw_concat_num += 1
-                            else:
-                                post_elw_other_num += 1
+                            post_elw_other_num += 1
                     print("post_pool_elw_num: ", post_pool_elw_num)
                     print("post_pool_concat_num: ", post_pool_concat_num)
                     print("post_pool_acti_num: ", post_pool_acti_num)
@@ -1229,15 +1203,13 @@ def _post_fuse_pool_elw(net: GraphIR):
                 op_id = net.get_op_idx(op)
                 if post_pool_concat_num + post_pool_acti_num + post_elw_concat_num == 0:
                     mode = 0
-                else:
-                    if (post_pool_concat_num + post_pool_acti_num) > 0 and post_elw_concat_num == 0:
-                        mode = 1
-                    else:
-                        if (post_pool_concat_num + post_pool_acti_num) == 0 and post_elw_concat_num > 0:
-                            mode = 2
-                        else:
-                            if (post_pool_concat_num + post_pool_acti_num) > 0 and post_elw_concat_num > 0:
-                                mode = 3
+                elif (post_pool_concat_num + post_pool_acti_num) > 0 and post_elw_concat_num == 0:
+                    mode = 1
+                elif (post_pool_concat_num + post_pool_acti_num) == 0 and post_elw_concat_num > 0:
+                    mode = 2
+                elif (post_pool_concat_num + post_pool_acti_num) > 0 and post_elw_concat_num > 0:
+                    mode = 3
+
                 print("mode: ", mode)
                 npu_op = NpuOp()
                 npu_op.InTensors = op.InTensors
@@ -1358,26 +1330,23 @@ def _post_fuse_three_op(net: GraphIR, op_pattern):
             for post_op1_op in op2_ops:
                 if isinstance(post_op1_op, op2):
                     post_op1_op2_num += 1
+                elif isinstance(post_op1_op, NpuConcat):
+                    if _check_post_op_only_conv_or_out(net, post_op1_op):
+                        post_op1_concat_num += 1
+                elif isinstance(post_op1_op, NpuElemWise):
+                    if _check_post_op_only_conv_or_out(net, post_op1_op):
+                        post_op1_elw_num += 1
                 else:
-                    if isinstance(post_op1_op, NpuConcat):
-                        if _check_post_op_only_conv_or_out(net, post_op1_op):
-                            post_op1_concat_num += 1
-                    else:
-                        if isinstance(post_op1_op, NpuElemWise):
-                            if _check_post_op_only_conv_or_out(net, post_op1_op):
-                                post_op1_elw_num += 1
-                        else:
-                            post_op1_other_num += 1
+                    post_op1_other_num += 1
             print(len(post_op2_ops))
             for op_post_op2 in post_op2_ops:
                 if isinstance(op_post_op2, NpuConv2d) or isinstance(op_post_op2, NpuOp):
                     post_op2_conv_num += 1
+                elif isinstance(op_post_op2, NpuConcat):
+                    if _check_post_op_only_conv_or_out(net, op_post_op2):
+                        post_op2_concat_num += 1
                 else:
-                    if isinstance(op_post_op2, NpuConcat):
-                        if _check_post_op_only_conv_or_out(net, op_post_op2):
-                            post_op2_concat_num += 1
-                    else:
-                        post_op2_other_num += 1
+                    post_op2_other_num += 1
             print("post_op1_op2_num: ", post_op1_op2_num)
             print("post_op1_concat_num: ", post_op1_concat_num)
             print("post_op1_elw_num: ", post_op1_elw_num)
@@ -1395,15 +1364,12 @@ def _post_fuse_three_op(net: GraphIR, op_pattern):
                 op_id = net.get_op_idx(op)
                 if post_op1_concat_num + post_op1_elw_num + post_op2_concat_num == 0:
                     mode = 0
-                else:
-                    if (post_op1_concat_num + post_op1_elw_num) > 0 and post_op2_concat_num == 0:
-                        mode = 1
-                    else:
-                        if (post_op1_concat_num + post_op1_elw_num) == 0 and post_op2_concat_num > 0:
-                            mode = 2
-                        else:
-                            if (post_op1_concat_num + post_op1_elw_num) > 0 and post_op2_concat_num > 0:
-                                mode = 3
+                elif (post_op1_concat_num + post_op1_elw_num) > 0 and post_op2_concat_num == 0:
+                    mode = 1
+                elif (post_op1_concat_num + post_op1_elw_num) == 0 and post_op2_concat_num > 0:
+                    mode = 2
+                elif (post_op1_concat_num + post_op1_elw_num) > 0 and post_op2_concat_num > 0:
+                    mode = 3
                 print("mode: ", mode)
                 npu_op = NpuOp()
                 npu_op.InTensors = op.InTensors
@@ -1576,7 +1542,6 @@ def _post_fuse_three_op(net: GraphIR, op_pattern):
                 npu_op.NpuOpFlow.append(op1_ops[0])
                 npu_op.NpuOpFlow.append(op2_ops[0])
 
-                post_op2_concat_op = None
                 if mode == 1 or mode == 3:
                     # npu_op.NpuOpResizeOut = True
                     pass
@@ -1688,10 +1653,10 @@ def _post_fuse_compose_pool_activation_elw(net: GraphIR):
 @_register_ir_transformation_rule(TransformRule.NPU_CONV_ACTIVATION_RESIZE)
 def _post_fuse_activation_resize(net: GraphIR):
     print("-----TransformRule NPU_CONV_ACTIVATION_RESIZE-----")
-    iter = 0
+    i = 0
     for op in net.AllOps:
-        print("iter: ", iter, op.Name)
-        iter += 1
+        print("iter: ", i, op.Name)
+        i += 1
         if isinstance(op, NpuConv2d):
             flag = False
             mode = -1
@@ -1728,26 +1693,23 @@ def _post_fuse_activation_resize(net: GraphIR):
                     for op_post_acti in resize_ops:
                         if isinstance(op_post_acti, NpuResize):
                             post_acti_resize_num += 1
+                        elif isinstance(op_post_acti, NpuConcat):
+                            if _check_post_op_only_conv_or_out(net, op_post_acti):
+                                post_acti_concat_num += 1
+                        elif isinstance(op_post_acti, NpuElemWise):
+                            if _check_post_op_only_conv_or_out(net, op_post_acti):
+                                post_acti_elw_num += 1
                         else:
-                            if isinstance(op_post_acti, NpuConcat):
-                                if _check_post_op_only_conv_or_out(net, op_post_acti):
-                                    post_acti_concat_num += 1
-                            else:
-                                if isinstance(op_post_acti, NpuElemWise):
-                                    if _check_post_op_only_conv_or_out(net, op_post_acti):
-                                        post_acti_elw_num += 1
-                                else:
-                                    post_acti_other_num += 1
+                            post_acti_other_num += 1
                     print(len(post_resize_ops))
                     for op_post_resize in post_resize_ops:
                         if isinstance(op_post_resize, NpuConv2d) or isinstance(op_post_resize, NpuOp):
                             post_resize_conv_num += 1
+                        elif isinstance(op_post_resize, NpuConcat):
+                            if _check_post_op_only_conv_or_out(net, op_post_resize):
+                                post_resize_concat_num += 1
                         else:
-                            if isinstance(op_post_resize, NpuConcat):
-                                if _check_post_op_only_conv_or_out(net, op_post_resize):
-                                    post_resize_concat_num += 1
-                            else:
-                                post_resize_other_num += 1
+                            post_resize_other_num += 1
                     print("post_acti_resize_num: ", post_acti_resize_num)
                     print("post_acti_concat_num: ", post_acti_concat_num)
                     print("post_acti_elw_num: ", post_acti_elw_num)
@@ -1765,15 +1727,12 @@ def _post_fuse_activation_resize(net: GraphIR):
                 op_id = net.get_op_idx(op)
                 if post_acti_concat_num + post_acti_elw_num + post_resize_concat_num == 0:
                     mode = 0
-                else:
-                    if (post_acti_concat_num + post_acti_elw_num) > 0 and post_resize_concat_num == 0:
-                        mode = 1
-                    else:
-                        if (post_acti_concat_num + post_acti_elw_num) == 0 and post_resize_concat_num > 0:
-                            mode = 2
-                        else:
-                            if (post_acti_concat_num + post_acti_elw_num) > 0 and post_resize_concat_num > 0:
-                                mode = 3
+                elif (post_acti_concat_num + post_acti_elw_num) > 0 and post_resize_concat_num == 0:
+                    mode = 1
+                elif (post_acti_concat_num + post_acti_elw_num) == 0 and post_resize_concat_num > 0:
+                    mode = 2
+                elif (post_acti_concat_num + post_acti_elw_num) > 0 and post_resize_concat_num > 0:
+                    mode = 3
                 print("mode: ", mode)
                 npu_op = NpuOp()
                 npu_op.InTensors = op.InTensors

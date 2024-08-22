@@ -8,7 +8,7 @@ from ir.conversion.top2npu.ada200.operator_lowing.pool import *
 from ir.conversion.top2npu.ada200.operator_lowing.pad import *
 
 # TODO
-# from ir.conversion.top2npu.ada200.operator_lowing.conv import *
+from ir.conversion.top2npu.ada200.operator_lowing.conv import *
 # from ir.conversion.top2npu.ada200.operator_lowing.resize import *
 # from ir.conversion.top2npu.ada200.operator_lowing.logistic import *
 # from ir.conversion.top2npu.ada200.operator_lowing.elemwise import *
@@ -24,12 +24,12 @@ lowing_ada200_list = [
     OpTransformRule.RESHAPE_LOWERING,
     OpTransformRule.CONCAT_LOWERING,
     OpTransformRule.SPLIT_LOWERING,
+    OpTransformRule.CONV_LOWERING,
     OpTransformRule.POOL_LOWERING,
     OpTransformRule.MEAM_LOWERING,
     OpTransformRule.PAD_LOWERING,
     # TODO
     # OpTransformRule.RESIZE_LOWERING,
-    # OpTransformRule.CONV_LOWERING,
     # OpTransformRule.ELEMWISE_LOWERING,
     # OpTransformRule.LOGISTIC_LOWERING
     # TODO 以后实现

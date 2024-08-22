@@ -67,7 +67,7 @@ class GraphIR:
         if op in self.AllOps:
             return self.AllOps.index(op)
 
-    def get_npu_op(self, npu_op_id):  # TODO learn it
+    def get_npu_op(self, npu_op_id):
         for npu_op in self.AllOps:
             if isinstance(npu_op, NpuOp):
                 if npu_op.NpuOpId == npu_op_id:

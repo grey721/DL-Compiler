@@ -3,6 +3,5 @@
 *.pt
 .venv/
 .idea/
-/frontend/tool/__pycache__/
-/frontend/__pycache__/
+__pycache__/
 assets/
