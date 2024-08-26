@@ -35,7 +35,7 @@ def make_list_array(shape):  # 创建相应shape的矩阵列表
         return array
 
 
-def IntToBin(number, index, feature=True):
+def int2bin(number, index, feature=True):
     """
     index为该数据位宽,number为待转换数据,
     feature为True则进行十进制转二进制,为False则进行二进制转十进制。
@@ -61,14 +61,14 @@ def IntToBin(number, index, feature=True):
             return i
 
 
-def StrToInt(nums):
+def str2int(nums):
     tem = []
     for i in nums:
         tem.append(int(i))
     return tem
 
 
-def binTohex(binNums, bit_nums):  # bit_nums是bin的位数
+def bin2hex(binNums, bit_nums):  # bit_nums是bin的位数
     nums = bit_nums / 4
     res = hex(int(binNums, 2))   # 这里的 2 表示 binNums 是按照二进制表示的
     res = res.split("0x")[-1]
@@ -77,12 +77,12 @@ def binTohex(binNums, bit_nums):  # bit_nums是bin的位数
     return res
 
 
-def tensorToBintensor(tensor):
-    tensor_tem = make_list_array([tensor.shape[0]])
+def tensor2bin_tensor(tensor):  # 保持第一个维度不变，其他维度展开
+    tensor_tem = make_list_array([tensor.shape[0]])  # 返回一个有shape[0]个空列表的列表
     for i in range(tensor.shape[0]):
         for j in range(tensor.shape[1]):
-            nums = IntToBin(tensor[i][j], 8, feature=True)  # 10to2,8位
-            nums = StrToInt(nums)
+            nums = int2bin(tensor[i][j], 8, feature=True)  # 10to2,8位
+            nums = str2int(nums)
             tensor_tem[i].append(nums)
     tensor_tem = np.array(tensor_tem).astype(np.int8)
     tensor_tem = tensor_tem.reshape(tensor_tem.shape[0], -1)
@@ -90,7 +90,7 @@ def tensorToBintensor(tensor):
     return tensor_tem
 
 
-def tensorToHextensor(weight, sparsity_tensor):
+def tensor2hex_tensor(weight, sparsity_tensor):
     tensor_tem = []
     shape = weight.shape
     shape = [shape[0], shape[1], shape[2], shape[3], int(shape[4] * shape[5] / 8) + 24]
@@ -102,8 +102,8 @@ def tensorToHextensor(weight, sparsity_tensor):
         n = 0
         string = ''
         for j in range(weight.shape[1]):
-            number = IntToBin(weight[i][j], 8, feature=True)
-            number = binTohex(number, 8)
+            number = int2bin(weight[i][j], 8, feature=True)
+            number = bin2hex(number, 8)
             string = number + string
             n += 1
             if n == 8:
@@ -113,7 +113,7 @@ def tensorToHextensor(weight, sparsity_tensor):
 
         sparsity_string = ''
         for j in range(sparsity_tensor.shape[1]):
-            number = IntToBin(sparsity_tensor[i][j], 3, feature=True)
+            number = int2bin(sparsity_tensor[i][j], 3, feature=True)
             sparsity_string += number
         # n = 0
         # string = ''
@@ -121,7 +121,7 @@ def tensorToHextensor(weight, sparsity_tensor):
         #     string += st
         #     n += 1
         #     if n == 64:
-        #         number = binTohex(string, 64)
+        #         number = bin2hex(string, 64)
         #         tensor_tem.append(number)
         #         n = 0
         #         string = ''
@@ -132,7 +132,7 @@ def tensorToHextensor(weight, sparsity_tensor):
             for i in range(int(len(sparsity_string) / 3)):
                 string += sparsity_string[i * 3 + 2 - k]
             for j in range(int(len(string) / 64)):
-                number = binTohex(string[j * 64:(j + 1) * 64], 64)
+                number = bin2hex(string[j * 64:(j + 1) * 64], 64)
                 reverse_number = ""
                 for z in range(int(len(number) / 2)):
                     reverse_number = number[z * 2:(z * 2) + 2] + reverse_number
@@ -200,12 +200,12 @@ def cluster_format(weight, cluster_psum, cim_psum, split_c, frist_layer):
 
 def sparsity_class(weight):
     shape = weight.shape
-    weight = weight.reshape(-1, shape[-2], shape[-1])
+    weight = weight.reshape(-1, shape[-2], shape[-1])  # NHWC
     sparsity_tensor = []
     for i in range(weight.shape[0]):
         cim_tem = np.zeros([256, 16]).astype(np.int8)
         cim_tem[:shape[-2], :] = weight[i]
-        cim_tem = tensorToBintensor(cim_tem).reshape([4, 64, 128])
+        cim_tem = tensor2bin_tensor(cim_tem).reshape([4, 64, 128])
         # cim_tem = np.transpose(cim_tem,(0,2,1))
         for ii in range(4):
             for jj in range(128):
@@ -250,8 +250,8 @@ def add_bais_shift_quatization(shape, res, max, min, output_offset,
                     n = 0
                     string = ''
                     for ch in range(16):
-                        bin = IntToBin(BiasValue_tem[m * 16 + ch], 32, feature=True)
-                        hex_nums = binTohex(bin, 32)
+                        bin = int2bin(BiasValue_tem[m * 16 + ch], 32, feature=True)
+                        hex_nums = bin2hex(bin, 32)
                         string = hex_nums + string
                         n += 1
                         if n == 2:
@@ -263,8 +263,8 @@ def add_bais_shift_quatization(shape, res, max, min, output_offset,
                     n = 0
                     string = ''
                     for ch in range(16):
-                        bin = IntToBin(output_multiplier_tem[m * 16 + ch], 32, feature=True)
-                        hex_nums = binTohex(bin, 32)
+                        bin = int2bin(output_multiplier_tem[m * 16 + ch], 32, feature=True)
+                        hex_nums = bin2hex(bin, 32)
                         string = hex_nums + string
                         n += 1
                         if n == 2:
@@ -275,8 +275,8 @@ def add_bais_shift_quatization(shape, res, max, min, output_offset,
                     n = 0
                     string = ''
                     for ch in range(16):
-                        bin = IntToBin(output_shift_tem[m * 16 + ch], 8, feature=True)
-                        hex_nums = binTohex(bin, 8)
+                        bin = int2bin(output_shift_tem[m * 16 + ch], 8, feature=True)
+                        hex_nums = bin2hex(bin, 8)
                         string = hex_nums + string
                         n += 1
                         if n == 8:
@@ -284,14 +284,14 @@ def add_bais_shift_quatization(shape, res, max, min, output_offset,
                             n = 0
                             string = ''
 
-                    string = IntToBin(0, 40, feature=True)
-                    bin = IntToBin(max, 8, feature=True)
+                    string = int2bin(0, 40, feature=True)
+                    bin = int2bin(max, 8, feature=True)
                     string += bin
-                    bin = IntToBin(min, 8, feature=True)
+                    bin = int2bin(min, 8, feature=True)
                     string += bin
-                    bin = IntToBin(output_offset[0], 8, feature=True)
+                    bin = int2bin(output_offset[0], 8, feature=True)
                     string += bin
-                    hex_nums = binTohex(string, 64)
+                    hex_nums = bin2hex(string, 64)
                     new_res.append(hex_nums)
 
     shape = [[shape[0], shape[1], shape[2], shape[3], shape[4]], [shape[1], int(out_ch * (19) / 16)]]
@@ -299,8 +299,8 @@ def add_bais_shift_quatization(shape, res, max, min, output_offset,
     return shape, new_res
 
 
-manager = multiprocessing.Manager()
-weight_dict = manager.dict()
+# manager = multiprocessing.Manager()
+# weight_dict = manager.dict()
 
 
 def wm(op: block_param):
@@ -323,7 +323,7 @@ def wm(op: block_param):
     weight_format.append(weight.shape)
     sparsity_tensor = sparsity_class(weight)
     weight_format.append(sparsity_tensor.shape)
-    shape, res = tensorToHextensor(weight, sparsity_tensor)
+    shape, res = tensor2hex_tensor(weight, sparsity_tensor)
     weight_format.append(shape)
     shape, res = add_bais_shift_quatization(shape, res, 127, -128, output_offset,
                                             output_shift, output_multiplier, BiasValue)
@@ -420,7 +420,7 @@ def _weight_mapping(net: GraphIR):
                     weight_format.append(weight.shape)
                     sparsity_tensor = sparsity_class(weight)
                     weight_format.append(sparsity_tensor.shape)
-                    shape, res = tensorToHextensor(weight, sparsity_tensor)
+                    shape, res = tensor2hex_tensor(weight, sparsity_tensor)
                     weight_format.append(shape)
                     shape, res = add_bais_shift_quatization(shape, res, 127, -128, output_offset, \
                                                             output_shift, output_multiplier, BiasValue)
@@ -461,4 +461,5 @@ weight_mapping_transform = [TransformRule.WEIGHT_PADDING,
                             # weight_mapping_transform.append(TransformRule.WEIGHT_MAPPING)
                             TransformRule.WEIGHT_MAPPING_MULTI_PROCSS
                             ]
-
+# if __name__ == "__main__":
+#     sparsity_class()
