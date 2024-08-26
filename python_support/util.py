@@ -199,7 +199,7 @@ def toPolling(x, polling_bit=8 * 8, in_bit=8, bank_num=4):
                     # x[i][j][z*channls_per_polling+k*nums_per_polling:z*channls_per_polling+(k+1)*nums_per_polling]
                     # n+=nums_per_polling
                     bank[k].append(x[i][j][z * channls_per_polling + k * nums_per_polling:z * channls_per_polling + (
-                                k + 1) * nums_per_polling])
+                            k + 1) * nums_per_polling])
                     n += nums_per_polling
 
     return np.array(bank[0]), np.array(bank[1]), np.array(bank[2]), np.array(bank[3])

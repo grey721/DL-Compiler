@@ -1,7 +1,7 @@
-from codegen.utils import *
+from ir.codegen.utils import *
 
 
-class VpuRegister():
+class VpuRegister:
     vpu_SF_para_vpu_fifo_group_sf_rst = 0
     vpu_SF_para_global_line_buffer_sf_rst = 1
     vpu_SF_para_sc_buffer_sf_rst = 2

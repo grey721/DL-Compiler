@@ -1,9 +1,9 @@
 from ir.conversion.top2npu.ada200.operator_lowing.base import OpTransformRule, _register_op_transformation_rule
 from ir.dialect.npu.IR_operator import *
 
-from python.vpu import *
-from python.memory import *
-from python.util import *
+from python_support.vpu import *
+from python_support.memory import *
+from python_support.util import *
 
 
 @_register_op_transformation_rule(OpTransformRule.LEAKYRELU_LOWERING)

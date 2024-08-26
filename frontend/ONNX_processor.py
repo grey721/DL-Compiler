@@ -54,7 +54,7 @@ class ONNX2TopIR:
             # TODO "OVERLAPPED"是什么状态？为什么跳过
             in_tensors_name = op.input
             state = self.quantization_config["configs"][op.name][in_tensors_name[0]]['state']
-            if state == "OVERLAPPED":  # 避免重复处理：在某些情况下，"OVERLAPPED"状态可能表示该算子已经以某种方式被处理过？
+            if state == "OVERLAPPED":  # 避免重复处理：在某些情况下，"OVERLAPPED"状态可能表示该算子已经以某种方式被处理过？好像中间变量都是OVERLAPPED？
                 continue
             self.fused_ops.append(op)
         print("Operators_len:", len(self.fused_ops))

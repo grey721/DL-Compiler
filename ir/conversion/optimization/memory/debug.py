@@ -20,7 +20,7 @@ def _npu_tensor_life_cycle_report(net: GraphIR):
                 block_id = op_block.npu_op_block_id
                 print("block_id: ", block_id)
 
-                ## shortcut_tensor
+                # shortcut_tensor
                 if op_block.NpuOp.NpuOpShortCutOut:
                     assert len(op_block.NpuOp.short_cut_out_tensor) == 1
                     short_cut_tensor_id = op_block.NpuOp.short_cut_out_tensor[0]
@@ -30,7 +30,7 @@ def _npu_tensor_life_cycle_report(net: GraphIR):
                                 short_cut_tensor.tensor_life_cycle_for_block_list)
                     print(tensor_info)
 
-                ## input_tensor
+                # input_tensor
                 input_tensor_info = op_block.get_input_tensor_info()
                 input_tensor_id = input_tensor_info['tensor_id']
                 group_block_id = input_tensor_info['group_block_id']
@@ -48,7 +48,7 @@ def _npu_tensor_life_cycle_report(net: GraphIR):
                                 imd_tensor_life_cycle)
                     print(tensor_info)
 
-                ## concat_input_tensor
+                # concat_input_tensor
                 if len(op_block.NpuOp.concat_input_tensor) > 0:
                     concat_input_tensor_id = op_block.get_concat_input_tensor_id()
                     concat_input_tensor = net.get_tensor(concat_input_tensor_id)

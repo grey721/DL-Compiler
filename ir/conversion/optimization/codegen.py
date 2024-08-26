@@ -1,18 +1,12 @@
-from codegen.utils import *
-from ir.graph.Graph_IR import *
 # from backend.ada200.ada200 import ada200
 from ir.conversion.optimization.ir_transform import _register_ir_transformation_rule
-from codegen.cimPreparingParam import *
-from codegen.perPreparingParamWithConv import *
-from codegen.vpuPreparingParam import *
-from ir.dialect.npu.IR_operator import *
-from codegen.getRegisterWithConv import getRegisterWithConv
-from codegen.getRegisterWithoutConv import getRegisterWithoutConv
+from ir.codegen.vpuPreparingParam import *
+from ir.codegen.getRegisterWithConv import getRegisterWithConv
+from ir.codegen.getRegisterWithoutConv import getRegisterWithoutConv
 from enum import Enum
 from frontend.tool.utils import *
 import copy
 import cv2
-from PIL import Image
 
 import json
 import datetime
@@ -999,10 +993,10 @@ def calculating_the_weight(npu_graph):
             memory_config.write(f'{dma_read_list[i][1]}\n')
             dma_read_shape = dma_read_list[i][3]
             dma_read_tem = image[dma_read_shape[0]:dma_read_shape[1] + dma_read_shape[0],
-                           dma_read_shape[2]:dma_read_shape[3] + dma_read_shape[2], \
+                           dma_read_shape[2]:dma_read_shape[3] + dma_read_shape[2],
                            dma_read_shape[4]:dma_read_shape[5] + dma_read_shape[4]]
             print([dma_read_shape[0], dma_read_shape[1] + dma_read_shape[0], dma_read_shape[2],
-                   dma_read_shape[3] + dma_read_shape[2], \
+                   dma_read_shape[3] + dma_read_shape[2],
                    dma_read_shape[4], dma_read_shape[5] + dma_read_shape[4]])
             dma_read_tem = fill_zero(dma_read_tem)
             dma_read_tem = [dma_read_tem.reshape(-1).tolist()]
@@ -1015,8 +1009,7 @@ def calculating_the_weight(npu_graph):
         with open(json_path, "r") as file:
             model_version = json.load(file)
     except:
-        model_version = {}
-        model_version[npu_graph.model_name] = npu_graph.model_name
+        model_version = {npu_graph.model_name: npu_graph.model_name}
     try:
         formatted_time = model_version[npu_graph.model_name]
     except:

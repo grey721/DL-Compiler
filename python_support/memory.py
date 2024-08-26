@@ -1,4 +1,5 @@
-from python.cmodel import *
+from python_support.cmodel import *
+
 
 class BASE_DATA(Structure):
     _fields_ = [("i8_data", POINTER(c_int8)),
@@ -49,9 +50,11 @@ class SHARED_MEMORY(Structure):
                 ("bank_num", c_int),
                 ("i64_data", POINTER(c_int64))]
 
+
 class LINE_BUFFER(Structure):
     _fields_ = [("memory_size", c_int),
                 ("i64_data", POINTER(c_int64))]
+
 
 class PSRAM(Structure):
     _fields_ = [("memory_size", c_int),
@@ -62,6 +65,7 @@ class MEMORY_DATA(Structure):
     _fields_ = [("shared_memory", SHARED_MEMORY),
                 ("line_buffer", LINE_BUFFER),
                 ("psram", PSRAM)]
+
 
 class MEMORY(Structure):
     _fields_ = [("memory_data", MEMORY_DATA),
@@ -89,9 +93,7 @@ memory_destory = lib.memory_destory
 memory_destory.argtypes = [POINTER(MEMORY)]
 memory_destory.restype = None
 
-
 if __name__ == "__main__":
-
     # py_values = [100]
     # base_data = BASE_DATA()
     # i32_input_data = (c_int32 * len(py_values))(*py_values)
@@ -106,25 +108,25 @@ if __name__ == "__main__":
     memory = MEMORY()
     memory_init(byref(memory))
 
-    psram_memory_size = memory.memory_data.psram.memory_size 
+    psram_memory_size = memory.memory_data.psram.memory_size
     py_values = [1] * psram_memory_size
     psram_data = (c_int64 * len(py_values))(*py_values)
     memmove(memory.memory_data.psram.i64_data, psram_data, sizeof(psram_data))
-    
+
     ##dma psram to shared_memory
     dma_before_share_memory_data_list = [memory.memory_data.shared_memory.i64_data[i] for i in range(10)]
-    dma_param = DMA_PARAM(0,10,0,10,0)
+    dma_param = DMA_PARAM(0, 10, 0, 10, 0)
     memory_dma(byref(memory), dma_param)
     dma_after_share_memory_data_list = [memory.memory_data.shared_memory.i64_data[i] for i in range(10)]
 
     ##dma shared_memory to psram
     dma_before_psram_data_list = [memory.memory_data.psram.i64_data[i] for i in range(10)]
-    dma_param = DMA_PARAM(0,10,10,10,1)
+    dma_param = DMA_PARAM(0, 10, 10, 10, 1)
     memory_dma(byref(memory), dma_param)
     dma_after_psram_data_list = [memory.memory_data.psram.i64_data[i] for i in range(10)]
 
     ##write data from memory
-    py_values = [1]*8
+    py_values = [1] * 8
     input_data = (c_int8 * len(py_values))(*py_values)
     base_data = BASE_DATA(input_data)
     buffer_len = len(py_values)
@@ -139,6 +141,3 @@ if __name__ == "__main__":
 
     memory_destory(byref(memory))
     print("---------------------------------------")
-
-
-

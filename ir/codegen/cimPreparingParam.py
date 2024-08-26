@@ -1,4 +1,4 @@
-from codegen.utils import *
+from ir.codegen.utils import *
 
 
 class CimClusterRegister():

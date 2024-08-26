@@ -1,6 +1,7 @@
-from python.cmodel import *
-from python.memory import BASE_DATA, MEMORY_ADDRES_MAP
-from python.util import Array2Txt_hwc
+from python_support.cmodel import *
+from python_support.memory import BASE_DATA, MEMORY_ADDRES_MAP
+from python_support.util import Array2Txt_hwc
+import numpy as np
 
 
 class DATA_RESHAPE_PARAM(Structure):
@@ -16,26 +17,26 @@ data_reshape_interface.restype = None
 
 
 def intput_bit_data_save_to_txt(input_bit_data, data_path):
-
     input_group_len = int(len(input_bit_data) / 8)
     _input_bit_data = []
     for i in range(input_group_len):
-        start_addr = i*8
-        end_addr = (i+1)*8
+        start_addr = i * 8
+        end_addr = (i + 1) * 8
         input_8_bit_data = input_bit_data[start_addr:end_addr]
         x = np.packbits(input_8_bit_data).astype(np.int8)[0]
         _input_bit_data.append(x)
 
     input_bit_data = np.array(_input_bit_data)
-    Array2Txt_hwc(input_bit_data, 8, 64, data_path) 
+    Array2Txt_hwc(input_bit_data, 8, 64, data_path)
+
 
 class DATA_RESHAPE(Structure):
     _fields_ = [("data_reshape_param", DATA_RESHAPE_PARAM),
                 ("input", MEMORY_ADDRES_MAP),
                 ("output", MEMORY_ADDRES_MAP)]
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     cluster_cim_num = 4
     bit_num = 8
     cluster_win_num = 1

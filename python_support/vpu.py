@@ -1,5 +1,5 @@
-from python.cmodel import *
-from python.memory import BASE_DATA, MEMORY_ADDRES_MAP
+from python_support.cmodel import *
+from python_support.memory import BASE_DATA, MEMORY_ADDRES_MAP
 
 
 class RELUX_PARAM(Structure):

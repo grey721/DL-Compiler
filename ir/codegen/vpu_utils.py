@@ -1,21 +1,21 @@
-from codegen.vpuPreparingParam import VpuRegister
+from ir.codegen.vpuPreparingParam import VpuRegister
 from ir.dialect.npu.IR_operator import *
 import math
-from codegen.utils import *
+from ir.codegen.utils import *
 
 
 def vpu_write_mode_gen(npuop, sub_vpu_addr, vpu_TOP_para_interface_write_mode, fmo_c, cluster_fmo_c, vpu_dict,
                        tot_bank=4):
-    if (tot_bank == 4):
+    if tot_bank == 4:
         if npuop.npu_psum_add:
             vpu_dict[vpu_TOP_para_interface_write_mode] = 0
-        elif (fmo_c == 16):
+        elif fmo_c == 16:
             vpu_dict[vpu_TOP_para_interface_write_mode] = 2
-        elif (fmo_c == 32 and cluster_fmo_c == 16):
+        elif fmo_c == 32 and cluster_fmo_c == 16:
             vpu_dict[vpu_TOP_para_interface_write_mode] = 3
-        elif (fmo_c == 64 and cluster_fmo_c == 16):
+        elif fmo_c == 64 and cluster_fmo_c == 16:
             vpu_dict[vpu_TOP_para_interface_write_mode] = 3
-        elif (fmo_c > 64 and cluster_fmo_c == 16):
+        elif fmo_c > 64 and cluster_fmo_c == 16:
             vpu_dict[vpu_TOP_para_interface_write_mode] = 3
         else:
             if npuop.int8_out and not npuop.NpuOp.NpuOpPool and not npuop.NpuOp.NpuOpResize:
@@ -33,8 +33,8 @@ def vpu_jump(l1_condition, l2_condition, l3_condition, l1_addr_step, l2_addr_ste
     if memory_padding:
         vpu_dict[VpuRegister.vpu_SF_para_odd_output_enable] = 1
 
-    if (tot_bank == 4):  # 32 Channels/ Addr
-        if (fmo_c == 16):  # 2 width pixal / Addr
+    if tot_bank == 4:  # 32 Channels/ Addr
+        if fmo_c == 16:  # 2 width pixal / Addr
             vpu_dict[vpu_TOP_para_interface_write_mode] = 2
             vpu_dict[l1_condition] = math.ceil(cluster_fmo_w / 2)
             vpu_dict[l2_condition] = cluster_fmo_h
@@ -43,8 +43,8 @@ def vpu_jump(l1_condition, l2_condition, l3_condition, l1_addr_step, l2_addr_ste
             vpu_dict[l1_addr_step] = 1
             vpu_dict[l2_addr_step] = math.ceil(fmo_w * (fmo_c / 32))
             vpu_dict[l3_addr_step] = 0
-        elif (fmo_c == 32):
-            if (cluster_fmo_c == 16):
+        elif fmo_c == 32:
+            if cluster_fmo_c == 16:
                 vpu_dict[vpu_TOP_para_interface_write_mode] = 3
                 vpu_dict[l1_condition] = cluster_fmo_w
                 vpu_dict[l2_condition] = cluster_fmo_h
@@ -54,7 +54,7 @@ def vpu_jump(l1_condition, l2_condition, l3_condition, l1_addr_step, l2_addr_ste
                 vpu_dict[l2_addr_step] = int(int(fmo_w * (fmo_c / 32)))
                 vpu_dict[l3_addr_step] = 0
 
-            elif (cluster_fmo_c == 32):
+            elif cluster_fmo_c == 32:
 
                 vpu_dict[l1_condition] = cluster_fmo_w
                 vpu_dict[l2_condition] = cluster_fmo_h
@@ -64,8 +64,8 @@ def vpu_jump(l1_condition, l2_condition, l3_condition, l1_addr_step, l2_addr_ste
                 vpu_dict[l2_addr_step] = int(int(fmo_w * (fmo_c / 32)))
                 vpu_dict[l3_addr_step] = 0
 
-        elif (fmo_c == 64):
-            if (cluster_fmo_c == 16):
+        elif fmo_c == 64:
+            if cluster_fmo_c == 16:
                 vpu_dict[vpu_TOP_para_interface_write_mode] = 3
                 vpu_dict[l1_condition] = cluster_fmo_w
                 vpu_dict[l2_condition] = cluster_fmo_h
@@ -74,7 +74,7 @@ def vpu_jump(l1_condition, l2_condition, l3_condition, l1_addr_step, l2_addr_ste
                 vpu_dict[l2_addr_step] = int(int(fmo_w * (fmo_c / 32)))
                 vpu_dict[l3_addr_step] = 0
 
-            elif (cluster_fmo_c == 32):
+            elif cluster_fmo_c == 32:
                 vpu_dict[l1_condition] = cluster_fmo_w
                 vpu_dict[l2_condition] = cluster_fmo_h
                 vpu_dict[l3_condition] = 1
@@ -82,7 +82,7 @@ def vpu_jump(l1_condition, l2_condition, l3_condition, l1_addr_step, l2_addr_ste
                 vpu_dict[l2_addr_step] = fmo_w * 2
                 vpu_dict[l3_addr_step] = 0
 
-            elif (cluster_fmo_c == 64):  # TB_Testing
+            elif cluster_fmo_c == 64:  # TB_Testing
                 vpu_dict[l1_condition] = cluster_fmo_w
                 vpu_dict[l2_condition] = cluster_fmo_h
                 vpu_dict[l3_condition] = 1
@@ -90,8 +90,8 @@ def vpu_jump(l1_condition, l2_condition, l3_condition, l1_addr_step, l2_addr_ste
                 vpu_dict[l2_addr_step] = int(int(fmo_w * (fmo_c / 32)))
                 vpu_dict[l3_addr_step] = 0
 
-        elif (fmo_c > 64):
-            if (cluster_fmo_c == 16):
+        elif fmo_c > 64:
+            if cluster_fmo_c == 16:
                 vpu_dict[vpu_TOP_para_interface_write_mode] = 3
                 vpu_dict[l1_condition] = cluster_fmo_w
                 vpu_dict[l2_condition] = cluster_fmo_h
@@ -101,7 +101,7 @@ def vpu_jump(l1_condition, l2_condition, l3_condition, l1_addr_step, l2_addr_ste
                 vpu_dict[l2_addr_step] = int(int(fmo_w * (fmo_c / 32)))
                 vpu_dict[l3_addr_step] = 0
 
-            elif (cluster_fmo_c == 32):  # TB_Testing
+            elif cluster_fmo_c == 32:  # TB_Testing
                 vpu_dict[l1_condition] = cluster_fmo_w
                 vpu_dict[l2_condition] = cluster_fmo_h
                 vpu_dict[l3_condition] = 1
@@ -110,7 +110,7 @@ def vpu_jump(l1_condition, l2_condition, l3_condition, l1_addr_step, l2_addr_ste
                 vpu_dict[l2_addr_step] = int(int(fmo_w * (fmo_c / 32)))
                 vpu_dict[l3_addr_step] = 0
 
-            elif (cluster_fmo_c == 64):  # TB_Testing
+            elif cluster_fmo_c == 64:  # TB_Testing
                 vpu_dict[l1_condition] = cluster_fmo_w
                 vpu_dict[l2_condition] = cluster_fmo_h
                 vpu_dict[l3_condition] = 1

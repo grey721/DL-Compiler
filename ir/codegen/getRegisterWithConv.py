@@ -1,13 +1,10 @@
-from codegen.utils import *
-from codegen.vpu_utils import *
-from ir.graph.Graph_IR import *
+from ir.codegen.vpu_utils import *
 # from ir.backend.ada200.ada200 import ada200
-from codegen.cimPreparingParam import *
-from codegen.perPreparingParamWithConv import *
-from codegen.vpuPreparingParam import *
+from ir.codegen.cimPreparingParam import *
+from ir.codegen.perPreparingParamWithConv import *
+from ir.codegen.vpuPreparingParam import *
 from ir.dialect.npu.IR_operator import *
 import copy
-from enum import Enum
 
 
 def getRegisterWithConv(npuop, path, nn_sb, _weight_, sub_block_register_list=None, input_output_dict=None,

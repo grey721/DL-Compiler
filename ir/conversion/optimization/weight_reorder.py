@@ -6,7 +6,7 @@ from enum import Enum
 import math
 
 
-def make_list_array(shape):
+def make_list_array(shape):  # 创建相应shape的矩阵列表
     lenth = len(shape)
     assert (lenth == 2 or lenth == 3 or lenth == 1)
     if lenth == 1:
@@ -35,44 +35,45 @@ def make_list_array(shape):
         return array
 
 
-def intToBin(number, index, feature=True):
-    '''index为该数据位宽,number为待转换数据,
+def IntToBin(number, index, feature=True):
+    """
+    index为该数据位宽,number为待转换数据,
     feature为True则进行十进制转二进制,为False则进行二进制转十进制。
-    '''
-    if (feature == True):  # 十进制转换为二进制
-        if (number >= 0):
+    """
+    if feature is True:  # 十进制转换为二进制
+        if number >= 0:
             b = bin(number)
-            b = '0' * (index + 2 - len(b)) + b
+            b = '0' * (index + 2 - len(b)) + b  # index + 2是因为bin(num)前两位为0b
         else:
-            b = 2 ** (index) + number
+            b = 2 ** index + number  # 2 ** index 表示2的index次幂，即index 位的全1二进制数
             b = bin(b)
             b = '1' * (index + 2 - len(b)) + b  # 注意这里算出来的结果是补码
         b = b.replace("0b", '')
         b = b.replace('-', '')
-
         return b
-    elif (feature == False):  # 二进制转换为十进制
+
+    elif feature is False:  # 二进制转换为十进制
         i = int(str(number), 2)
-        if (i >= 2 ** (index - 1)):  # 如果是负数
+        if i >= 2 ** (index - 1):  # 如果是负数
             i = -(2 ** index - i)
             return i
         else:
             return i
 
 
-def strToInt(nums):
+def StrToInt(nums):
     tem = []
     for i in nums:
         tem.append(int(i))
     return tem
 
 
-def binTohex(binNums, bit_nums):
+def binTohex(binNums, bit_nums):  # bit_nums是bin的位数
     nums = bit_nums / 4
-    res = hex(int(binNums, 2))
+    res = hex(int(binNums, 2))   # 这里的 2 表示 binNums 是按照二进制表示的
     res = res.split("0x")[-1]
     if len(res) != nums:
-        res = "0" * int(nums - len(res)) + res
+        res = "0" * int(nums - len(res)) + res  # 补零
     return res
 
 
@@ -80,8 +81,8 @@ def tensorToBintensor(tensor):
     tensor_tem = make_list_array([tensor.shape[0]])
     for i in range(tensor.shape[0]):
         for j in range(tensor.shape[1]):
-            nums = intToBin(tensor[i][j], 8, feature=True)
-            nums = strToInt(nums)
+            nums = IntToBin(tensor[i][j], 8, feature=True)  # 10to2,8位
+            nums = StrToInt(nums)
             tensor_tem[i].append(nums)
     tensor_tem = np.array(tensor_tem).astype(np.int8)
     tensor_tem = tensor_tem.reshape(tensor_tem.shape[0], -1)
@@ -101,7 +102,7 @@ def tensorToHextensor(weight, sparsity_tensor):
         n = 0
         string = ''
         for j in range(weight.shape[1]):
-            number = intToBin(weight[i][j], 8, feature=True)
+            number = IntToBin(weight[i][j], 8, feature=True)
             number = binTohex(number, 8)
             string = number + string
             n += 1
@@ -112,7 +113,7 @@ def tensorToHextensor(weight, sparsity_tensor):
 
         sparsity_string = ''
         for j in range(sparsity_tensor.shape[1]):
-            number = intToBin(sparsity_tensor[i][j], 3, feature=True)
+            number = IntToBin(sparsity_tensor[i][j], 3, feature=True)
             sparsity_string += number
         # n = 0
         # string = ''
@@ -215,15 +216,15 @@ def sparsity_class(weight):
                     sparsity_tensor.append(0)
                 elif nn == 1:
                     sparsity_tensor.append(1)
-                elif nn >= 2 and nn <= 3:
+                elif 2 <= nn <= 3:
                     sparsity_tensor.append(2)
-                elif nn >= 4 and nn <= 7:
+                elif 4 <= nn <= 7:
                     sparsity_tensor.append(3)
-                elif nn >= 8 and nn <= 15:
+                elif 8 <= nn <= 15:
                     sparsity_tensor.append(4)
-                elif nn >= 16 and nn <= 31:
+                elif 16 <= nn <= 31:
                     sparsity_tensor.append(5)
-                elif nn >= 32 and nn <= 63:
+                elif 32 <= nn <= 63:
                     sparsity_tensor.append(6)
                 elif nn == 64:
                     sparsity_tensor.append(7)
@@ -232,7 +233,7 @@ def sparsity_class(weight):
     return sparsity_tensor
 
 
-def add_bais_shift_quatization(shape, res, max, min, output_offset, \
+def add_bais_shift_quatization(shape, res, max, min, output_offset,
                                output_shift, output_multiplier, BiasValue):
     new_res = []
     out_ch = int(output_multiplier.shape[0] / shape[1])
@@ -249,7 +250,7 @@ def add_bais_shift_quatization(shape, res, max, min, output_offset, \
                     n = 0
                     string = ''
                     for ch in range(16):
-                        bin = intToBin(BiasValue_tem[m * 16 + ch], 32, feature=True)
+                        bin = IntToBin(BiasValue_tem[m * 16 + ch], 32, feature=True)
                         hex_nums = binTohex(bin, 32)
                         string = hex_nums + string
                         n += 1
@@ -262,7 +263,7 @@ def add_bais_shift_quatization(shape, res, max, min, output_offset, \
                     n = 0
                     string = ''
                     for ch in range(16):
-                        bin = intToBin(output_multiplier_tem[m * 16 + ch], 32, feature=True)
+                        bin = IntToBin(output_multiplier_tem[m * 16 + ch], 32, feature=True)
                         hex_nums = binTohex(bin, 32)
                         string = hex_nums + string
                         n += 1
@@ -274,7 +275,7 @@ def add_bais_shift_quatization(shape, res, max, min, output_offset, \
                     n = 0
                     string = ''
                     for ch in range(16):
-                        bin = intToBin(output_shift_tem[m * 16 + ch], 8, feature=True)
+                        bin = IntToBin(output_shift_tem[m * 16 + ch], 8, feature=True)
                         hex_nums = binTohex(bin, 8)
                         string = hex_nums + string
                         n += 1
@@ -283,12 +284,12 @@ def add_bais_shift_quatization(shape, res, max, min, output_offset, \
                             n = 0
                             string = ''
 
-                    string = intToBin(0, 40, feature=True)
-                    bin = intToBin(max, 8, feature=True)
+                    string = IntToBin(0, 40, feature=True)
+                    bin = IntToBin(max, 8, feature=True)
                     string += bin
-                    bin = intToBin(min, 8, feature=True)
+                    bin = IntToBin(min, 8, feature=True)
                     string += bin
-                    bin = intToBin(output_offset[0], 8, feature=True)
+                    bin = IntToBin(output_offset[0], 8, feature=True)
                     string += bin
                     hex_nums = binTohex(string, 64)
                     new_res.append(hex_nums)
@@ -324,7 +325,7 @@ def wm(op: block_param):
     weight_format.append(sparsity_tensor.shape)
     shape, res = tensorToHextensor(weight, sparsity_tensor)
     weight_format.append(shape)
-    shape, res = add_bais_shift_quatization(shape, res, 127, -128, output_offset, \
+    shape, res = add_bais_shift_quatization(shape, res, 127, -128, output_offset,
                                             output_shift, output_multiplier, BiasValue)
     weight_format.append(shape)
     # op.weight_mapping_dict["weight_format"] = weight_format
@@ -357,7 +358,7 @@ def _weight_padding(net: GraphIR):
                     k_n, k_h, k_w, k_c = weight.shape
 
                     if k_n % 16 != 0:
-                        assert op.output_block == True
+                        assert op.output_block is True
                         if k_n < 32:
                             n_k_n = 32
                         elif k_n < 64:
@@ -397,7 +398,7 @@ def _weight_mapping(net: GraphIR):
             if isinstance(op, block_param):
                 npu_conv_op = op.get_npu_conv_op()
                 if npu_conv_op is not None:
-                    if net.check_weight_tensor(op.npu_op_id) == True:
+                    if net.check_weight_tensor(op.npu_op_id) is True:
                         op.weight_mapping_dict["weight_format"] = net.get_weight_format(op.npu_op_id)
                         continue
 
@@ -450,7 +451,7 @@ def _weight_mapping_multi_procss(net: GraphIR):
 
         target_op.weight_mapping_dict["weight_format"] = weight_format
 
-        if net.check_weight_tensor(npu_op_id) != True:
+        if net.check_weight_tensor(npu_op_id) is not True:
             net.add_weight_tensor(npu_op_id, res)
             net.add_weight_format(weight_format)
 

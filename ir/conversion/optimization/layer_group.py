@@ -1,13 +1,13 @@
 from ir.graph.Graph_IR import *
+from ir.dialect.npu.IR_memory import *
 from ir.dialect.top.IR_tensor import *
 from ir.dialect.npu.IR_operator import *
-from ir.dialect.npu.IR_memory import *
-from ir.conversion.optimization.memory.base import *
-from ir.conversion.optimization.memory.allocation import *
-from ir.conversion.optimization.memory.life_cycle import *
-from ir.conversion.optimization.memory.debug import *
-from ir.conversion.optimization.memory.schedule import *
 from backend.ada200.ada200 import ada200
+from ir.conversion.optimization.memory.base import *
+# from ir.conversion.optimization.memory.debug import *
+# from ir.conversion.optimization.memory.schedule import *
+# from ir.conversion.optimization.memory.allocation import *
+# from ir.conversion.optimization.memory.life_cycle import *
 from ir.conversion.optimization.ir_transform import _register_ir_transformation_rule
 
 
@@ -23,12 +23,13 @@ def _gen_npu_op_group(net: GraphIR):
     skip_npu_op_id_list = []
     for sub_graph in net.SubGraphs:
         group_op_list = []
-        for npu_op_id in sub_graph:
+        for npu_op_id in sub_graph:  # 子图为一个组，重复op排除
             if npu_op_id not in skip_npu_op_id_list:
                 skip_npu_op_id_list.append(npu_op_id)
                 npu_op = net.get_npu_op(npu_op_id)
                 group_op_list.append(npu_op)
                 fmo_size_record.append(npu_op.NpuOpFmoSize)
+                # TODO 为什么大于反而跳过了，这块不懂
                 if npu_op.NpuOpFmoSize > backend.fmo_max_size:
                     continue
                 else:
@@ -37,18 +38,20 @@ def _gen_npu_op_group(net: GraphIR):
                     w_slice = 1
                     c_slice = 1
 
-                    while max_fmo_size / h_slice > npu_op.NpuOpFmoSize:
-                        h_slice = h_slice + 1
+                    while max_fmo_size / h_slice > npu_op.NpuOpFmoSize:  # max_fmo_size 在h轴上切片，保证NpuOpFmoSize是最大的
+                        h_slice += 1
 
                     first_npu_op = group_op_list[0]
-                    if first_npu_op.NpuOpConvOp.FirstLayer:
+                    if first_npu_op.NpuOpConvOp.FirstLayer:  # 如果该组的第一个也是网络的第一个
+                        # TODO ?为什么
                         firstLayer_fmisize = first_npu_op.NpuOpFmiSize / 3 * 8
                         if backend.first_layer_fmi_max_size < firstLayer_fmisize:
                             first_npu_op.fmi_from_global_memory = True
 
                         while backend.first_layer_fmi_max_size < firstLayer_fmisize / h_slice:
-                            h_slice = h_slice + 1
+                            h_slice += 1
 
+                    # TODO ?写错了？两个都是H
                     if npu_op.NpuOpConv:
                         kh = npu_op.NpuOpConvOp.KerH
                         kw = npu_op.NpuOpConvOp.KerH
@@ -60,9 +63,9 @@ def _gen_npu_op_group(net: GraphIR):
 
                     else:
                         # 最大一行支持 512 x 128 bits，channel 只能够识别16
-                        ic = npu_op.InputC
-                        ih = npu_op.InputH
-                        iw = npu_op.InputW
+                        ic = npu_op.InputShape[0].C
+                        ih = npu_op.InputShape[0].H
+                        iw = npu_op.InputShape[0].W
 
                         assert ic % 16 == 0
                         assert ic <= 64
@@ -94,7 +97,7 @@ def _gen_npu_op_group(net: GraphIR):
                     print("npu_op_group_id:", npu_op_group_id)
                     print("block_split_mode:", h_slice, w_slice, c_slice)
 
-                    npu_op_group_id = npu_op_group_id + 1
+                    npu_op_group_id += 1
                     group_op_list = []
                     fmo_size_record = []
 
@@ -102,12 +105,13 @@ def _gen_npu_op_group(net: GraphIR):
 
 
 # layer_group_pass
-layer_group_transform = [TransformRule.GEN_NPU_OP_TIME_STEP,
+# TODO 内存分配相关，目前需要实现？可否移至 memory_assign.py中
+layer_group_transform = [# TransformRule.GEN_NPU_OP_TIME_STEP,
                          TransformRule.GEN_NPU_OP_GROUP,
-                         TransformRule.GEN_NPU_TENSOR_LIFE_CYCLE,
-                         TransformRule.UPDATE_CONCAT_TENSOR_LIFE_CYCLE,
-                         TransformRule.NPU_TENSOR_LIFE_CYCLE_REPORT,
-                         TransformRule.NPU_MEMORY_SCHEDULE,
-                         TransformRule.NPU_MEMORY_ALLOCATION,
-                         TransformRule.CHECK_BLOCK_AND_TILE_SHAPE
+                         # TransformRule.GEN_NPU_TENSOR_LIFE_CYCLE,
+                         # TransformRule.UPDATE_CONCAT_TENSOR_LIFE_CYCLE,
+                         # TransformRule.NPU_TENSOR_LIFE_CYCLE_REPORT,
+                         # TransformRule.NPU_MEMORY_SCHEDULE,
+                         # TransformRule.NPU_MEMORY_ALLOCATION,
+                         # TransformRule.CHECK_BLOCK_AND_TILE_SHAPE
                          ]

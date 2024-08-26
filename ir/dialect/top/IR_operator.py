@@ -310,7 +310,7 @@ class ConvBase(OpBase):
         assert len(self.InTensors)
         weight_tensor = self.InTensors[1]
         weight = graph.AllTensors[weight_tensor].Data
-        # TODO 为什么？(2, 0, 1, 3)，len == 2 说明什么？
+        # TODO 为什么？最终sTranspose为(2, 0, 1, 3)，什么情况下len == 2？
         if len(weight.shape) == 2:
             weight = np.transpose(weight, (1, 0))
             # axis：这是你想要增加新维度的位置。axis=0意味着新维度将被添加到张量的最前面。

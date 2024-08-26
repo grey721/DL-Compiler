@@ -1,12 +1,9 @@
-from codegen.utils import *
-from codegen.vpu_utils import *
-from ir.graph.Graph_IR import *
-# from compiler.backend.ada200.ada200 import ada200
-from codegen.cimPreparingParam import *
-from codegen.perPreparingParamWithoutConv import *
-from codegen.vpuPreparingParam import *
+from ir.codegen.vpu_utils import *
+# from backend.ada200.ada200 import ada200
+from ir.codegen.cimPreparingParam import *
+from ir.codegen.perPreparingParamWithoutConv import *
+from ir.codegen.vpuPreparingParam import *
 from ir.dialect.npu.IR_operator import *
-from enum import Enum
 
 
 def getRegisterWithoutConv(npuop, path, nn_sb, _weight_, sub_block_register_list=None, input_output_dict=None):

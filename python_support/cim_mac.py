@@ -1,6 +1,6 @@
-from python.cmodel import *
-from python.memory  import *
-from python.cluster_cim  import *
+from python_support.cmodel import *
+from python_support.memory import *
+from python_support.cluster_cim import *
 
 
 class QUANT_PARAM(Structure):
@@ -12,6 +12,7 @@ class QUANT_PARAM(Structure):
                 ("quantized_activation_min", c_int),
                 ("quantized_activation_max", c_int)]
 
+
 class CIM_MAC_PARAM(Structure):
     _fields_ = [("cols", c_int),
                 ("rows", c_int),
@@ -19,9 +20,11 @@ class CIM_MAC_PARAM(Structure):
                 ("sraw_row_width", c_int),
                 ("sraw_col_width", c_int)]
 
+
 class CIM_MAC_ACC_PARAM(Structure):
     _fields_ = [("bit_map", c_int),
                 ("acc_flag", c_int)]
+
 
 class CIM_MAC(Structure):
     _fields_ = [("cim_mac_param", CIM_MAC_PARAM),

@@ -62,7 +62,7 @@ def _update_tensor_life_cycle_for_block_list(input_tensor, op_block):
 
 def _update_tensor_life_cycle(net, tensor_id, op_block):
 
-    tensor = net.get_tensor(tensor_id)
+    tensor = net.AllTensors[tensor_id]
     if not isinstance(tensor, NpuIRTensor):
         tensor = NpuIRTensor(tensor)
         _update_tensor_life_cycle_for_block_list(tensor, op_block)

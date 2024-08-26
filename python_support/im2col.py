@@ -1,7 +1,7 @@
-from python.cmodel import *
-from python.tile import *
-from python.memory import BASE_DATA, MEMORY_ADDRES_MAP
-from python.util import Array2Txt_hwc
+from python_support.cmodel import *
+from python_support.tile import *
+from python_support.memory import BASE_DATA, MEMORY_ADDRES_MAP
+from python_support.util import Array2Txt_hwc
 
 
 class IM2COL_PARAM(Structure):
@@ -38,22 +38,22 @@ class IM2COL_PARAM(Structure):
     #     self.col_size = self.fmi_c * self.kernel_h * self.kernel_w
     #     self.fmo_buffer_size = self.fmo_h * self.fmo_w  * self.col_size
 
+
 class IM2COL(Structure):
     _fields_ = [("im2col_param", IM2COL_PARAM),
                 ("input", MEMORY_ADDRES_MAP),
                 ("output", MEMORY_ADDRES_MAP)]
 
+
 im2col_param_init = lib.im2col_init
 im2col_param_init.argtypes = [POINTER(IM2COL_PARAM), IM2COL_PARAM]
 im2col_param_init.restype = None
-    
+
 im2col_interface = lib.im2col_interface
 im2col_interface.argtypes = [IM2COL_PARAM, MEMORY_ADDRES_MAP, MEMORY_ADDRES_MAP]
 im2col_interface.restype = None
 
-
 if __name__ == "__main__":
-
     ## hwcm: 1x1x1024x64 for 1-4
     tile_num = 1
     conv_type = 0
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     fmi_cmod = int(1024 * 8 / 64)
     fmi_w = 8
     fmi_h = 8
-    fmi_coffset = 0 
+    fmi_coffset = 0
     fmi_woffset = 0
     stride = 1
     kernel_m = int(64 / 4 / 16)  ## meaning kernel_m for 1 cluster div 16
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     seed = 20221011
 
     tile_param = TILE_PARAM(tile_num,
-                            conv_type, 
+                            conv_type,
                             fmi_raddr,
                             fmi_cmod,
                             fmi_w,
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     fmi_c = int(fmi_cmod * 64 / 8)
     cluster_win_num = 1
     cim_psum = 4
-    im2col_param = IM2COL_PARAM(kernel_h, kernel_w, stride, 
+    im2col_param = IM2COL_PARAM(kernel_h, kernel_w, stride,
                                 fmi_h, fmi_w, fmi_c,
                                 cluster_win_num, cim_psum)
 

@@ -4,7 +4,7 @@ from ir.dialect.top.IR_tensor import *
 
 class GraphIR:
 
-    def __init__(self) -> None:
+    def __init__(self):
         # 网络输入输出
         self.NetInTensors = []  # List[IRTensor]
         self.NetOutTensors = []  #
@@ -19,12 +19,16 @@ class GraphIR:
         self.NetOutOpId = []
         self.NetInputOpId = []
         # 参数
-        # self.WeightTensorNames =    []
-        # self.WeightTensors =        []
+        self.WeightTensorIds = []
+        self.WeightTensors = []
+        self.WeightFormat = []
+        self.WeightBaseAddress = []
         # Npu
         self.NetOutNpuOpId = []
         self.NetInputNpuOpId = []
         self.SubGraphs = []
+        # config
+        self.codegen_path = None
 
     def load_input_id(self, tensor_id):
         self.NetInTensors.append(tensor_id)
@@ -81,3 +85,40 @@ class GraphIR:
                 raise Exception(NotImplementedError)
 
         raise ValueError
+
+    def get_input_shape(self):
+        return self.NetInTensors[0].Shape
+
+    def add_weight_tensor(self, npu_op_id, weight_tensor):
+        if npu_op_id not in self.WeightTensorIds:
+            self.WeightTensorIds.append(npu_op_id)
+            self.WeightTensors.append(weight_tensor)
+
+    def get_weight_tensor(self, npu_op_id):
+        if npu_op_id not in self.WeightTensorIds:
+            return None
+        index = self.WeightTensorIds.index(npu_op_id)
+        return self.WeightTensors[index]
+
+    def get_weight_base_addr(self, npu_op_id):
+        if npu_op_id not in self.WeightTensorIds:
+            return None
+        index = self.WeightTensorIds.index(npu_op_id)
+        return self.WeightBaseAddress[index]
+
+    def check_weight_tensor(self, npu_op_id):
+        if npu_op_id in self.WeightTensorIds:
+            return True
+
+    def add_weight_format(self, weight_format):
+        self.WeightFormat.append(weight_format)
+
+    def get_weight_format(self, npu_op_id):
+        assert npu_op_id in self.WeightTensorIds
+        index = self.WeightTensorIds.index(npu_op_id)
+        return self.WeightFormat[index]
+
+    def replace_tensor(self, tensor, tensor_id):
+        assert tensor_id in self.AllTensorIds
+        index = self.AllTensorIds.index(tensor_id)
+        self.AllTensors[index] = tensor

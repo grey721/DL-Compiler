@@ -22,7 +22,7 @@ class ada200:
     vpu_tile_channel_list = [16, 32, 64]
     vpu_block_channel_list = [16, 32, 64, 128, 256]
     bank_group_id_list = [0, 1, 2]
-    max_line_buffer = 16 * 4  ## kb
+    max_line_buffer = 16 * 4  # kb
 
     def __init__(self):
         pass
@@ -32,12 +32,12 @@ class ada200:
 
         kernel_hwcmod = kernel_h * kernel_w * kernel_cmod
 
-        ## calculate the cim_psum
+        # calculate the cim_psum
         if conv_type == 1:
             cim_psum = 1
         elif kernel_hwcmod <= int(64 * 4 / 8):
             cim_psum = 1
-        elif ((kernel_hwcmod > int(64 * 4 / 8)) & (kernel_hwcmod <= int(64 * 8 / 8))):
+        elif (kernel_hwcmod > int(64 * 4 / 8)) & (kernel_hwcmod <= int(64 * 8 / 8)):
             cim_psum = 2
         elif kernel_hwcmod > int(64 * 8 / 8):
             cim_psum = 4
@@ -57,7 +57,7 @@ class ada200:
         else:
             kernel_m = 1
 
-        ## calculate the cluster_win_num
+        # calculate the cluster_win_num
         if conv_type == 1:
             cluster_win_num = 1
 
@@ -69,7 +69,7 @@ class ada200:
             elif (kernel_m == 3) | (kernel_m == 4):
                 cluster_win_num = 1
 
-        elif ((kernel_hwcmod > int(64 * 4 / 8)) & (kernel_hwcmod <= int(64 * 8 / 8))):
+        elif (kernel_hwcmod > int(64 * 4 / 8)) & (kernel_hwcmod <= int(64 * 8 / 8)):
             if kernel_m == 1:
                 cluster_win_num = 2
             elif kernel_m == 2:
@@ -78,18 +78,18 @@ class ada200:
         elif kernel_hwcmod > int(64 * 8 / 8):
             cluster_win_num = 1
 
-        ## calculate the num_slice
+        # calculate the num_slice
         if conv_type == 1:
             num_slice = 0
         elif kernel_hwcmod <= int(64 * 4 / 8):
             num_slice = kernel_hwcmod
-        elif ((kernel_hwcmod > int(64 * 4 / 8)) & (kernel_hwcmod <= int(64 * 8 / 8))):
+        elif (kernel_hwcmod > int(64 * 4 / 8)) & (kernel_hwcmod <= int(64 * 8 / 8)):
             if (kernel_hwcmod & 1) == 0:
                 num_slice = kernel_hwcmod / 2
             else:
                 num_slice = kernel_hwcmod / 2 + 1
-        elif (kernel_hwcmod > int(64 * 8 / 8)):
-            if (kernel_hwcmod % 4 == 0):
+        elif kernel_hwcmod > int(64 * 8 / 8):
+            if kernel_hwcmod % 4 == 0:
                 num_slice = kernel_hwcmod / 4
             else:
                 num_slice = kernel_hwcmod / 4 + 1
@@ -120,7 +120,7 @@ class ada200:
                     elif hwc_cim_num <= 16:
                         cluster_psum = 4
 
-                ## cal the pair between cluster_num and kernel_n
+                # cal the pair between cluster_num and kernel_n
                 if cluster_psum == 1:
                     if hwc_cim_num == 1:
                         cluster_kernel_n = [1, 64]
@@ -291,9 +291,9 @@ class ada200:
         catch_error_info_list.append(errer_info)
         catch_error_info_list.append(line_buffer_errer_info)
         for bg_id in self.bank_group_id_list:
-            catch_error_info = "share memory bank group id:{} memory allocate error".format(bg_id)
+            catch_error_info = f"share memory bank group id:{bg_id} memory allocate error"
             catch_error_info_list.append(catch_error_info)
-            catch_error_info_1 = "share memory bank group id:{} already used".format(bg_id)
+            catch_error_info_1 = f"share memory bank group id:{bg_id} already used"
             catch_error_info_list.append(catch_error_info_1)
         return catch_error_info_list
 

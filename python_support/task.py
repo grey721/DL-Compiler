@@ -1,19 +1,25 @@
-from python.cmodel import *
-from python.memory import *
-from python.util import *
-from python.npu import *
-from python.memory import *
+from python_support.cmodel import *
+from python_support.memory import *
+from python_support.util import *
+from python_support.npu import *
+from python_support.memory import *
+
 
 class NPU_BASE_PARAM(Structure):
-    _fields_=[  ("weight_read_param", WEIGHT_READ_PARAM),
+    _fields_ = [("weight_read_param", WEIGHT_READ_PARAM),
                 ("npu_param", NPU_PARAM)]
+
+
 class TASK_PARAM(Union):
-    _fields_=[  ("dma_param", DMA_PARAM),
+    _fields_ = [("dma_param", DMA_PARAM),
                 ("npu_base_param", NPU_BASE_PARAM),
                 ("param_type", c_int)]
+
+
 class TASK_LIST(Structure):
     _fields_ = [("task_param_list", POINTER(TASK_PARAM)),
                 ("task_num", c_int)]
+
 
 class TASK(Structure):
     _fields_ = [("task_list", TASK_LIST),
@@ -21,6 +27,7 @@ class TASK(Structure):
                 ("npu", NPU),
                 ("input", MEMORY_ADDRES_MAP),
                 ("output", MEMORY_ADDRES_MAP)]
+
 
 task_init = lib.task_init
 task_init.argtypes = [POINTER(TASK), TASK_LIST]
@@ -49,17 +56,3 @@ task_destory.restype = None
 task_interface = lib.task_interface
 task_interface.argtypes = [TASK_LIST, MEMORY_ADDRES_MAP, MEMORY_ADDRES_MAP, MEMORY_ADDRES_MAP]
 task_interface.restype = None
-
-
-if __name__ == "__main__":
-    pass
-
-
-
-
-
-
-
-
-
-
