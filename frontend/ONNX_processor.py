@@ -33,6 +33,7 @@ def get_np_data_from_attribute(attr):
 class ONNX2TopIR:
     def __init__(self, model_path, config_path=None):
         # 初始化
+        self.model_path = model_path #调试
         self.model = onnx.load(model_path)
         self.print_model_info()
         self.graph = GraphIR()  # 创建图IR对象
@@ -58,6 +59,11 @@ class ONNX2TopIR:
                 continue
             self.fused_ops.append(op)
         print("Operators_len:", len(self.fused_ops))
+        # 调试：打印待处理op
+        # for op in self.fused_ops:
+        #     print(op.op_type)
+        #     print(self._get_op_code(op))
+        #     print('##############################################')
 
     def _get_op_code(self, op):  # 获取算子类型的id
         if op.op_type not in ONNXType2OperatorType:
@@ -118,17 +124,26 @@ class ONNX2TopIR:
         ir_tensor = IRTensor()  # 张量类
         ir_tensor.Name = name
         tensor_shape = []
-        for t in self.model.graph.value_info:  # 在中间张量中寻找name
-            if name == t.name:
-                for dim in t.type.tensor_type.shape.dim:
-                    tensor_shape.append(dim.dim_value)
-                break
-        else:
-            for t in self.model.graph.initializer:  # 否则在initializer中找
+        # 调试
+        if self.model_path == 'assets/yolov3.onnx':
+            for t in self.model.graph.value_info:  # 在中间张量中寻找name:一个op中输入或输出张量的名字
                 if name == t.name:
-                    for dim in t.dims:
-                        tensor_shape.append(dim)
+                    for dim in t.type.tensor_type.shape.dim:
+                        tensor_shape.append(dim.dim_value)
                     break
+            # else:
+            #     for t in self.model.graph.initializer:  # 否则在initializer中找
+            #         if name == t.name:
+            #             for dim in t.dims:
+            #                 tensor_shape.append(dim)
+            #             break
+        elif self.model_path == 'assets/yolov5s.onnx':
+            for t in self.model.graph.input:
+                if name == t.name:  # 你要查找的张量名称
+                    for dim in t.type.tensor_type.shape.dim:
+                        tensor_shape.append(dim.dim_value)
+                    break
+        print (tensor_shape)
         dims = len(tensor_shape)
         if dims == 4:  # 不同情况下赋值赋值shape
             ir_tensor.Shape.N, ir_tensor.Shape.C, ir_tensor.Shape.H, ir_tensor.Shape.W = tensor_shape
@@ -175,11 +190,18 @@ class ONNX2TopIR:
     def load_all_tensor(self):
         inputs = [t.name for t in self.model.graph.input]
         outputs = [t.name for t in self.model.graph.output]
+        # 调试：打印输入和输出张量
+        # print('输入张量')
+        # print(inputs)
+        # print('###########################################')
+        # print('输出张量')
+        # print(outputs)
         # load all input tensor
         index = 0
         for op in self.fused_ops:
             for name in op.output:
-                self.load_ir_tensor_info(name, index, op)
+                # print(name)
+                self.load_ir_tensor_info(name, index, op) 
                 # 加载网络输出
                 if name in outputs:
                     self.graph.load_output_id(index)

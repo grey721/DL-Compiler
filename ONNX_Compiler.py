@@ -8,8 +8,10 @@ from ir.conversion.optimize.subnet import *
 
 if __name__ == '__main__':
     # config
+    # model_path = 'assets/yolov5s.onnx'
+    config_path = None
     model_path = 'assets/yolov3.onnx'
-    config_path = 'assets/yolov3.json'
+    # config_path = 'assets/yolov3.json'
 
     # 解析
     model_processor = ONNX2TopIR(model_path, config_path)

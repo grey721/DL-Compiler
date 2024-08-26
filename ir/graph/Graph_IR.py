@@ -5,26 +5,19 @@ from ir.dialect.top.IR_tensor import *
 class GraphIR:
 
     def __init__(self) -> None:
-        # 网络输入输出
-        self.NetInTensors = []  # List[IRTensor]
-        self.NetOutTensors = []  #
-        # 算子、中间张量
-        self.AllTensorIds = []  # Name:tensor_idx
-        self.AllTensors = []  # List[IRTensor]
+        self.NetInTensors = []  # 网络输入张量列表
+        self.NetOutTensors = []  # 网络输出张量列表
+        self.AllTensorIds = []  # 所有张量ID的列表
+        self.AllTensors = []  # 所有张量的列表
+        self.AllOpIds = []  # 所有算子ID的列表
+        self.AllOps = []  # 所有算子的列表
+        self.AllCpuOps = []  # 可能存储CPU相关的算子
+        self.NetOutOpId = []  # 网络输出相关的算子ID
+        self.NetInputOpId = []  # 网络输入相关的算子ID
+        self.NetOutNpuOpId = []  # 网络输出的NPU算子ID
+        self.NetInputNpuOpId = []  # 网络输入的NPU算子ID
+        self.SubGraphs = []  # 子图的列表
 
-        self.AllOpIds = []
-        self.AllOps = []  # List[OpBase]
-
-        self.AllCpuOps = []
-        self.NetOutOpId = []
-        self.NetInputOpId = []
-        # 参数
-        # self.WeightTensorNames =    []
-        # self.WeightTensors =        []
-        # Npu
-        self.NetOutNpuOpId = []
-        self.NetInputNpuOpId = []
-        self.SubGraphs = []
 
     def load_input_id(self, tensor_id):
         self.NetInTensors.append(tensor_id)
