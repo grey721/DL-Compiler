@@ -6,3 +6,5 @@
 /frontend/tool/__pycache__/
 /frontend/__pycache__/
 assets/
+ir/conversion/top2npu/__pycache__
+__pycache__/
