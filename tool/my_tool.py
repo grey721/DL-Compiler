@@ -91,8 +91,6 @@ class ONNXToolkit:
 
 
 if __name__ == '__main__':
-    #toolkit1 = ONNXToolkit('yolov5n.onnx')
+    toolkit1 = ONNXToolkit('assets/yolov3.onnx')
     #for_seek(toolkit1.model.graph.node, 'op_type', 'Split',1,1)
     # print(sys.getsizeof(my_list))
-    q, shift = np.frexp(0.2)  # 返回m和e的指数
-    print(q, shift)

@@ -623,7 +623,7 @@ class Concat(OpBase):
     Axis = None
     FusedActFunc = False
 
-    # TODO ？
+    # TODO 什么参数？
     # quant_param
     RescaleInput = -1
 

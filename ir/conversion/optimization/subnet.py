@@ -30,7 +30,7 @@ def _subnet(net: GraphIR):  # 区分NPU OP 和CPU OP
                 if isinstance(op, NpuOp):
                     npu_op_list.append(op)
                 else:
-                    # TODO 为什么直接全都算CPU的
+                    # TODO 为什么直接全都算CPU的？
                     break_op_id = op_id
                     cpu_op_list.append(op)
             else:
@@ -87,6 +87,7 @@ def _reorder_npu_ops(net: GraphIR):
         net_op = net.get_npu_op(op_id)
         op_id_list = _find_pre_npu_op(net, net_op)
         if op_id_list:
+            # TODO 可行吗？
             next_id = max(op_id_list)
             return dfs(sub_graph, next_id)
         # if len(op_id_list) == 1:

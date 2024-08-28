@@ -299,8 +299,8 @@ def add_bais_shift_quatization(shape, res, max, min, output_offset,
     return shape, new_res
 
 
-# manager = multiprocessing.Manager()
-# weight_dict = manager.dict()
+manager = multiprocessing.Manager()
+weight_dict = manager.dict()
 
 
 def wm(op: block_param):
@@ -337,12 +337,12 @@ def wm(op: block_param):
 class TransformRule(Enum):
     NOPE = 1
 
-    WEIGHT_PADDING = 2
+    WEIGHT_PADDING = 2  # 填充至符合芯片size的shape
     WEIGHT_MAPPING = 3
     WEIGHT_MAPPING_MULTI_PROCSS = 4
 
 
-@_register_ir_transformation_rule(TransformRule.WEIGHT_PADDING)
+@_register_ir_transformation_rule(TransformRule.WEIGHT_PADDING)  # 填充至符合芯片size的shape
 def _weight_padding(net: GraphIR):
     for group_op_id, group_op in enumerate(net.AllOps):
         for op in group_op.block_list:
@@ -371,7 +371,7 @@ def _weight_padding(net: GraphIR):
                             n_k_n = math.ceil(k_n / 16) * 16
                         weight_ = np.zeros([n_k_n, k_h, k_w, k_c]).astype(np.int8)
                         weight_[0:k_n, :, :, :] = weight
-                        npu_conv_op.WeightValue = weight_
+                        npu_conv_op.WeightValue = weight_  # 给原weight填充0
 
                         bais_ = np.zeros([n_k_n]).astype(np.int32)
                         bais_[0:k_n] = bais
@@ -388,7 +388,7 @@ def _weight_padding(net: GraphIR):
                         output_multiplier_ = np.zeros([n_k_n]).astype(np.int32)
                         output_multiplier_[0:k_n] = output_multiplier
                         npu_conv_op.output_multiplier = output_multiplier_
-                        assert npu_conv_op.OutputC == n_k_n
+                        assert npu_conv_op.OutputShape[0].C == n_k_n
 
 
 @_register_ir_transformation_rule(TransformRule.WEIGHT_MAPPING)
@@ -398,7 +398,7 @@ def _weight_mapping(net: GraphIR):
             if isinstance(op, block_param):
                 npu_conv_op = op.get_npu_conv_op()
                 if npu_conv_op is not None:
-                    if net.check_weight_tensor(op.npu_op_id) is True:
+                    if net.check_weight_tensor(op.npu_op_id):
                         op.weight_mapping_dict["weight_format"] = net.get_weight_format(op.npu_op_id)
                         continue
 
@@ -458,7 +458,7 @@ def _weight_mapping_multi_procss(net: GraphIR):
 
 # weight_mapping_pass
 weight_mapping_transform = [TransformRule.WEIGHT_PADDING,
-                            # weight_mapping_transform.append(TransformRule.WEIGHT_MAPPING)
+                            # TransformRule.WEIGHT_MAPPING
                             TransformRule.WEIGHT_MAPPING_MULTI_PROCSS
                             ]
 # if __name__ == "__main__":

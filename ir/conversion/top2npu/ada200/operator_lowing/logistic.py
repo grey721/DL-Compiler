@@ -62,30 +62,6 @@ def _get_quant_para(input_scale, output_scale):
     return output_multiplier, output_shift
 
 
-def _lowering_int8(op, net):
-    npu_logistic = NpuLogistic()
-    npu_logistic.__dict__.update(op.__dict__)
-    npu_logistic.Type = "NpuActivation_Logistic"
-
-    input_scale = op.get_input_scale_numpy(net)
-    output_scale = op.get_output_scale_numpy(net)
-
-    input_zero_point = op.get_input_zero_point_numpy(net)
-    output_zero_point = op.get_output_zero_point_numpy(net)
-
-    npu_logistic.input_offset = input_zero_point
-    npu_logistic.output_offset = output_zero_point
-
-    npu_logistic.output_multiplier, npu_logistic.output_shift = _get_quant_para(input_scale, output_scale)
-    # todo test logistic in test project
-    npu_logistic.lut_dict = activation_lut_gen(cmodel, npu_logistic, base_addr="32'h00009", base_addr_int=112)
-    raise NotImplementedError
-
-
-def _lowering_fp32(op, net):
-    raise NotImplementedError
-
-
 def sigmoid_int8(x, y, input_shape, shape_len, input_offset, input_scale):
     param = SIGMOID_PARAM(input_offset, input_scale)
     base_param = BASE_PARAM()
@@ -129,11 +105,44 @@ def sigmoid_int8(x, y, input_shape, shape_len, input_offset, input_scale):
     return result
 
 
-def cmodel(x, input_shape, npu_sigmoid):
+def activation_lut_gen(cmodel, npu_sigmoid, s_in, base_addr="32'h00009", base_addr_int=112):
+    input_data_0 = (np.array([i for i in range(0, 128)]).reshape([1, 1, 128])).astype(np.int8)
+    input_data_1 = (np.array([i for i in range(-128, 0)]).reshape([1, 1, 128])).astype(np.int8)
+    input_data = np.concatenate((input_data_0, input_data_1), axis=2)
+    y = cmodel(input_data, (1, 1, 256), npu_sigmoid, s_in)
+
+    return y
+
+
+def cmodel(x, input_shape, npu_sigmoid, s_in):
     y = np.zeros([input_shape[0] * input_shape[1] * input_shape[2]], dtype=np.int8)
     input_shape = np.array(input_shape, dtype=np.int32)
     shape_len = np.int32(len(input_shape))
     input_offset = npu_sigmoid.input_offset[0]
-    input_scale = npu_sigmoid.get_input_scale_numpy(net)
+    input_scale = s_in
     y = sigmoid_int8(x, y, input_shape, shape_len, input_offset, input_scale)
     return y
+
+
+def _lowering_int8(op, net):
+    npu_logistic = NpuLogistic()
+    npu_logistic.__dict__.update(op.__dict__)
+    npu_logistic.Type = "NpuLogistic"
+
+    input_scale = op.get_input_scale_numpy(net)
+    output_scale = op.get_output_scale_numpy(net)
+
+    input_zero_point = op.get_input_zero_point_numpy(net)
+    output_zero_point = op.get_output_zero_point_numpy(net)
+
+    npu_logistic.input_offset = input_zero_point
+    npu_logistic.output_offset = output_zero_point
+
+    npu_logistic.output_multiplier, npu_logistic.output_shift = _get_quant_para(input_scale, output_scale)
+    # todo test logistic in test project?还需要加什么
+    npu_logistic.lut_dict = activation_lut_gen(cmodel, npu_logistic, input_scale, base_addr="32'h00009", base_addr_int=112)
+    raise NotImplementedError
+
+
+def _lowering_fp32(op, net):
+    raise NotImplementedError

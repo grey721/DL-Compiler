@@ -10,15 +10,16 @@ from python_support.util import *
 def _lowering(net, mode):
     for op in net.AllOps:
         if isinstance(op, Activation):
-            if op.Name == "leakyrelu":
-                if mode == "int8":
-                    NpuOp = _lowering_int8(op, net)
-                if mode == "fp32":
-                    NpuOp = _lowering_fp32(op, net)
+            if op.Mode != ActivationMode.LEAKY_RELU:
+                continue
+            if mode == "int8":
+                NpuOp = _lowering_int8(op, net)
+            if mode == "fp32":
+                NpuOp = _lowering_fp32(op, net)
 
-                op_id = net.get_op_idx(op)
-                net.delete_op(op_id)
-                net.insert_op(NpuOp, op_id)
+            op_id = net.get_op_idx(op)
+            net.delete_op(op_id)
+            net.insert_op(NpuOp, op_id)
 
 
 def _get_quant_para(input_scale, output_scale):

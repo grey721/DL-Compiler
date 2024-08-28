@@ -1451,7 +1451,7 @@ class npu_op_group(object):
                             # 输出精度不应该是int32
                             bp.int32_out = False
                             if self.block_split_mode.c > 1:
-                                bp.npu_psum_add = True  # 参数聚合？
+                                bp.npu_psum_add = True  # TODO 参数聚合？
                                 _npu_op = deepcopy(bp.NpuOp)
 
                                 if _npu_op.NpuOpMode == VpuPostOpSetMode.ACTIVATION:
