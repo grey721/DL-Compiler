@@ -1010,7 +1010,7 @@ class block_param(object):
 
         return output_tensor_info
 
-    # TODO 不太懂
+    # TODO short_cut
     def get_short_cut_out_tensor_info(self):
         assert self.short_cut_out is True
         for index, npu_op in enumerate(self.NpuOp.NpuOpFlow):

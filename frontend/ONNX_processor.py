@@ -152,9 +152,8 @@ class ONNX2TopIR:
         # 网格尺度有三种，小、中、大三个尺度检测目标对象
 
         else:
-            # ir_tensor.Shape = ShapeSp(tensor_shape)
-            ir_tensor.Shape.N, ir_tensor.Shape.C, ir_tensor.Shape.H, ir_tensor.Shape.W, _ = tensor_shape
-            print(f"张量{name}拥有未知的维度信息！{tensor_shape}")
+            ir_tensor.Shape = ShapeSp(tensor_shape)
+            print(f"张量{name}拥有 四维度以上信息！{tensor_shape}")
 
         if self.quantization_config is None:
             ir_tensor.Id = name
@@ -748,6 +747,7 @@ class ONNX2TopIR:
                     np_scales, scales_dtype = get_np_data_from_attribute(tensor)
                     break
             else:
+                return
                 raise NotImplementedError(f'无法找到"{op.name}"的设置信息"{in_tensors_name[1]}"！')
             self.graph.AllTensors[resize_tensor_id].load_data(np_scales)
 
@@ -910,14 +910,13 @@ class ONNX2TopIR:
         split_op.split_shape = list(self.graph.AllTensors[split_tensor_id].Data)
 
         # Split Axis
-        split_op.Axis = axis_map[op.attribute[0].i]
-
-        in_axis = self.graph.AllTensors[in_tensor_id].get_n_shape(0)[op.attribute[0].i]
+        split_op.Axis = op.attribute[0].i
+        in_axis = self.graph.AllTensors[in_tensor_id].Shape.get_n_shape(0)[op.attribute[0].i]
         para_axis = sum(split_op.split_shape)
         assert in_axis == para_axis
 
         for i in range(len(split_op.OutTensors)):
-            assert split_op.split_shape[i] == split_op.OutputShape[i].get_n_shape(1)[op.attribute[0].i]
+            assert split_op.split_shape[i] == split_op.OutputShape[i].Shape.get_n_shape(1)[op.attribute[0].i]
 
         self.graph.insert_op(split_op, op_idx)
 
@@ -938,7 +937,7 @@ class ONNX2TopIR:
                 self.load_conv(op, op_idx, op_code)
 
             elif op_code == OperatorType.FULLY_CONNECTED:
-                continue
+                self.load_fullconnected(op, op_idx)
 
             elif op_code == OperatorType.ADD:
                 self.load_element(op, op_idx, ElementWiseMode.ELW_ADD)
@@ -1026,6 +1025,6 @@ class ONNX2TopIR:
 
 
 if __name__ == "__main__":
-    m = ONNX2TopIR('assets/yolov3.onnx', 'assets/yolov3.json')  # 'assets/yolov3.json'
+    m = ONNX2TopIR('assets/yolov5s.onnx')  # 'assets/yolov3.json'
     m.load_all_tensor()
     m.parse_operator()

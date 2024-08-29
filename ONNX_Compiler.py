@@ -4,9 +4,6 @@ from ir.conversion.top2npu.top2npu_pass import *
 from ir.conversion.optimization.ir_transform import *
 from ir.conversion.optimization.op_fuse import *
 from ir.conversion.optimization.subnet import *
-from ir.conversion.optimization.layer_group import *
-# from ir.conversion.optimization.weight_reorder import *
-# from ir.conversion.optimization.layer_group import *
 
 
 if __name__ == '__main__':
@@ -33,16 +30,19 @@ if __name__ == '__main__':
     ir_transformer.add_transform_option(subnet_transform)
     ir_transformer.transform(npu_graph)
 
+    from ir.conversion.optimization.layer_group import *
     ir_transformer.add_transform_option(layer_group_transform)
     ir_transformer.transform(npu_graph)
-else:
+
+    from ir.conversion.optimization.weight_reorder import *
     ir_transformer.add_transform_option(weight_mapping_transform)
     ir_transformer.transform(npu_graph)
 
-    from ir.conversion.optimization.memory_assign import *
-    ir_transformer.add_transform_option(memory_assign_transform)
-    ir_transformer.transform(npu_graph)
+    # from ir.conversion.optimization.memory_assign import *
+    # ir_transformer.add_transform_option(memory_assign_transform)
+    # ir_transformer.transform(npu_graph)
 
+else:
     from ir.conversion.optimization.codegen import *
     ir_transformer.add_transform_option(codegen_transform)
     ir_transformer.transform(npu_graph)

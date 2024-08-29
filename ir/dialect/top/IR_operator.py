@@ -134,7 +134,7 @@ class OperatorType(object):
     CALL_ONCE = 129
     BROADCAST_TO = 130
     CONSTANT = 131
-    Unsqueeze = 132
+    UNSQUEEZE = 132
 
     # vpu post op set
     NPU_POST_OP_SET = 150

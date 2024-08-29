@@ -51,7 +51,7 @@ def _gen_npu_op_group(net: GraphIR):
                         while backend.first_layer_fmi_max_size < firstLayer_fmisize / h_slice:
                             h_slice += 1
 
-                    # TODO ?写错了？两个都是H
+                    # TODO 写错了？两个都是H
                     if npu_op.NpuOpConv:
                         kh = npu_op.NpuOpConvOp.KerH
                         kw = npu_op.NpuOpConvOp.KerH

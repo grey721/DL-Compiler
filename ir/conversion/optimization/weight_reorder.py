@@ -61,7 +61,7 @@ def int2bin(number, index, feature=True):
             return i
 
 
-def str2int(nums):
+def str2int(nums) -> list:
     tem = []
     for i in nums:
         tem.append(int(i))
@@ -233,7 +233,7 @@ def sparsity_class(weight):
     return sparsity_tensor
 
 
-def add_bais_shift_quatization(shape, res, max, min, output_offset,
+def add_bais_shift_quatization(shape, res, r_max, r_min, output_offset,
                                output_shift, output_multiplier, BiasValue):
     new_res = []
     out_ch = int(output_multiplier.shape[0] / shape[1])
@@ -285,16 +285,16 @@ def add_bais_shift_quatization(shape, res, max, min, output_offset,
                             string = ''
 
                     string = int2bin(0, 40, feature=True)
-                    bin = int2bin(max, 8, feature=True)
+                    bin = int2bin(r_max, 8, feature=True)
                     string += bin
-                    bin = int2bin(min, 8, feature=True)
+                    bin = int2bin(r_min, 8, feature=True)
                     string += bin
                     bin = int2bin(output_offset[0], 8, feature=True)
                     string += bin
                     hex_nums = bin2hex(string, 64)
                     new_res.append(hex_nums)
 
-    shape = [[shape[0], shape[1], shape[2], shape[3], shape[4]], [shape[1], int(out_ch * (19) / 16)]]
+    shape = [[shape[0], shape[1], shape[2], shape[3], shape[4]], [shape[1], int(out_ch * 19 / 16)]]
 
     return shape, new_res
 
@@ -422,7 +422,7 @@ def _weight_mapping(net: GraphIR):
                     weight_format.append(sparsity_tensor.shape)
                     shape, res = tensor2hex_tensor(weight, sparsity_tensor)
                     weight_format.append(shape)
-                    shape, res = add_bais_shift_quatization(shape, res, 127, -128, output_offset, \
+                    shape, res = add_bais_shift_quatization(shape, res, 127, -128, output_offset,
                                                             output_shift, output_multiplier, BiasValue)
                     weight_format.append(shape)
                     op.weight_mapping_dict["weight_format"] = weight_format
@@ -442,7 +442,7 @@ def _weight_mapping_multi_procss(net: GraphIR):
 
     pool = multiprocessing.Pool()
 
-    result = pool.map(wm, target_op_list)
+    result = pool.map(wm, target_op_list)  # wm对list中的每一个op处理
     assert sum(result) == len(target_op_list)
 
     for target_op in target_op_list:
@@ -451,7 +451,7 @@ def _weight_mapping_multi_procss(net: GraphIR):
 
         target_op.weight_mapping_dict["weight_format"] = weight_format
 
-        if net.check_weight_tensor(npu_op_id) is not True:
+        if not net.check_weight_tensor(npu_op_id):
             net.add_weight_tensor(npu_op_id, res)
             net.add_weight_format(weight_format)
 

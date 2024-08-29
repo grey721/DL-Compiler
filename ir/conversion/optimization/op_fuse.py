@@ -66,7 +66,7 @@ class TransformRule(Enum):
 
     NPU_PAD = 300
     NPU_PAD_CONV = 301  # 融合Pad和Conv
-    NPU_PAD_POOL = 302  # TODO 融合Pad Pool Concat?
+    NPU_PAD_POOL = 302
 
     NPU_RESHAPE_FC = 303  # 将单输入且输出为1*1的Reshape与相连的FullConnect融合
     NPU_RESHAPE_CONV = 304  # 将单输入且输出为1*1的Reshape与相连的Conv融合
@@ -133,7 +133,6 @@ def _update_tensor_record(tensor_record, op):
     if isinstance(op, NpuOp):
         tensor_record.extend(op.fmi_tensor)  # 将一个列表中的所有元素添加到另一个列表的末尾
         tensor_record.extend(op.fmo_tensor)
-        # TODO what
         tensor_record.extend(op.short_cut_out_tensor)
     else:
         tensor_record.extend(op.InTensors)

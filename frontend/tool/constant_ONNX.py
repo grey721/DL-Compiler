@@ -9,7 +9,7 @@ SUPPORTED_OPs = [
     OperatorType.DEPTHWISE_CONV_2D,
     OperatorType.MAX_POOL_2D,
     OperatorType.RESHAPE,
-    # OperatorType.FULLY_CONNECTED,
+    OperatorType.FULLY_CONNECTED,
     # OperatorType.SOFTMAX,
     OperatorType.LEAKY_RELU,
     OperatorType.RESIZE_NEAREST_NEIGHBOR,
@@ -30,7 +30,11 @@ SUPPORTED_OPs = [
     OperatorType.SPLIT,
     OperatorType.LOGISTIC,
     OperatorType.PRELU,
-    OperatorType.POW
+    OperatorType.POW,
+    # OperatorType.SHAPE,
+    # OperatorType.SLICE,
+    # OperatorType.FLOOR,
+    # OperatorType.UNSQUEEZE
 ]
 
 FUSIBLE_OPs = [

@@ -56,7 +56,7 @@ class Shape:  # 专门用于表示张量形状的class
         np_shape[3] = self.C
         return np_shape
 
-    def get_n_shape(self, tensor_format):
+    def get_n_shape(self, tensor_format=0):
         """tensor_format = 0:NCHW, 1: NHWC"""
         if tensor_format == Format.NCHW:
             return [self.N, self.H, self.W, self.C]
@@ -78,7 +78,7 @@ class ShapeSp:  # 专门用于表示特殊形状的张量
             self.N, self.BoxNum, self.BoxInfo, self.fiH, self.fiW = shape
 
     def get_shape(self):
-        return self.list
+        return self
 
     def __repr__(self):
         return f"{self.list}"
@@ -91,6 +91,9 @@ class ShapeSp:  # 专门用于表示特殊形状的张量
         np_shape[3] = self.fiH
         np_shape[4] = self.fiW
         return np_shape
+
+    def get_n_shape(self):
+        return self.list
 
 
 class TensorType(object):
