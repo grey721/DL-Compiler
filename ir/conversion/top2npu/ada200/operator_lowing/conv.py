@@ -38,11 +38,11 @@ def _lowering_int8(op, net):
     bias = op.get_bias_numpy(net)
     # TODO 溢出了 是否需要改为int32和int16存储offset？
     for oc in range(op.OutputShape[0].C):
-        offset_sum = 0
+        offset_sum = np.int32(0)
         for ic in range(int(op.InputShape[0].C / op.Group)):
             for kh in range(op.KerH):
                 for kw in range(op.KerW):
-                    offset_sum += weight[oc][kh][kw][ic] * zp[0]
+                    offset_sum += np.int32(weight[oc][kh][kw][ic]) * np.int32(zp[0])
         # TODO 推导中为什么直接将B_3 换成了 B ?
         bias[oc] -= offset_sum
     NpuConv.BiasValue = bias

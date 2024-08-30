@@ -7,7 +7,7 @@ def get_ratio_r(input_shape, output_shape):
     out_height = output_shape[1]
     in_width = input_shape[2]
     out_width = output_shape[2]
-    # TODO ?????
+    # TODO ????
     ratio_h = int(((1 << 10) * in_height + out_height / 2) / out_height)
     ratio_w = int(((1 << 10) * in_width + out_width / 2) / out_width)
 

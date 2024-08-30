@@ -1164,7 +1164,7 @@ class block_param(object):
 
             kernel_c = input_block_address_list[-1]
             block_w = input_block_address_list[3]
-            # TODO 为什么？怎么算的
+            # TODO 为什么？
             need_line_buffer_size_kB = kernel_c * (block_w + pad_w) * (kernel_h + pad_h + stride) / 1024
 
             if need_line_buffer_size_kB > all_line_buffer_size_kB:
@@ -1554,10 +1554,6 @@ class npu_op_group(object):
         oh, ow, oc = self.npu_op_list[-1].NpuOpFlow[-1].OutputShape[0].H, \
             self.npu_op_list[-1].NpuOpFlow[-1].OutputShape[0].W, \
             self.npu_op_list[-1].NpuOpFlow[-1].OutputShape[0].C
-        # TODO 写错了？NpuOpFlow[0]？
-        ih, iw, ic = self.npu_op_list[-1].NpuOpFlow[-1].InputShape[0].H, \
-            self.npu_op_list[-1].NpuOpFlow[-1].InputShape[0].W, \
-            self.npu_op_list[-1].NpuOpFlow[-1].InputShape[0].C
 
         if isinstance(self.npu_op_list[-1].NpuOpFlow[-1], NpuPool) \
                 or isinstance(self.npu_op_list[-1].NpuOpFlow[-1], NpuActivation) \
