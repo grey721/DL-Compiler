@@ -94,14 +94,20 @@ if __name__ == '__main__':
     # toolkit1 = ONNXToolkit('assets/yolov3.onnx')
     # for_seek(toolkit1.model.graph.node, 'op_type', 'Split',1,1)
     # print(sys.getsizeof(my_list))\
-    weight = np.array([[3, 2, 3]])
-    print(len(weight.shape))
-    if len(weight.shape) == 2:
-        weight = np.transpose(weight, (1, 0))
-        # axis：这是你想要增加新维度的位置。axis=0意味着新维度将被添加到张量的最前面。
-        weight = np.expand_dims(weight, axis=0)
-        weight = np.expand_dims(weight, axis=0)
-        # 它根据提供的元组(3, 0, 1, 2)来改变weight数组维度的顺序。
-        weight = np.transpose(weight, (3, 0, 1, 2))
-    print(weight.shape)
-    print(weight)
+    # 创建一个空的切片元组，用于最终的切片操作
+    data = [
+        [1, 2, 3, 4],
+        [5, 6, 7, 8],
+    ]
+    starts = [0, 1]
+    ends = [-1, 1000]
+    data = np.array(data)
+    axes = None
+    if axes is None:
+        axes = range(len(starts))  # 如果没有指定轴，则对所有维度进行切片
+    slicing = [slice(None)] * data.ndim
+
+    # 替换切片元组中指定轴上的切片对象
+    for axis, start, end in zip(axes, starts, ends):
+        slicing[axis] = slice(start, end)
+    print(type(data[tuple(slicing)]))

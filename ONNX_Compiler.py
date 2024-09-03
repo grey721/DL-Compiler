@@ -34,7 +34,7 @@ if __name__ == '__main__':
     ir_transformer.add_transform_option(layer_group_transform)
     ir_transformer.transform(npu_graph)
 
-    from ir.conversion.optimization.weight_reorder import *
+    from ir.conversion.optimization.weight_reorder_new import *
     ir_transformer.add_transform_option(weight_mapping_transform)
     ir_transformer.transform(npu_graph)
 
@@ -42,7 +42,6 @@ if __name__ == '__main__':
     # ir_transformer.add_transform_option(memory_assign_transform)
     # ir_transformer.transform(npu_graph)
 
-else:
     from ir.conversion.optimization.codegen import *
     ir_transformer.add_transform_option(codegen_transform)
     ir_transformer.transform(npu_graph)

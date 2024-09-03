@@ -339,7 +339,7 @@ class TransformRule(Enum):
 
     WEIGHT_PADDING = 2  # 填充至符合芯片size的shape
     WEIGHT_MAPPING = 3
-    WEIGHT_MAPPING_MULTI_PROCSS = 4
+    WEIGHT_MAPPING_MULTI_PROCESS = 4
 
 
 @_register_ir_transformation_rule(TransformRule.WEIGHT_PADDING)  # 填充至符合芯片size的shape
@@ -430,8 +430,8 @@ def _weight_mapping(net: GraphIR):
                     net.add_weight_format(weight_format)
 
 
-@_register_ir_transformation_rule(TransformRule.WEIGHT_MAPPING_MULTI_PROCSS)
-def _weight_mapping_multi_procss(net: GraphIR):
+@_register_ir_transformation_rule(TransformRule.WEIGHT_MAPPING_MULTI_PROCESS)
+def _weight_mapping_multi_process(net: GraphIR):
     target_op_list = []
     for group_op_id, group_op in enumerate(net.AllOps):
         for op in group_op.block_list:
@@ -459,7 +459,7 @@ def _weight_mapping_multi_procss(net: GraphIR):
 # weight_mapping_pass
 weight_mapping_transform = [TransformRule.WEIGHT_PADDING,
                             # TransformRule.WEIGHT_MAPPING
-                            TransformRule.WEIGHT_MAPPING_MULTI_PROCSS
+                            TransformRule.WEIGHT_MAPPING_MULTI_PROCESS
                             ]
 # if __name__ == "__main__":
 #     sparsity_class()

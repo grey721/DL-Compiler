@@ -31,10 +31,11 @@ SUPPORTED_OPs = [
     OperatorType.LOGISTIC,
     OperatorType.PRELU,
     OperatorType.POW,
-    # OperatorType.SHAPE,
-    # OperatorType.SLICE,
-    # OperatorType.FLOOR,
-    # OperatorType.UNSQUEEZE
+    OperatorType.SHAPE,
+    OperatorType.FLOOR,
+    OperatorType.SLICE,
+    OperatorType.UNSQUEEZE,
+    OperatorType.CAST,
 ]
 
 FUSIBLE_OPs = [

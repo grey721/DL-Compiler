@@ -36,46 +36,37 @@ class Shape:  # 专门用于表示张量形状的class
     H = None
     W = None
 
-    def __init__(self, batch, channel, width, height):
-        self.N = batch
-        self.C = channel
-        self.W = width
-        self.H = height
+    def __init__(self, tensor_shape):
+        self.list = tensor_shape
+        dims = len(tensor_shape)
+        if dims == 4:  # 不同情况下赋值赋值shape
+            self.N, self.C, self.H, self.W = tensor_shape
+        elif dims == 3:
+            self.C, self.H, self.W = tensor_shape
+            self.N = 1
+        elif dims == 2:
+            self.N, self.C = tensor_shape
+            self.W = 1
+            self.H = 1
+        elif dims == 1:
+            self.C = tensor_shape[0]
+            self.N = 1
+            self.H = 1
+            self.W = 1
+        elif dims == 0:
+            self.C = 0
+            self.N = 0
+            self.H = 0
+            self.W = 0
+        elif dims == 5:
+            self.N, self.BoxNum, self.BoxInfo, self.fiH, self.fiW = tensor_shape
+        #     # (x, y, w h,confidence)
+        #     # 批次，3个预测框，预选框信息，尺度且单位像素
+        # 维度i,j,f,k,v含义：第 i 张图，第 j 个锚框， 锚框的信息f，第 k 行单元格，第 v 列单元格
+        # 网格尺度有三种，小、中、大三个尺度检测目标对象
 
-    def get_shape(self):
-        return self
-
-    def __repr__(self):
-        return f"{[self.N, self.C, self.W, self.H]}"
-
-    def get_shape_as_np(self):
-        np_shape = np.zeros(4).astype(int)
-        np_shape[0] = self.N
-        np_shape[1] = self.H
-        np_shape[2] = self.W
-        np_shape[3] = self.C
-        return np_shape
-
-    def get_n_shape(self, tensor_format=0):
-        """tensor_format = 0:NCHW, 1: NHWC"""
-        if tensor_format == Format.NCHW:
-            return [self.N, self.H, self.W, self.C]
         else:
-            return [self.N, self.C, self.H, self.W]
-
-
-# TODO 讨论
-class ShapeSp:  # 专门用于表示特殊形状的张量
-    N = 1
-    C = None
-    H = None
-    W = None
-
-    def __init__(self, shape):
-        self.list = shape
-        dims = len(shape)
-        if dims == 5:
-            self.N, self.BoxNum, self.BoxInfo, self.fiH, self.fiW = shape
+            raise NotImplementedError
 
     def get_shape(self):
         return self
@@ -84,16 +75,17 @@ class ShapeSp:  # 专门用于表示特殊形状的张量
         return f"{self.list}"
 
     def get_shape_as_np(self):
-        np_shape = np.zeros(5).astype(int)
-        np_shape[0] = self.N
-        np_shape[1] = self.BoxNum
-        np_shape[2] = self.BoxInfo
-        np_shape[3] = self.fiH
-        np_shape[4] = self.fiW
-        return np_shape
+        return np.array(self.list)
 
-    def get_n_shape(self):
-        return self.list
+    def get_n_shape(self, tensor_format=Format.NCHW):
+        """tensor_format = 0:NCHW, 1: NHWC"""
+        if len(self.list) < 5:
+            if tensor_format == Format.NCHW:
+                return [self.N, self.H, self.W, self.C]
+            else:
+                return [self.N, self.C, self.H, self.W]
+        else:
+            return self.list
 
 
 class TensorType(object):
@@ -123,7 +115,7 @@ class IRTensor:  # IR中，表示张量的class
     idx = None
 
     def __init__(self):
-        self.Shape = Shape(0, 0, 0, 0)
+        self.Shape = None
         self.ConsumerOp = None
         self.OwnerOp = None
 
