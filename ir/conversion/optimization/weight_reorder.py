@@ -329,7 +329,7 @@ def wm(op: block_param):
                                             output_shift, output_multiplier, BiasValue)
     weight_format.append(shape)
     # op.weight_mapping_dict["weight_format"] = weight_format
-    weight_dict[op.npu_op_id] = [weight_format, res]
+    weight_dict[op.npu_op_id] = [weight_format, res]  # 更新多线程字典
     # print(op.npu_op_id)
     return 1
 
@@ -449,7 +449,7 @@ def _weight_mapping_multi_process(net: GraphIR):
         npu_op_id = target_op.npu_op_id
         weight_format, res = weight_dict[npu_op_id]
 
-        target_op.weight_mapping_dict["weight_format"] = weight_format
+        target_op.weight_mapping_dict["weight_format"] = weight_format  # 保存字典
 
         if not net.check_weight_tensor(npu_op_id):
             net.add_weight_tensor(npu_op_id, res)

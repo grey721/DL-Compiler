@@ -1,7 +1,4 @@
 *.log
-*.onnx
-*.pt
 .venv/
 .idea/
 __pycache__/
-assets/
