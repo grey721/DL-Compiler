@@ -30,11 +30,12 @@ def get_np_data_from_attribute(attr):
 
 
 class ONNX2TopIR:
-    def __init__(self, model_path, config_path=None):
+    def __init__(self, model_path, config_path=None, codegen_path=None):
         # 初始化
         self.model = onnx.load(model_path)
         self.print_model_info()
         self.graph = GraphIR()  # 创建图IR对象
+        self.graph.codegen_path = codegen_path
 
         # 量化
         if config_path is None:

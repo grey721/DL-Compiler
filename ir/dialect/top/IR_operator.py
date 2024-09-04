@@ -1,5 +1,3 @@
-from typing import List, Any
-
 from .IR_tensor import *
 
 
@@ -296,12 +294,12 @@ class ConvBase(OpBase):
 
     # TODO confirm 哪个正确？
     def get_mac(self):
-        # mac = self.OutputShape[0].H * self.OutputShape[0].W * self.OutputShape[0].C \
-        # * self.KerH * self.KerW * self.InputShape[0].C / self.Group * 2
-        ov = self.OutputShape[0].H * self.OutputShape[0].W * self.OutputShape[0].C
-        mac = ov * self.KerH * self.KerW * self.InputShape[0].C / self.Group
-        if self.Bias:
-            mac = mac + ov
+        mac = self.OutputShape[0].H * self.OutputShape[0].W * self.OutputShape[0].C \
+              * self.KerH * self.KerW * self.InputShape[0].C / self.Group * 2
+        # ov = self.OutputShape[0].H * self.OutputShape[0].W * self.OutputShape[0].C
+        # mac = ov * self.KerH * self.KerW * self.InputShape[0].C / self.Group
+        # if self.Bias:
+        #     mac = mac + ov
         return mac
 
     def get_weight_size(self):
@@ -415,7 +413,7 @@ class FullConnected(OpBase):
 
     def get_mac(self):
         mac = self.OutputShape[0].H * self.OutputShape[0].W * self.OutputShape[0].C \
-                * self.InputShape[0].H * self.InputShape[0].W * self.InputShape[0].C * 2
+              * self.InputShape[0].H * self.InputShape[0].W * self.InputShape[0].C * 2
         return mac
 
     def get_weight_size(self):
@@ -524,7 +522,7 @@ class Pool(OpBase):
         n_c = self.InputShape[0].C
 
         return [n_h, n_w, n_c]
-    
+
 
 # ############################ activation ###########################
 class ActivationMode(object):
@@ -551,7 +549,7 @@ class Activation(OpBase):
             f'Op Name:{self.Name}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape[0]}\n'            
+            f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors[0]}\n'
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## {self.Type}.{self.TopOpId} ##############\n'
@@ -606,7 +604,7 @@ class Resize(OpBase):
             f'AlignCorners:{self.AlignCorners}; HalfPixelCenters:{self.HalfPixelCenters}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape[0]}\n'            
+            f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors[0]}\n'
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## Resize.{self.TopOpId} ##############\n'
@@ -701,7 +699,7 @@ class Reshape(OpBase):
             f'Reshape:{self.Target}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape[0]}\n'    
+            f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors[0]}\n'
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## Reshape.{self.TopOpId} ##############\n'
@@ -715,7 +713,6 @@ class Transpose(OpBase):
     def __init__(self):
         super().__init__()
 
-
     def __repr__(self):
         return (
             f'############## Transpose.{self.TopOpId} ##############\n'
@@ -723,7 +720,7 @@ class Transpose(OpBase):
             f'ReDim:{self.OutDimOrder}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape[0]}\n'    
+            f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors[0]}\n'
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## Transpose.{self.TopOpId} ##############\n'
@@ -752,7 +749,7 @@ class Pad(OpBase):
             f'          Bottom:{self.pad_bottom}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape[0]}\n'    
+            f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors[0]}\n'
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## Pad.{self.TopOpId} ##############\n'
@@ -775,7 +772,7 @@ class Split(OpBase):
             f'Split:{self.split_shape}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape[0]}\n'    
+            f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors}\n'
             f'Output shape:{self.OutputShape}\n'
             f'############## Split.{self.TopOpId} ##############\n'
@@ -820,7 +817,7 @@ class OpShape(OpBase):
             f'Op Name:{self.Name}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape[0]}\n'    
+            f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors}\n'
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## Shape.{self.TopOpId} ##############\n'
@@ -842,7 +839,7 @@ class Unsqueeze(OpBase):
             f'Axes:{self.axis}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape[0]}\n'    
+            f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors}\n'
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## Unsqueeze.{self.TopOpId} ##############\n'
@@ -862,7 +859,7 @@ class Floor(OpBase):
             f'Op Name:{self.Name}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape[0]}\n'    
+            f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors}\n'
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## Floor.{self.TopOpId} ##############\n'
@@ -888,7 +885,7 @@ class Slice(OpBase):
             f'End:{self.end}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape[0]}\n'    
+            f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors}\n'
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## Slice.{self.TopOpId} ##############\n'
@@ -910,7 +907,7 @@ class Cast(OpBase):
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Target dtype:{self.Target}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
-            f'Input shape:{self.InputShape[0]}\n'    
+            f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors}\n'
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## Cast.{self.TopOpId} ##############\n'

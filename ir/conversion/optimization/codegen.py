@@ -4,7 +4,7 @@ from ir.codegen.vpuPreparingParam import *
 from ir.codegen.getRegisterWithConv import getRegisterWithConv
 from ir.codegen.getRegisterWithoutConv import getRegisterWithoutConv
 from enum import Enum
-from frontend.tool.utils import *
+from tool.utils import *
 import copy
 import cv2
 
@@ -38,19 +38,20 @@ def intToBin(number, index, feature=True):
             or isinstance(number, np.int32)
             or isinstance(number, np.int64)
             or isinstance(number, np.int8)), 'the type of number must be int'
-    if feature == True:
+    if feature is True:
         if number >= 0:
+
             b = bin(number)
             b = '0' * (index + 2 - len(b)) + b
         else:
-            b = 2 ** (index) + number
+            b = 2 ** index + number
             b = bin(b)
             b = '1' * (index + 2 - len(b)) + b
         b = b.replace("0b", '')
         b = b.replace('-', '')
         assert (len(b) == index), "out of bitnums"
         return b
-    elif feature == False:
+    elif feature is False:
         i = int(str(number), 2)
         if i >= 2 ** (index - 1):
             i = -(2 ** index - i)
@@ -181,10 +182,10 @@ def get_block_head(file_list, npu_graph, sub_block_id, all_head_list, dma_read_l
     register = binTohex(register, 32)
     head_list.append(register)
     # block ctrl reg3
-    if sub_block_id == len(SubBlockWeightInfo) - 1 and SubBlockWeightInfo[sub_block_id][0] == True:
+    if sub_block_id == len(SubBlockWeightInfo) - 1 and SubBlockWeightInfo[sub_block_id][0] is True:
         fmo_output_en = 1
     elif (SubBlockWeightInfo[sub_block_id][0] != SubBlockWeightInfo[sub_block_id + 1][0] and
-          SubBlockWeightInfo[sub_block_id][0] == True):
+          SubBlockWeightInfo[sub_block_id][0] is True):
         fmo_output_en = 1
     else:
         fmo_output_en = 0
@@ -197,7 +198,7 @@ def get_block_head(file_list, npu_graph, sub_block_id, all_head_list, dma_read_l
 
     # block ctrl reg4
     register = [intToBin(SubBlockWeightInfo[sub_block_id][4][1] * 8, 16),
-                intToBin(int(SubBlockWeightInfo[sub_block_id][4][0] * \
+                intToBin(int(SubBlockWeightInfo[sub_block_id][4][0] *
                              SubBlockWeightInfo[sub_block_id][4][2] / 2 / 8), 16)]
     register = bin_listTobin(register)
     register = binTohex(register, 32)
@@ -354,7 +355,7 @@ def get_FE_register(file_list, npu_graph, sub_block_id, dma_read_list):
             flag_id = i
             flag = 1
 
-    if (flag):
+    if flag:
         w = int(dma_read_list[flag_id][3][3])
         h = int(dma_read_list[flag_id][3][1])
 
@@ -582,7 +583,8 @@ def get_BE_register(file_list, npu_graph, sub_block_id):
     register = []
     # be_shm_base_addr0
     register.append(n_zeros_str(13))
-    register.append(intToBin(shm_base_addr[2], 19))
+    register.append(
+        intToBin(shm_base_addr[2], 19))
     register = bin_listTobin(register)
     register = binTohex(register, 32)
     file_list.append(f"32'h0000c028 {register}\n")

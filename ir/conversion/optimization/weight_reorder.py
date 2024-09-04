@@ -442,7 +442,9 @@ def _weight_mapping_multi_process(net: GraphIR):
 
     pool = multiprocessing.Pool()
 
+    print('weight mapping')
     result = pool.map(wm, target_op_list)  # wm对list中的每一个op处理
+    print('Done')
     assert sum(result) == len(target_op_list)
 
     for target_op in target_op_list:

@@ -1,5 +1,4 @@
 from frontend.ONNX_processor import *
-from frontend.tool.utils import *
 from ir.conversion.top2npu.top2npu_pass import *
 from ir.conversion.optimization.ir_transform import *
 from ir.conversion.optimization.op_fuse import *
@@ -10,9 +9,13 @@ if __name__ == '__main__':
     # config
     model_path = 'assets/yolov3.onnx'
     config_path = 'assets/yolov3.json'
+    codegen_path = 'output'
 
     # 解析
-    model_processor = ONNX2TopIR(model_path, config_path)  # config_path
+    model_processor = ONNX2TopIR(model_path=model_path,
+                                 config_path=config_path,
+                                 codegen_path=codegen_path
+                                 )  # config_path
     model_processor.load_all_tensor()
     model_processor.parse_operator()
     top_graph = model_processor.graph
