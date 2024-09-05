@@ -7,13 +7,13 @@ from ir.conversion.optimization.subnet import *
 
 if __name__ == '__main__':
     # config
-    model_path = 'assets/yolov3.onnx'
+    model_path = 'assets/yolov5s.onnx'
     config_path = 'assets/yolov3.json'
     codegen_path = 'output'
 
     # 解析
     model_processor = ONNX2TopIR(model_path=model_path,
-                                 config_path=config_path,
+                                 # config_path=config_path,
                                  codegen_path=codegen_path
                                  )  # config_path
     model_processor.load_all_tensor()
@@ -41,11 +41,7 @@ if __name__ == '__main__':
     ir_transformer.add_transform_option(weight_mapping_transform)
     ir_transformer.transform(npu_graph)
 
-    # from ir.conversion.optimization.memory_assign import *
-    # ir_transformer.add_transform_option(memory_assign_transform)
-    # ir_transformer.transform(npu_graph)
-
-    from ir.conversion.optimization.codegen import *
+    from ir.codegen.codegen import *
     ir_transformer.add_transform_option(codegen_transform)
     ir_transformer.transform(npu_graph)
 

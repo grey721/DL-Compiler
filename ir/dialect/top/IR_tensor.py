@@ -53,11 +53,6 @@ class Shape:  # 专门用于表示张量形状的class
             self.N = 1
             self.H = 1
             self.W = 1
-        elif dims == 0:
-            self.C = 0
-            self.N = 0
-            self.H = 0
-            self.W = 0
         elif dims == 5:
             self.N, self.BoxNum, self.BoxInfo, self.fiH, self.fiW = tensor_shape
         #     # (x, y, w h,confidence)
@@ -66,7 +61,10 @@ class Shape:  # 专门用于表示张量形状的class
         # 网格尺度有三种，小、中、大三个尺度检测目标对象
 
         else:
-            raise NotImplementedError
+            pass
+
+    def __bool__(self):
+        return bool(self.list)
 
     def get_shape(self):
         return self
