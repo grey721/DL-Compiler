@@ -459,7 +459,7 @@ class NpuConcat(Concat):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuConcat"
+        self.Type = "NpuConcat"
         self.main_input_tensor_id = None
 
     def block_shape_reverse_infrence(self, block_address_list):
@@ -506,6 +506,14 @@ class NpuConcat(Concat):
                         = deepcopy(tile_address_list)
 
         return tile_address_list
+
+
+class NpuSplit(Split):
+
+    def __init__(self):
+        super().__init__()
+        self.Type = "NpuSplit"
+        # TODO
 
 
 class NpuElemWise(ElemWise):

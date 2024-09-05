@@ -256,7 +256,7 @@ class ElemWise(OpBase):
         return graph.AllTensors[self.OutTensors[0]].ZeroPoint
 
     def shape_inference(self) -> list:
-        return [self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
+        return self.InputShape[0].list
 
 
 # ###################  conv related ############################
@@ -358,16 +358,18 @@ class ConvBase(OpBase):
 
     # 推断经过padding和卷积后图像的新形状
     def shape_inference(self) -> list:
+        n = self.InputShape[0].N
+        c = self.InputShape[1].N
         h = self.InputShape[0].H
         w = self.InputShape[0].W
 
         pad_h = self.PadH
         pad_w = self.PadW
+
         n_h = int((h + pad_h * 2 - self.KerH) / self.StrideH + 1)
         n_w = int((w + pad_w * 2 - self.KerW) / self.StrideW + 1)
-        n_c = self.InputShape[0].C
 
-        return [n_h, n_w, n_c]
+        return [n, c, n_h, n_w]
 
     # def GetQuantBiasZeroPointNumpy(self):
     #     if self.Bias:
@@ -514,14 +516,15 @@ class Pool(OpBase):
         )
 
     def shape_inference(self) -> list:
+        n = self.InputShape[0].N
+        c = self.InputShape[0].C
         h = self.InputShape[0].H
         w = self.InputShape[0].W
 
-        n_h = int(h / self.StrideH)
-        n_w = int(w / self.StrideW)
-        n_c = self.InputShape[0].C
+        n_h = int(h - self.KerH + 2 * self.PadH / self.StrideH) + 1
+        n_w = int(w - self.KerW + 2 * self.PadW / self.StrideW) + 1
 
-        return [n_h, n_w, n_c]
+        return [n, c, n_h, n_w]
 
 
 # ############################ activation ###########################
@@ -572,7 +575,7 @@ class Activation(OpBase):
         return graph.AllTensors[self.OutTensors[0]].ZeroPoint
 
     def shape_inference(self) -> list:
-        return [self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
+        return self.InputShape[0].list
 
 
 # ###################  tensor related ############################
@@ -610,12 +613,11 @@ class Resize(OpBase):
             f'############## Resize.{self.TopOpId} ##############\n'
         )
 
-    def shape_inference(self, shape_list):
-        h, w, c = shape_list
+    def shape_inference(self):
+        n, c, h, w = self.InputShape[0].list
         n_h = h * self.ScaleFactor
         n_w = w * self.ScaleFactor
-        n_c = c
-        return [n_h, n_w, n_c]
+        return [n, c, n_h, n_w]
 
 
 class Concat(OpBase):
@@ -674,15 +676,23 @@ class Concat(OpBase):
         return graph.AllTensors[self.OutTensors[0]].ZeroPoint
 
     def shape_inference(self):
-        shape1_list = [self.InputShape[0].N, self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
-        shape2_list = [self.InputShape[1].N, self.InputShape[1].H, self.InputShape[1].W, self.InputShape[1].C]
+        n_shape = self.InputShape[0].list
 
-        for i in range(4):
+        dims = len(n_shape)
+        for shape in self.InputShape:
+            assert len(shape.list) == dims
+
+        for i in range(dims):
+            dim_value = n_shape[i]
             if i != self.Axis:
-                assert shape1_list[i] == shape2_list[i]
+                for shape in self.InputShape:
+                    assert shape.list[i] == dim_value
             else:
-                shape1_list[i] = shape1_list[i] + shape2_list[i]
-        return shape1_list
+                n_shape[i] = 0
+                for shape in self.InputShape:
+                    n_shape[i] += shape.list[i]
+
+        return n_shape
 
 
 class Reshape(OpBase):
@@ -705,6 +715,9 @@ class Reshape(OpBase):
             f'############## Reshape.{self.TopOpId} ##############\n'
         )
 
+    def shape_inference(self):
+        return self.Target
+
 
 class Transpose(OpBase):
     Type = "Transpose"
@@ -725,6 +738,13 @@ class Transpose(OpBase):
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## Transpose.{self.TopOpId} ##############\n'
         )
+
+    def shape_inference(self):
+        n_shape = []
+        in_shape = self.InputShape[0].list
+        for i in self.OutDimOrder:
+            n_shape.append(in_shape[i])
+        return n_shape
 
 
 class Pad(OpBase):
@@ -779,16 +799,12 @@ class Split(OpBase):
         )
 
     def shape_inference(self):
-        shape_list = [self.InputShape[0].N, self.InputShape[0].H, self.InputShape[0].W, self.InputShape[0].C]
+        sample = self.InputShape[0].list
         n_shape = []
-        for i in range(len(self.split_shape)):
-            out = []
-            for j in range(4):
-                if j == self.Axis:
-                    out.append(self.split_shape[i])
-                else:
-                    out.append(shape_list[j])
-            n_shape.append(out)
+        for dim_value in self.split_shape:
+            temp = sample[:]  # 类似于deepcopy
+            temp[self.Axis] = dim_value
+            n_shape.append(temp)
 
         return n_shape
 
