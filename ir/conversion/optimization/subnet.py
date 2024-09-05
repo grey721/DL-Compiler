@@ -87,7 +87,7 @@ def _reorder_npu_ops(net: GraphIR):
         net_op = net.get_npu_op(op_id)
         op_id_list = _find_pre_npu_op(net, net_op)
         if op_id_list:
-            # TODO 可行吗？
+            # TODO test
             next_id = max(op_id_list)
             return dfs(sub_graph, next_id)
         # if len(op_id_list) == 1:

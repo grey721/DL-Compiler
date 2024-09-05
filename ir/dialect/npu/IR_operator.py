@@ -1181,7 +1181,7 @@ class block_param(object):
             #     raise(Exception(errer_info))
             return
 
-    # TODO tile_split和block_split有什么区别
+    # TODO tile_split memory 中的分割，block_split是sim中的分割?
     def tile_split(self):  # 数据块
 
         if not self.tile_split_mode:
@@ -1312,8 +1312,7 @@ class block_param(object):
             op_block_address_list = self.npu_op_flow_block_address_list[flow_op_id]
             _npu_op_flow_tile_address_list = npu_op_flow_tile_address_list[flow_op_id]
 
-            if isinstance(op, NpuPool) \
-                    or isinstance(op, NpuConv2d):
+            if isinstance(op, (NpuPool, NpuConv2d)):
                 tile_address_list = op.update_tile_address_list(_npu_op_flow_tile_address_list,
                                                                 tile_address_list,
                                                                 op_block_address_list)

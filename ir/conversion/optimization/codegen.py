@@ -23,8 +23,8 @@ np.random.seed(20230510)
 
 class TransformRule(Enum):
     CREATE_REGISTER = 1
-    CREATE_INFO = 2
-    CREATE_XLSX = 3
+    CREATE_INFO = 2  # txt保存模型输入输出，层，block等信息;dma_read_list非空，则保存json包括txt的信息和输入输出形状信息和dma的信息
+    CREATE_XLSX = 3  # 将block信息保存成xlsx
     CREATE_TOP_INFO = 4
     CALCULATING_THE_WEIGHT = 5
     CREATE_REGISTER_WITH_DMA = 6
@@ -145,7 +145,7 @@ def transfer_register_format(res_list):
     return res_list_
 
 
-def get_block_head(file_list, npu_graph, sub_block_id, all_head_list, dma_read_list):
+def get_block_head(file_list, npu_graph, sub_block_id, all_head_list, dma_read_list):  # 寄存器头信息
     SubBlockWeightInfo = npu_graph.SubBlockWeightInfo
     head_list = ['ffffffff']
     # block ctrl reg0
@@ -157,8 +157,8 @@ def get_block_head(file_list, npu_graph, sub_block_id, all_head_list, dma_read_l
     head_list.append(register)
     # block ctrl reg1
     if sub_block_id == len(SubBlockWeightInfo) - 1:
-        load_wgt_en = 0
-        wgt_st_addr = 0
+        load_wgt_en = 0  # 是否加载权重
+        wgt_st_addr = 0  # 权重起始地址
     else:
         if SubBlockWeightInfo[sub_block_id][1:] == SubBlockWeightInfo[sub_block_id + 1][1:]:
             load_wgt_en = 0
@@ -313,7 +313,7 @@ def get_top_head(npu_graph):
     return top_head
 
 
-def get_WGT_register(file_list, npu_graph):
+def get_WGT_register(file_list, npu_graph):  # 配置权重寄存器的值
     # ADDR_FE_BASE+16’h00
     register = []
     # wgt_endian
@@ -326,7 +326,7 @@ def get_WGT_register(file_list, npu_graph):
     register.append(intToBin(0, 1))
     register = bin_listTobin(register)
     register = binTohex(register, 32)
-    file_list.append(f"32'h0000c040 {register}\n")
+    file_list.append(f"32'h0000c040 {register}\n")  #
 
     # ADDR_FE_BASE+16’h04
     register = []
@@ -583,8 +583,7 @@ def get_BE_register(file_list, npu_graph, sub_block_id):
     register = []
     # be_shm_base_addr0
     register.append(n_zeros_str(13))
-    register.append(
-        intToBin(shm_base_addr[2], 19))
+    register.append(intToBin(shm_base_addr[2], 19))
     register = bin_listTobin(register)
     register = binTohex(register, 32)
     file_list.append(f"32'h0000c028 {register}\n")
@@ -670,7 +669,7 @@ def get_BE_register(file_list, npu_graph, sub_block_id):
     pass
 
 
-def make_weight(top_info_path, npu_graph):
+def make_weight(top_info_path, npu_graph):  # 将权重保存成文件
     weight_path = f'{top_info_path}/weight'
     weight = npu_graph.WeightTensors
     f = open(weight_path, 'w')
@@ -681,16 +680,16 @@ def make_weight(top_info_path, npu_graph):
     pass
 
 
-def make_image_to_memory(top_info_path, image_size=[128, 128, 3], image_path=''):
+def make_image_to_memory(top_info_path, image_size=(128, 128, 3), image_path=''):  # 保存图片二进制数据
     top_info_path = f'{top_info_path}/image'
-    if (image_path == ''):
-        image = (np.random.rand(image_size[0] * image_size[1] * image_size[2]).reshape(image_size) * 255 - 128).astype(
-            np.int8)
+    if image_path == '':
+        image = (np.random.rand(image_size[0] * image_size[1] * image_size[2]).reshape(image_size) * 255 - 128
+                 ).astype(np.int8)  # 随机生成图片，随机生成图片size,*255是为了值[0~255)，-128是是为了[-128,127)，
     else:
         try:
             image = cv2.imread(image_path)
         except:
-            assert (0), "image is not exist"
+            raise FileNotFoundError("image is not exist")
 
     f = open(top_info_path, '+w')
     string = ''
@@ -702,7 +701,7 @@ def make_image_to_memory(top_info_path, image_size=[128, 128, 3], image_path='')
                 number = binTohex(number, 8)
                 string = number + string
                 n += 1
-                if n == 3:
+                if n == 3:  # 3通道？固定3一回车？
                     f.write(string + '\n')
                     n = 0
                     string = ''
@@ -756,7 +755,7 @@ def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleF
     return im, ratio, (int(round(dw - 0.1)), int(round(dh - 0.1)))
 
 
-def make_image(image_path, Scale, ZeroPoint, size=[416, 416, 3]):
+def make_image(image_path, Scale, ZeroPoint, size=(416, 416, 3)):
     im = cv2.imread(image_path)
     shape = im.shape
     im, ratio, (dw, dh) = letterbox(im, size, stride=32, auto=False)
@@ -853,7 +852,7 @@ def create_register(npu_graph):
 @_register_ir_transformation_rule(TransformRule.CREATE_INFO)
 def create_info(npu_graph):
     assert npu_graph.codegen_path is not None
-    path = npu_graph.codegen_path
+    path_base = npu_graph.codegen_path
     model_name = npu_graph.model_name
     sub_block_nums = npu_graph.sub_block_nums
     total_layer_num = len(sub_block_nums)
@@ -879,7 +878,7 @@ def create_info(npu_graph):
         text += f"1, "
     text = text[:-2]
 
-    f = open(f"{path}/{model_name}.txt", "w")
+    f = open(f"{path_base}/{model_name}.txt", "w")
     f.write(text)
     f.close()
 
@@ -897,8 +896,8 @@ def create_info(npu_graph):
     real_shape_list = []
     for i in range(len(input_output_dict['output'])):
         op = npu_graph.get_npu_op(NetOutNpuOpId[i])
-        origin_shape_list.append([int(op.OutputH), int(op.OutputW), int(op.OutputC)])
-        real_shape_list.append([int(op.OutputH), int(op.OutputW), int(op.NpuOpConvOp.OutputC2cpu)])
+        origin_shape_list.append([int(op.OutputShape[0].H), int(op.OutputShape[0].W), int(op.OutputShape[0].C)])
+        real_shape_list.append([int(op.OutputShape[0].H), int(op.OutputShape[0].W), int(op.NpuOpConvOp.OutputC2cpu)])
 
     XM_info["origin_shape_list"] = origin_shape_list
     XM_info["real_shape_list"] = real_shape_list
@@ -911,7 +910,7 @@ def create_info(npu_graph):
         XM_info["dma_read_shape_list"] = dma_read_shape_list
         XM_info["dma_read_fmi"] = [int(dma_read_list[0][2][0]), int(dma_read_list[0][2][1]),
                                    int(dma_read_list[0][2][2])]
-        with open(f"{path}/{model_name}.json", 'w') as f:
+        with open(f"{path_base}/{model_name}.json", 'w') as f:
             json.dump(XM_info, f)
         pass
 
@@ -933,8 +932,8 @@ def create_info(npu_graph):
     top_info_path = f'{path_base}_top_info'
     if not os.path.exists(top_info_path):
         os.makedirs(top_info_path)
-    make_weight(top_info_path, npu_graph)
-    make_image_to_memory(top_info_path, image_size=[128, 128, 3], image_path='')
+    make_weight(top_info_path, npu_graph)  # 将权重保存文件
+    make_image_to_memory(top_info_path, image_size=[128, 128, 3], image_path='')  # 保存图片二进制数据
 
     sub_block_nums = npu_graph.sub_block_nums
     total_layer_num = len(sub_block_nums)
@@ -951,7 +950,8 @@ def create_info(npu_graph):
             get_BE_register(file_list, npu_graph, total_sub_block_nums)
             get_WGT_register(file_list, npu_graph)
 
-            file_list_res = compare_file(tem_file_list, file_list)
+            file_list_res = compare_file(tem_file_list, file_list)  # 两个列表找不同，返回不同的数据，并使前者=后者
+            # 更新head_list，存储寄存器的输入
             get_block_head(file_list_res, npu_graph, total_sub_block_nums, head_list, npu_graph.dma_read_list)
             res_list.append(file_list_res)
             # res_list.append(compare_file(tem_file_list, file_list))

@@ -51,10 +51,9 @@ def _gen_npu_op_group(net: GraphIR):
                         while backend.first_layer_fmi_max_size < firstLayer_fmisize / h_slice:
                             h_slice += 1
 
-                    # TODO 写错了？两个都是H
                     if npu_op.NpuOpConv:
                         kh = npu_op.NpuOpConvOp.KerH
-                        kw = npu_op.NpuOpConvOp.KerH
+                        kw = npu_op.NpuOpConvOp.KerW
                         assert kh == kw
                         ic = npu_op.NpuOpConvOp.InputShape[0].C
 
@@ -105,7 +104,6 @@ def _gen_npu_op_group(net: GraphIR):
 
 
 # layer_group_pass
-# TODO 内存分配相关，目前需要实现？可否移至 memory_assign.py中
 layer_group_transform = [# TransformRule.GEN_NPU_OP_TIME_STEP,
                          TransformRule.GEN_NPU_OP_GROUP,
                          # TransformRule.GEN_NPU_TENSOR_LIFE_CYCLE,

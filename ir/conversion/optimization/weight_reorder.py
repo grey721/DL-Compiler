@@ -167,6 +167,7 @@ def cluster_format(weight, cluster_psum, cim_psum, split_c, frist_layer):
     cluster_nums = math.ceil(cim_nums / 4)
     cycle_nums = math.ceil(cluster_nums / 4)
 
+    # TODO 为什么
     weight = weight.reshape([split_c, cycle_nums, -1, weight_h, weight_w, cluster_psum, int(weight_c / cluster_psum)])
     weight = np.transpose(weight, (0, 1, 2, 5, 3, 4, 6))
 
