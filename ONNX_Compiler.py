@@ -45,7 +45,7 @@ if __name__ == '__main__':
     # ir_transformer.add_transform_option(memory_assign_transform)
     # ir_transformer.transform(npu_graph)
 
-    from ir.conversion.optimization.codegen import *
+    from ir.codegen.codegen import *
     ir_transformer.add_transform_option(codegen_transform)
     ir_transformer.transform(npu_graph)
 
