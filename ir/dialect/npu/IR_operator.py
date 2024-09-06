@@ -766,7 +766,7 @@ class NpuOp(OpBase):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuOp"
+        self.Type = "NpuOp"
         self.NpuOpFlow = []
         self.fmi_tensor = []
         self.fmo_tensor = []
@@ -778,6 +778,30 @@ class NpuOp(OpBase):
         self.concat_output = False
         self.concat_output_shape = None
         self.fmi_from_global_memory = False
+
+    def __repr__(self):
+        return f"""
+    ######################## NpuOp.{self.NpuOpId} #############################
+    Device: {self.Device}
+    NpuOpMode: {self.NpuOpMode}
+    NpuShortCutMode: {self.NpuShortCutMode}
+    NpuOpPad: {self.NpuOpPad}
+    NpuOpConv: {self.NpuOpConv}
+    NpuOpFc: {self.NpuOpFc}
+    NpuOpActivate: {self.NpuOpActivate}
+    NpuOpElemWise: {self.NpuOpElemWise}
+    NpuOpPool: {self.NpuOpPool}
+    NpuOpResize: {self.NpuOpResize}
+    NpuOpConcat: {self.NpuOpConcat}
+    NpuOpReshape: {self.NpuOpReshape}
+
+    NpuOpActiOut: {self.NpuOpActiOut}
+    NpuOpPoolOut: {self.NpuOpPoolOut}
+    NpuOpResizeOut: {self.NpuOpResizeOut}
+    NpuOpElwOut: {self.NpuOpElwOut}
+    NpuOpShortCutOut: {self.NpuOpShortCutOut}
+    ######################## NpuOp.{self.NpuOpId} #############################
+    """
 
     def add_fmi_tensor(self, ir_tensor_id):
         self.fmi_tensor.append(ir_tensor_id)

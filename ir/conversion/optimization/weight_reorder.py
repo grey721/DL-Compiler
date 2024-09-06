@@ -300,8 +300,8 @@ def add_bais_shift_quatization(shape, res, r_max, r_min, output_offset,
     return shape, new_res
 
 
-manager = multiprocessing.Manager()
-weight_dict = manager.dict()
+# manager = multiprocessing.Manager()
+# weight_dict = manager.dict()
 
 
 def wm(op: block_param):
@@ -462,7 +462,6 @@ def _weight_mapping_multi_process(net: GraphIR):
 # weight_mapping_pass
 weight_mapping_transform = [TransformRule.WEIGHT_PADDING,
                             # TransformRule.WEIGHT_MAPPING
-                            TransformRule.WEIGHT_MAPPING_MULTI_PROCESS
+                            # TransformRule.WEIGHT_MAPPING_MULTI_PROCESS
                             ]
-# if __name__ == "__main__":
-#     sparsity_class()
+

@@ -9,9 +9,11 @@ from ir.dialect.npu.IR_operator import *
 def _lowering(net, mode):
     for op in net.AllOps:
         if isinstance(op, ConvBase):
-            if mode == "int8":
+            if mode is None:
+                NpuOp = _lowering_none(op, net)
+            elif mode == "int8":
                 NpuOp = _lowering_int8(op, net)
-            if mode == "fp32":
+            elif mode == "fp32":
                 NpuOp = _lowering_fp32(op, net)
 
             op_id = net.get_op_idx(op)
@@ -68,7 +70,6 @@ def _lowering_int8(op, net):
         NpuConv.quantized_activation_max, NpuConv.quantized_activation_min \
             = get_activation_range(output_scale, NpuConv.output_offset, "SIGMOID")
 
-    # TODO 为什么还需要校验一下pad的形状
     OutputH = op.OutputShape[0].H
     OutputW = op.OutputShape[0].W
     InputH = op.InputShape[0].H
@@ -88,4 +89,40 @@ def _lowering_int8(op, net):
 
 
 def _lowering_fp32(op, net):
+    NpuConv = NpuConv2d()
+    NpuConv.__dict__.update(op.__dict__)
+    NpuConv.Type = "NpuConv2d"
     raise NotImplementedError
+
+
+def _lowering_none(op, net):
+    NpuConv = NpuConv2d()
+    NpuConv.__dict__.update(op.__dict__)
+    NpuConv.Type = "NpuConv2d"
+
+    # 加载参数
+    weight = op.get_weight_numpy(net)
+    bias = op.get_bias_numpy(net)
+
+    NpuConv.BiasValue = bias
+    NpuConv.WeightValue = weight
+
+    # Pad参数
+    OutputH = op.OutputShape[0].H
+    OutputW = op.OutputShape[0].W
+    InputH = op.InputShape[0].H
+    InputW = op.InputShape[0].W
+    KerH = op.KerH
+    KerW = op.KerW
+    StrideH = op.StrideH
+    StrideW = op.StrideW
+    H = OutputH * StrideH - StrideH + KerH
+    W = OutputW * StrideW - StrideW + KerW
+
+    NpuConv.pad_top = op.PadH
+    NpuConv.pad_bottom = H - op.PadH - InputH
+    NpuConv.pad_left = op.PadW
+    NpuConv.pad_right = W - op.PadW - InputW
+
+    return NpuConv
+

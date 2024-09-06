@@ -95,19 +95,10 @@ if __name__ == '__main__':
     # for_seek(toolkit1.model.graph.node, 'op_type', 'Split',1,1)
     # print(sys.getsizeof(my_list))\
     # 创建一个空的切片元组，用于最终的切片操作
-    data = [
-        [1, 2, 3, 4],
-        [5, 6, 7, 8],
-    ]
-    starts = [0, 1]
-    ends = [-1, 1000]
-    data = np.array(data)
-    axes = None
-    if axes is None:
-        axes = range(len(starts))  # 如果没有指定轴，则对所有维度进行切片
-    slicing = [slice(None)] * data.ndim
+    def get_list(nums=22, val=0):
+        l = []
+        for _ in range(nums):
+            l.append(val)
+        return l
 
-    # 替换切片元组中指定轴上的切片对象
-    for axis, start, end in zip(axes, starts, ends):
-        slicing[axis] = slice(start, end)
-    print(type(data[tuple(slicing)]))
+

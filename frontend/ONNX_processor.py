@@ -794,7 +794,7 @@ class ONNX2TopIR:
             # 缩放因子
             if self.graph.AllTensors[roi_tensor_id].Data is None:
                 for tensor in self.model.graph.initializer:
-                    if tensor.name == roi_name:
+                    if tensor.name == in_tensors_name[1]:
                         np_scales, scales_dtype = get_np_data_from_attribute(tensor)
                         break
                 else:

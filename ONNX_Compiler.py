@@ -3,17 +3,21 @@ from ir.conversion.top2npu.top2npu_pass import *
 from ir.conversion.optimization.ir_transform import *
 from ir.conversion.optimization.op_fuse import *
 from ir.conversion.optimization.subnet import *
+from ir.conversion.optimization.layer_group import *
+from ir.conversion.optimization.weight_reorder import *
+from ir.conversion.optimization.codegen import *
 
 
 if __name__ == '__main__':
     # config
-    model_path = 'assets/yolov5s.onnx'
+    model_path = 'assets/yolov3.onnx'
     config_path = 'assets/yolov3.json'
+    quantization_mode = "int8"  # mode="int8"
     codegen_path = 'output'
 
     # 解析
     model_processor = ONNX2TopIR(model_path=model_path,
-                                 # config_path=config_path,
+                                 config_path=config_path,
                                  codegen_path=codegen_path
                                  )  # config_path
     model_processor.load_all_tensor()
@@ -21,7 +25,7 @@ if __name__ == '__main__':
     top_graph = model_processor.graph
 
     # lowing
-    t2n = Top2Npu()
+    t2n = Top2Npu(mode=quantization_mode)
     npu_graph = t2n.transform(top_graph)
 
     # pass
@@ -33,21 +37,15 @@ if __name__ == '__main__':
     ir_transformer.add_transform_option(subnet_transform)
     ir_transformer.transform(npu_graph)
 
-    from ir.conversion.optimization.layer_group import *
     ir_transformer.add_transform_option(layer_group_transform)
     ir_transformer.transform(npu_graph)
 
-    from ir.conversion.optimization.weight_reorder import *
     ir_transformer.add_transform_option(weight_mapping_transform)
     ir_transformer.transform(npu_graph)
 
-    from ir.codegen.codegen import *
     ir_transformer.add_transform_option(codegen_transform)
     ir_transformer.transform(npu_graph)
 
     import pickle
     with open("output/npu_graph.pkl", "wb") as f:
         pickle.dump(npu_graph, f)
-
-    # profile = False
-    # if profile:
