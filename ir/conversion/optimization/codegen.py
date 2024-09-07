@@ -6,6 +6,7 @@ import os
 
 import json
 
+
 class TransformRule(Enum):
     CREATE_REGISTER = 1
     CREATE_INFO = 2  # txt保存模型输入输出，层，block等信息;dma_read_list非空，则保存json包括txt的信息和输入输出形状信息和dma的信息
@@ -252,7 +253,6 @@ def create_info(npu_graph):
 
     getZipDir(f"{top_info_path}/", f"{top_info_path}.zip")
     pass
-
 
 
 @_register_ir_transformation_rule(TransformRule.CALCULATING_THE_WEIGHT)

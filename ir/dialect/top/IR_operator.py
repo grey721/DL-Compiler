@@ -839,6 +839,9 @@ class OpShape(OpBase):
             f'############## Shape.{self.TopOpId} ##############\n'
         )
 
+    def shape_inference(self):
+        return self.InputShape[0].list
+
 
 class Unsqueeze(OpBase):
     Type = "Unsqueeze"
@@ -880,6 +883,9 @@ class Floor(OpBase):
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## Floor.{self.TopOpId} ##############\n'
         )
+
+    def shape_inference(self):
+        return self.InputShape[0].list
 
 
 class Slice(OpBase):
@@ -928,3 +934,6 @@ class Cast(OpBase):
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## Cast.{self.TopOpId} ##############\n'
         )
+
+    def shape_inference(self):
+        return self.InputShape[0].list

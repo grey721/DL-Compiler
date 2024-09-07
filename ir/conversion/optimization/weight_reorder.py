@@ -6,6 +6,17 @@ from enum import Enum
 import math
 
 
+class TransformRule(Enum):
+    NOPE = 1
+
+    WEIGHT_PADDING = 2  # 填充至符合芯片size的shape
+    WEIGHT_MAPPING = 3
+    WEIGHT_MAPPING_MULTI_PROCESS = 4
+    EASY_WEIGHT_MAPPING = 5  # TODO 临时的简易输出
+    EASY_WEIGHT_PADDING = 6
+
+
+
 def make_list_array(shape):  # 创建相应shape的矩阵列表
     lenth = len(shape)
     assert (lenth == 2 or lenth == 3 or lenth == 1)
@@ -335,14 +346,6 @@ def wm(op: block_param):
     return 1
 
 
-class TransformRule(Enum):
-    NOPE = 1
-
-    WEIGHT_PADDING = 2  # 填充至符合芯片size的shape
-    WEIGHT_MAPPING = 3
-    WEIGHT_MAPPING_MULTI_PROCESS = 4
-
-
 @_register_ir_transformation_rule(TransformRule.WEIGHT_PADDING)  # 填充至符合芯片size的shape
 def _weight_padding(net: GraphIR):
     for group_op_id, group_op in enumerate(net.AllOps):
@@ -459,8 +462,95 @@ def _weight_mapping_multi_process(net: GraphIR):
             net.add_weight_format(weight_format)
 
 
+# TODO easy weight
+@_register_ir_transformation_rule(TransformRule.EASY_WEIGHT_PADDING)  # 填充至符合芯片size的shape
+def _weight_padding(net: GraphIR):
+    for op_id, npu_op in enumerate(net.AllOps):
+        if npu_op.NpuOpConv:
+            # weight_split
+            npu_conv_op = npu_op.NpuOpConvOp
+            weight = npu_conv_op.WeightValue
+            bais = npu_conv_op.BiasValue
+            k_n, k_h, k_w, k_c = weight.shape
+
+            if k_n % 16 != 0:
+                assert npu_op.output_block is True
+                if k_n < 32:
+                    n_k_n = 32
+                elif k_n < 64:
+                    n_k_n = 64
+                elif k_n < 128:
+                    n_k_n = 128
+                elif k_n < 256:
+                    n_k_n = 256
+                else:
+                    n_k_n = math.ceil(k_n / 16) * 16
+                weight_ = np.zeros([n_k_n, k_h, k_w, k_c]).astype(np.int8)
+                weight_[0:k_n, :, :, :] = weight
+                npu_conv_op.WeightValue = weight_  # 给原weight填充0
+
+                bais_ = np.zeros([n_k_n]).astype(np.int32)
+                bais_[0:k_n] = bais
+                npu_conv_op.BiasValue = bais_
+
+                assert npu_conv_op.OutputShape[0].C == n_k_n
+
+
+@_register_ir_transformation_rule(TransformRule.EASY_WEIGHT_MAPPING)
+def _weight_mapping(net: GraphIR):
+    target_op_list = []
+    for op_id, npu_op in enumerate(net.AllOps):
+        if isinstance(npu_op, NpuOp):
+            if npu_op.NpuOpConv:
+                target_op_list.append(npu_op.NpuOpConvOp)
+
+    def wm(op: block_param):
+        npu_conv_op = op.get_npu_conv_op()
+        weight = npu_conv_op.WeightValue
+        bias = npu_conv_op.BiasValue
+
+        k_n, k_h, k_w, k_c = weight.shape
+        cluster_psum = op.weight_mapping_dict['cluster_psum']
+        cim_psum = op.weight_mapping_dict['cim_psum']
+        split_c = op.block_split_mode.c
+        frist_layer = npu_conv_op.FirstLayer
+
+        weight_format = []
+        weight = cluster_format(weight, cluster_psum, cim_psum, split_c, frist_layer)
+        weight_format.append(weight.shape)
+        sparsity_tensor = sparsity_class(weight)
+        weight_format.append(sparsity_tensor.shape)
+        shape, res = tensor2hex_tensor(weight, sparsity_tensor)
+        weight_format.append(shape)
+        shape, res = add_bais_shift_quatization(shape, res, 127, -128, output_offset,
+                                                output_shift, output_multiplier, bias)
+        weight_format.append(shape)
+        # op.weight_mapping_dict["weight_format"] = weight_format
+        weight_dict[op.npu_op_id] = [weight_format, res]  # 更新多线程字典
+        # print(op.npu_op_id)
+        return 1
+
+    pool = multiprocessing.Pool()
+
+    print('weight mapping')
+    result = pool.map(wm, target_op_list)  # wm对list中的每一个op处理
+    print('Done')
+    assert sum(result) == len(target_op_list)
+
+    for target_op in target_op_list:
+        npu_op_id = target_op.npu_op_id
+        weight_format, res = weight_dict[npu_op_id]
+
+        target_op.weight_mapping_dict["weight_format"] = weight_format  # 保存字典
+
+        if not net.check_weight_tensor(npu_op_id):
+            net.add_weight_tensor(npu_op_id, res)
+            net.add_weight_format(weight_format)
+
+
 # weight_mapping_pass
-weight_mapping_transform = [TransformRule.WEIGHT_PADDING,
+weight_mapping_transform = [TransformRule.EASY_WEIGHT_PADDING,
+                            TransformRule.EASY_WEIGHT_MAPPING,
                             # TransformRule.WEIGHT_MAPPING
                             # TransformRule.WEIGHT_MAPPING_MULTI_PROCESS
                             ]
