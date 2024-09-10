@@ -10,9 +10,9 @@ from ir.conversion.optimization.codegen import *
 
 if __name__ == '__main__':
     # config
-    model_path = 'assets/yolov3.onnx'
-    config_path = 'assets/yolov3.json'
-    quantization_mode = "int8"  # mode="int8"
+    model_path = 'assets/yolov5s.onnx'
+    config_path = None  # 'assets/yolov3.json'
+    quantization_mode = None  # mode="int8"
     codegen_path = 'output'
 
     # 解析

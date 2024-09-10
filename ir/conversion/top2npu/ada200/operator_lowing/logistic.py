@@ -12,9 +12,11 @@ def _lowering(net, mode):
         if isinstance(op, Activation):
             if op.Mode != ActivationMode.SIGMOID:
                 continue
-            if mode == "int8":
+            if mode is None:
+                NpuOp = _lowering_none(op, net)
+            elif mode == "int8":
                 NpuOp = _lowering_int8(op, net)
-            if mode == "fp32":
+            elif mode == "fp32":
                 NpuOp = _lowering_fp32(op, net)
 
             op_id = net.get_op_idx(op)

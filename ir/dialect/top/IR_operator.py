@@ -313,12 +313,17 @@ class ConvBase(OpBase):
         weight = graph.AllTensors[weight_tensor].Data
         # 1*1卷积 len(weight.shape) == 2
         if len(weight.shape) == 2:
-            weight = np.transpose(weight, (1, 0))
+            # weight = np.transpose(weight, (1, 0))
+            # weight = np.expand_dims(weight, axis=0)
+            # weight = np.expand_dims(weight, axis=0)
+            # # (x, y) -> (y, x) -> (1, 1, y, x) -> (x, 1, 1, y)  #NHWC?
+            # weight = np.transpose(weight, (3, 0, 1, 2))
             # axis：这是你想要增加新维度的位置。axis=0意味着新维度将被添加到张量的最前面。
-            weight = np.expand_dims(weight, axis=0)
-            weight = np.expand_dims(weight, axis=0)
-            # 它根据提供的元组(3, 0, 1, 2)来改变weight数组维度的顺序。
-            weight = np.transpose(weight, (3, 0, 1, 2))
+            weight = np.expand_dims(weight, axis=-1)
+            weight = np.expand_dims(weight, axis=-1)
+        if graph.AllTensors[weight_tensor].Format == Format.NHWC:
+            # NCHW -> NHWC
+            weight = np.transpose(weight, (0, 2, 3, 1))
         return weight
 
     def get_bias_numpy(self, graph):

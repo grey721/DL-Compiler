@@ -126,16 +126,6 @@ def tensor2hex_tensor(weight, sparsity_tensor):
         for j in range(sparsity_tensor.shape[1]):
             number = int2bin(sparsity_tensor[i][j], 3, feature=True)
             sparsity_string += number
-        # n = 0
-        # string = ''
-        # for st in sparsity_string:
-        #     string += st
-        #     n += 1
-        #     if n == 64:
-        #         number = bin2hex(string, 64)
-        #         tensor_tem.append(number)
-        #         n = 0
-        #         string = ''
 
         sparsity_tem = []
         for k in range(3):
@@ -169,7 +159,9 @@ def cluster_format(weight, cluster_psum, cim_psum, split_c, frist_layer):
     weight_c = weight.shape[3]
     # assert(weight_c%16==0)
 
+    # 分割C轴
     weight = weight.reshape([weight_n, weight_h, weight_w, split_c, -1])
+    # 将第一个维度用于索引分割的块
     weight = np.transpose(weight, (3, 0, 1, 2, 4))
     weight_c = weight.shape[-1]
     cim_nums = cluster_psum * cim_psum * int(weight_n / 16)
@@ -212,13 +204,15 @@ def cluster_format(weight, cluster_psum, cim_psum, split_c, frist_layer):
 
 def sparsity_class(weight):
     shape = weight.shape
-    weight = weight.reshape(-1, shape[-2], shape[-1])  # NHWC
+    weight = weight.reshape(-1, shape[-2], shape[-1])
     sparsity_tensor = []
     for i in range(weight.shape[0]):
+        # TODO 为什么[256, 16]
         cim_tem = np.zeros([256, 16]).astype(np.int8)
         cim_tem[:shape[-2], :] = weight[i]
         cim_tem = tensor2bin_tensor(cim_tem).reshape([4, 64, 128])
         # cim_tem = np.transpose(cim_tem,(0,2,1))
+        # 稀疏性等级？
         for ii in range(4):
             for jj in range(128):
                 nn = 0
@@ -504,30 +498,17 @@ def _weight_mapping(net: GraphIR):
             if npu_op.NpuOpConv:
                 target_op_list.append(npu_op.NpuOpConvOp)
 
-    def wm(op: block_param):
-        npu_conv_op = op.get_npu_conv_op()
-        weight = npu_conv_op.WeightValue
-        bias = npu_conv_op.BiasValue
+    def wm(op):
+        conv_op = op.get_npu_conv_op()
+        weight = conv_op.WeightValue
+        bias = conv_op.BiasValue
 
-        k_n, k_h, k_w, k_c = weight.shape
-        cluster_psum = op.weight_mapping_dict['cluster_psum']
-        cim_psum = op.weight_mapping_dict['cim_psum']
-        split_c = op.block_split_mode.c
-        frist_layer = npu_conv_op.FirstLayer
+        frist_layer = conv_op.FirstLayer
 
         weight_format = []
-        weight = cluster_format(weight, cluster_psum, cim_psum, split_c, frist_layer)
-        weight_format.append(weight.shape)
-        sparsity_tensor = sparsity_class(weight)
-        weight_format.append(sparsity_tensor.shape)
         shape, res = tensor2hex_tensor(weight, sparsity_tensor)
         weight_format.append(shape)
-        shape, res = add_bais_shift_quatization(shape, res, 127, -128, output_offset,
-                                                output_shift, output_multiplier, bias)
-        weight_format.append(shape)
-        # op.weight_mapping_dict["weight_format"] = weight_format
         weight_dict[op.npu_op_id] = [weight_format, res]  # 更新多线程字典
-        # print(op.npu_op_id)
         return 1
 
     pool = multiprocessing.Pool()

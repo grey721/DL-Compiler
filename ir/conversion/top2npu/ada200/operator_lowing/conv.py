@@ -15,6 +15,8 @@ def _lowering(net, mode):
                 NpuOp = _lowering_int8(op, net)
             elif mode == "fp32":
                 NpuOp = _lowering_fp32(op, net)
+            else:
+                raise NotImplementedError('Unsupported lowing mode')
 
             op_id = net.get_op_idx(op)
             net.delete_op(op_id)
