@@ -713,7 +713,6 @@ class NpuFullConnected(FullConnected):
 
 
 class NpuOp(OpBase):
-    Type = "NpuOp"
     # NPU OP MODE
     NpuOpMode = None
     NpuShortCutMode = None
@@ -767,6 +766,7 @@ class NpuOp(OpBase):
     def __init__(self):
         super().__init__()
         self.Type = "NpuOp"
+        self.Name = "NpuOp"
         self.NpuOpFlow = []
         self.fmi_tensor = []
         self.fmo_tensor = []

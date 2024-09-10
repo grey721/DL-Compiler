@@ -1,9 +1,9 @@
 from ir.conversion.top2npu.ada200.operator_lowing.base import OpTransformRule, _register_op_transformation_rule
 from ir.dialect.npu.IR_operator import *
 
-from python_support.vpu import *
-from python_support.memory import *
-from python_support.util import *
+# from python_support.vpu import *
+# from python_support.memory import *
+# from python_support.util import *
 
 
 @_register_op_transformation_rule(OpTransformRule.LOGISTIC_LOWERING)
@@ -13,11 +13,13 @@ def _lowering(net, mode):
             if op.Mode != ActivationMode.SIGMOID:
                 continue
             if mode is None:
-                NpuOp = _lowering_none(op, net)
+                NpuOp = _lowering_none(op)
             elif mode == "int8":
                 NpuOp = _lowering_int8(op, net)
             elif mode == "fp32":
                 NpuOp = _lowering_fp32(op, net)
+            else:
+                raise NotImplementedError('Unsupported lowing mode')
 
             op_id = net.get_op_idx(op)
             net.delete_op(op_id)
@@ -148,3 +150,10 @@ def _lowering_int8(op, net):
 
 def _lowering_fp32(op, net):
     raise NotImplementedError
+
+
+def _lowering_none(op):
+    npu_sigmoid = NpuLogistic()
+    npu_sigmoid.__dict__.update(op.__dict__)
+    npu_sigmoid.Type = "NpuSigmoid"
+    return npu_sigmoid

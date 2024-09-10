@@ -26,6 +26,9 @@ class TransformRule(Enum):
     REMOVE_IDENTITY = 13  #
     REMOVE_PADDING = 14  #
 
+    FUSE_CONST = 15
+    DELETE_CONSTANT = 16  # 消除参数算子
+
     DEPTHWISE_CONV_RESHAPE_WEIGHT = 106  #
 
     # vpu post layer fuse all set
@@ -1979,8 +1982,20 @@ def _post_fuse_fc_single(net: GraphIR):  # 全连接层融合
                 npu_op.NpuOpId = op.TopOpId
 
 
+@_register_ir_transformation_rule(TransformRule.DELETE_CONSTANT)
+def _delete_constant(net: GraphIR):
+    print("-----TransformRule DELETE_CONSTANT-----")
+    for _op_id, op in enumerate(net.AllOps):
+        if isinstance(op, Constant):
+            print("Delete: ", op.Name)
+            net.delete_op(_op_id)
+
+
 # op_fuse_pass
-op_fuse_transform = [TransformRule.ORDER_TOP_OPS,
+op_fuse_transform = [
+                     TransformRule.ORDER_TOP_OPS,
+                     # TransformRule.FUSE_CONST,
+                     TransformRule.DELETE_CONSTANT,
                      TransformRule.NPU_PAD_CONV,
                      TransformRule.NPU_RESHAPE_CONV,
                      TransformRule.NPU_CONV,
@@ -2010,3 +2025,5 @@ op_fuse_transform = [TransformRule.ORDER_TOP_OPS,
                      TransformRule.NPU_RESHAPE_FC,
                      TransformRule.ORDER_NPU_OPS
                      ]
+
+# TODO net中添加该网络具有的算子类型总和，并修改需要的融合规则
