@@ -1,7 +1,6 @@
 from ir.conversion.top2npu.ada200.operator_lowing.transpose import *
 from ir.conversion.top2npu.ada200.operator_lowing.reshape import *
 from ir.conversion.top2npu.ada200.operator_lowing.concat import *
-from ir.conversion.top2npu.ada200.operator_lowing.split import *
 from ir.conversion.top2npu.ada200.operator_lowing.base import *
 from ir.conversion.top2npu.ada200.operator_lowing.mean import *
 from ir.conversion.top2npu.ada200.operator_lowing.pool import *
@@ -21,7 +20,6 @@ lowing_ada200_list = [
     OpTransformRule.TRANSPOSE_LOWERING,
     OpTransformRule.RESHAPE_LOWERING,
     OpTransformRule.CONCAT_LOWERING,
-    OpTransformRule.SPLIT_LOWERING,
     OpTransformRule.CONV_LOWERING,
     OpTransformRule.POOL_LOWERING,
     OpTransformRule.MEAM_LOWERING,

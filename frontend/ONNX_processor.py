@@ -1152,10 +1152,19 @@ class ONNX2TopIR:
 
         # 加载输入输出ID
         slice_op.load_input_id(in_tensor_id)
+        slice_op.load_input_id(start_id)
+        slice_op.load_input_id(end_id)
+        slice_op.load_input_id(axis_id)
         slice_op.load_output_id(out_tensor_id)
 
         self.graph.AllTensors[out_tensor_id].OwnerOp = op_idx
         self.graph.AllTensors[in_tensor_id].ConsumerOp = op_idx
+        self.graph.AllTensors[start_id].ConsumerOp = op_idx
+        self.graph.AllTensors[start_id].Type = TensorType.Parameter
+        self.graph.AllTensors[end_id].ConsumerOp = op_idx
+        self.graph.AllTensors[end_id].Type = TensorType.Parameter
+        self.graph.AllTensors[axis_id].ConsumerOp = op_idx
+        self.graph.AllTensors[axis_id].Type = TensorType.Parameter
 
         # 输入输出形状
         slice_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
@@ -1209,10 +1218,13 @@ class ONNX2TopIR:
 
         # 加载输入输出ID
         unsqueeze_op.load_input_id(in_tensor_id)
+        unsqueeze_op.load_input_id(unsqueeze_id)
         unsqueeze_op.load_output_id(out_tensor_id)
 
         self.graph.AllTensors[out_tensor_id].OwnerOp = op_idx
         self.graph.AllTensors[in_tensor_id].ConsumerOp = op_idx
+        self.graph.AllTensors[unsqueeze_id].ConsumerOp = op_idx
+        self.graph.AllTensors[unsqueeze_id].Type = TensorType.Parameter
 
         # 输入输出形状
         unsqueeze_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)

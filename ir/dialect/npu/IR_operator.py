@@ -5,7 +5,7 @@ from ir.dialect.npu.IR_tensor import *
 from ir.dialect.top.IR_operator import *
 
 
-class NpuConv2d(ConvBase):
+class NpuConv2d(Conv2d):
     fmi_size = None
     fmo_size = None
     weight_size = None

@@ -217,7 +217,7 @@ def Array2Txt_hwc_hex_bank(x, in_bit=8, out_bit=64, path_="", bank_start=0):
 @_register_ir_transformation_rule(TransformRule.CREATE_TOP_INFO)
 def create_info(npu_graph):
     path_base = npu_graph.codegen_path
-    top_info_path = f'{path_base}_top_info'
+    top_info_path = f'{path_base}/top_info'
     if not os.path.exists(top_info_path):
         os.makedirs(top_info_path)
     make_weight(top_info_path, npu_graph)  # 将权重保存文件

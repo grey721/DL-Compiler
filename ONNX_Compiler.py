@@ -13,7 +13,7 @@ if __name__ == '__main__':
     model_path = 'assets/yolov5s.onnx'
     config_path = None  # 'assets/yolov3.json'
     quantization_mode = None  # mode="int8"
-    codegen_path = 'output'
+    codegen_path = 'output/yolov5s'
 
     # 解析
     model_processor = ONNX2TopIR(model_path=model_path,

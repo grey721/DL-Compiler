@@ -95,10 +95,11 @@ if __name__ == '__main__':
     # for_seek(toolkit1.model.graph.node, 'op_type', 'Split',1,1)
     # print(sys.getsizeof(my_list))\
     # 创建一个空的切片元组，用于最终的切片操作
-    def get_list(nums=22, val=0):
-        l = []
-        for _ in range(nums):
-            l.append(val)
-        return l
-
+    mylist = [0, 1, 2, 3, 4, 5]
+    for i, j in enumerate(mylist):
+        if j == 2:
+            print(i, 'Delete')
+            del mylist[2]
+        else:
+            print(i, j)
 
