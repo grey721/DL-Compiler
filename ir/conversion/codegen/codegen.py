@@ -12,6 +12,7 @@ class TransformRule(Enum):
     CREATE_TOP_INFO = 4
     CALCULATING_THE_WEIGHT = 5
     CREATE_REGISTER_WITH_DMA = 6
+    EASY_OUTPUT = 7
 
 
 def make_weight(top_info_path, npu_graph):  # 将权重保存成文件
@@ -22,7 +23,6 @@ def make_weight(top_info_path, npu_graph):  # 将权重保存成文件
         for j in i:
             f.write(j + '\n')
     f.close()
-    pass
 
 
 def make_image_to_memory(top_info_path, image_size=(128, 128, 3), image_path=''):  # 保存图片二进制数据
@@ -142,52 +142,21 @@ def Array2Txt_hwc_hex_bank(x, in_bit=8, out_bit=64, path_="", bank_start=0):
         f.close()
 
 
-@_register_ir_transformation_rule(TransformRule.CREATE_TOP_INFO)
-def create_info(npu_graph):
+@_register_ir_transformation_rule(TransformRule.EASY_OUTPUT)
+def easy_info(npu_graph):
     path_base = npu_graph.codegen_path
-    top_info_path = f'{path_base}/top_info'
-    if not os.path.exists(top_info_path):
-        os.makedirs(top_info_path)
-    make_weight(top_info_path, npu_graph)  # 将权重保存文件
-    make_image_to_memory(top_info_path, image_size=[128, 128, 3], image_path='')  # 保存图片二进制数据
 
+    path = f'{path_base}/{npu_graph.name}'
+    if not os.path.exists(path):
+        os.makedirs(path)
+    make_weight(path, npu_graph)  # 将权重保存文件
+    make_image_to_memory(path, image_size=[128, 128, 3], image_path='')  # 保存图片二进制数据
 
-    for i in range(total_layer_num):
-        for j in range(sub_block_nums[i]):
-            model_path = f"{path_base}/layer_{i}/sub_block_{j}"
-            file_list = read_files(model_path)
-
-            get_FE_register(file_list, npu_graph, total_sub_block_nums, npu_graph.dma_read_list)
-            get_BE_register(file_list, npu_graph, total_sub_block_nums)
-            get_WGT_register(file_list, npu_graph)
-
-            file_list_res = compare_file(tem_file_list, file_list)  # 两个列表找不同，返回不同的数据，并使前者=后者
-            # 更新head_list，存储寄存器的输入
-            get_block_head(file_list_res, npu_graph, total_sub_block_nums, head_list, npu_graph.dma_read_list)
-            res_list.append(file_list_res)
-            # res_list.append(compare_file(tem_file_list, file_list))
-            tem_file_list = copy.deepcopy(file_list)
-            total_sub_block_nums += 1
-    assert (total_sub_block_nums == len(res_list))
-    res_list = transfer_register_format(res_list)
-    top_head = get_top_head(npu_graph)
-    finally_path = f'{top_info_path}/register'
-    gather_register(res_list, top_head, head_list, finally_path)
-
-    getZipDir(f"{top_info_path}/", f"{top_info_path}.zip")
-    pass
-
-
-@_register_ir_transformation_rule(TransformRule.CALCULATING_THE_WEIGHT)
-def calculating_the_weight(npu_graph):
-    WeightBaseAddress = [0]
-    sum = 0
-    for i in range(len(npu_graph.WeightTensors) - 1):
-        WeightBaseAddress.append(sum + len(npu_graph.WeightTensors[i]))
-        sum += len(npu_graph.WeightTensors[i])
-    npu_graph.WeightBaseAddress = WeightBaseAddress
+    # import pickle
+    # with open(f"{path}/npu_graph.pkl", "wb") as f:
+    #     pickle.dump(npu_graph, f)
 
 
 codegen_transform = [
-                     TransformRule.CREATE_TOP_INFO,
+                     TransformRule.EASY_OUTPUT,
                      ]

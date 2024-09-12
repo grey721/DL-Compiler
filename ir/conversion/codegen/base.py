@@ -1,3 +1,4 @@
+import numpy as np
 
 from tool.utils import *
 
@@ -127,6 +128,7 @@ def intToBin(number, index, feature=True):
         else:
             # Calculate two's complement
             mask = (1 << index) - 1
+            mask = np.uint8(mask)
             binary = bin(~number & mask)[2:].zfill(index)
         return binary
     elif feature is False:

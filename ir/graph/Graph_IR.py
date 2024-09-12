@@ -5,6 +5,7 @@ from ir.dialect.top.IR_tensor import *
 class GraphIR:
 
     def __init__(self):
+        self.name = None
         # 网络输入输出
         self.NetInTensors = []  # List[IRTensor]
         self.NetOutTensors = []  #

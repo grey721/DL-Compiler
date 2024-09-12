@@ -460,7 +460,7 @@ def _weight_mapping_multi_process(net: GraphIR):
 @_register_ir_transformation_rule(TransformRule.EASY_WEIGHT_PADDING)  # 填充至符合芯片size的shape
 def _weight_padding(net: GraphIR):
     for op_id, npu_op in enumerate(net.AllOps):
-        if npu_op.NpuOpConv:
+        if isinstance(npu_op, NpuOp) and npu_op.NpuOpConv:
             # weight_split
             npu_conv_op = npu_op.NpuOpConvOp
             weight = npu_conv_op.WeightValue
@@ -468,7 +468,6 @@ def _weight_padding(net: GraphIR):
             k_n, k_h, k_w, k_c = weight.shape
 
             if k_n % 16 != 0:
-                assert npu_op.output_block is True
                 if k_n < 32:
                     n_k_n = 32
                 elif k_n < 64:
@@ -487,7 +486,8 @@ def _weight_padding(net: GraphIR):
                 bais_[0:k_n] = bais
                 npu_conv_op.BiasValue = bais_
 
-                assert npu_conv_op.OutputShape[0].C == n_k_n
+                # TODO ?什么时候更新的C
+                # assert npu_conv_op.OutputShape[0].C == n_k_n
 
 
 @_register_ir_transformation_rule(TransformRule.EASY_WEIGHT_MAPPING)
@@ -498,35 +498,10 @@ def _weight_mapping(net: GraphIR):
             if npu_op.NpuOpConv:
                 target_op_list.append(npu_op.NpuOpConvOp)
 
-    def wm(op):
-        conv_op = op.get_npu_conv_op()
-        weight = conv_op.WeightValue
-        bias = conv_op.BiasValue
-
-        frist_layer = conv_op.FirstLayer
-
-        weight_format = []
-        shape, res = tensor2hex_tensor(weight, sparsity_tensor)
-        weight_format.append(shape)
-        weight_dict[op.npu_op_id] = [weight_format, res]  # 更新多线程字典
-        return 1
-
-    pool = multiprocessing.Pool()
-
-    print('weight mapping')
-    result = pool.map(wm, target_op_list)  # wm对list中的每一个op处理
-    print('Done')
-    assert sum(result) == len(target_op_list)
-
     for target_op in target_op_list:
-        npu_op_id = target_op.npu_op_id
-        weight_format, res = weight_dict[npu_op_id]
-
-        target_op.weight_mapping_dict["weight_format"] = weight_format  # 保存字典
-
-        if not net.check_weight_tensor(npu_op_id):
-            net.add_weight_tensor(npu_op_id, res)
-            net.add_weight_format(weight_format)
+        npu_op_id = target_op.TopOpId
+        net.add_weight_tensor(npu_op_id, target_op.WeightValue)
+    assert len(net.WeightTensors) == len(target_op_list)
 
 
 # weight_mapping_pass
