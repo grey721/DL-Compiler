@@ -1,6 +1,6 @@
 from ir.graph.Graph_IR import *
 from ir.dialect.npu.IR_operator import *
-from ir.conversion.optimization.ir_transform import _register_ir_transformation_rule
+from ir.conversion.ir_transform import _register_ir_transformation_rule
 import multiprocessing
 from enum import Enum
 import math

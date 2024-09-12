@@ -3,7 +3,7 @@ from ir.dialect.top.IR_tensor import *
 from ir.dialect.npu.IR_operator import *
 from ir.dialect.npu.IR_memory import *
 from ir.conversion.optimization.memory.base import *
-from ir.conversion.optimization.ir_transform import _register_ir_transformation_rule
+from ir.conversion.ir_transform import _register_ir_transformation_rule
 
 
 def _update_intermediate_tensor_life_cycle_for_block_list(input_tensor, op_block):

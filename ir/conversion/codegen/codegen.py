@@ -1,10 +1,8 @@
-from ir.conversion.optimization.ir_transform import _register_ir_transformation_rule
+from ir.conversion.ir_transform import _register_ir_transformation_rule
+from ir.conversion.codegen.base import *
 from enum import Enum
-from tool.utils import *
 import cv2
 import os
-
-import json
 
 
 class TransformRule(Enum):
@@ -14,76 +12,6 @@ class TransformRule(Enum):
     CREATE_TOP_INFO = 4
     CALCULATING_THE_WEIGHT = 5
     CREATE_REGISTER_WITH_DMA = 6
-
-
-def intToBin(number, index, feature=True):
-    # index is the bit width of the data and number is the data to be converted. 
-    # If feature is True, decimal to binary (complement code) is performed; 
-    # if feature is False, binary to decimal is performed. 
-    assert (isinstance(number, int)
-            or isinstance(number, np.int32)
-            or isinstance(number, np.int64)
-            or isinstance(number, np.int8)), 'the type of number must be int'
-    if feature is True:
-        if number >= 0:
-
-            b = bin(number)
-            b = '0' * (index + 2 - len(b)) + b
-        else:
-            b = 2 ** index + number
-            b = bin(b)
-            b = '1' * (index + 2 - len(b)) + b
-        b = b.replace("0b", '')
-        b = b.replace('-', '')
-        assert (len(b) == index), "out of bitnums"
-        return b
-    elif feature is False:
-        i = int(str(number), 2)
-        if i >= 2 ** (index - 1):
-            i = -(2 ** index - i)
-            return i
-        else:
-            return i
-
-
-def bin_listTobin(bin_list):
-    bin = ""
-    for i in bin_list:
-        bin += i
-    assert (len(bin) == 32), f"value of bitnums {len(bin)}==32"
-    return bin
-
-
-def binTohex(binNums, bit_nums):
-    nums = bit_nums / 4
-    res = hex(int(binNums, 2))
-    res = res.split("0x")[-1]
-    if len(res) != nums:
-        res = "0" * int(nums - len(res)) + res
-    return res
-
-
-def get_list(nums=22, val=0):
-    l = [val] * nums
-    return l
-
-
-def read_file(path, file_list):
-    with open(path, 'r') as f:
-        line = f.readline()
-        file_list.append(line)
-        while line:
-            line = f.readline()
-            if line != '':
-                file_list.append(line)
-
-
-def read_files(path):
-    file_list = []
-    read_file(f'{path}/pre_param', file_list)
-    read_file(f'{path}/cim_cluster_param', file_list)
-    read_file(f'{path}/vpu_param', file_list)
-    return file_list
 
 
 def make_weight(top_info_path, npu_graph):  # 将权重保存成文件
@@ -223,12 +151,7 @@ def create_info(npu_graph):
     make_weight(top_info_path, npu_graph)  # 将权重保存文件
     make_image_to_memory(top_info_path, image_size=[128, 128, 3], image_path='')  # 保存图片二进制数据
 
-    sub_block_nums = npu_graph.sub_block_nums
-    total_layer_num = len(sub_block_nums)
-    tem_file_list = [''] * REGISTER_NUMS
-    res_list = []
-    total_sub_block_nums = 0
-    head_list = []
+
     for i in range(total_layer_num):
         for j in range(sub_block_nums[i]):
             model_path = f"{path_base}/layer_{i}/sub_block_{j}"

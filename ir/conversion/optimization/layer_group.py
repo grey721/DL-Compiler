@@ -1,6 +1,4 @@
 from ir.graph.Graph_IR import *
-from ir.dialect.npu.IR_memory import *
-from ir.dialect.top.IR_tensor import *
 from ir.dialect.npu.IR_operator import *
 from backend.ada200.ada200 import ada200
 from ir.conversion.optimization.memory.base import *
@@ -8,7 +6,7 @@ from ir.conversion.optimization.memory.base import *
 # from ir.conversion.optimization.memory.schedule import *
 # from ir.conversion.optimization.memory.allocation import *
 # from ir.conversion.optimization.memory.life_cycle import *
-from ir.conversion.optimization.ir_transform import _register_ir_transformation_rule
+from ir.conversion.ir_transform import _register_ir_transformation_rule
 
 
 @_register_ir_transformation_rule(TransformRule.GEN_NPU_OP_GROUP)

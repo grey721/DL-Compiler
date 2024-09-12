@@ -1,11 +1,11 @@
 from frontend.ONNX_processor import *
 from ir.conversion.top2npu.top2npu_pass import *
-from ir.conversion.optimization.ir_transform import *
+from ir.conversion.ir_transform import *
 from ir.conversion.optimization.op_fuse import *
 from ir.conversion.optimization.subnet import *
 from ir.conversion.optimization.layer_group import *
 from ir.conversion.optimization.weight_reorder import *
-from ir.conversion.optimization.codegen import *
+from ir.conversion.codegen.codegen import *
 
 
 if __name__ == '__main__':
