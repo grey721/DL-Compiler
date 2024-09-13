@@ -14,6 +14,9 @@ if __name__ == '__main__':
     config_path = None  # 'assets/yolov3.json'
     quantization_mode = None  # mode="int8"
 
+    if config_path is None:
+        quantization_mode = None
+
     # 解析
     model_processor = ONNX2TopIR(model_path=model_path,
                                  config_path=config_path,
@@ -32,12 +35,9 @@ if __name__ == '__main__':
     ir_transformer.add_transform_option(op_fuse_transform)
     ir_transformer.transform(npu_graph)
 
-    print('all ops')
-    print(npu_graph.AllOps)
-
     # ir_transformer.add_transform_option(subnet_transform)
     # ir_transformer.transform(npu_graph)
-
+    #
     # ir_transformer.add_transform_option(layer_group_transform)
     # ir_transformer.transform(npu_graph)
 

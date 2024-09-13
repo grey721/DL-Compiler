@@ -284,8 +284,7 @@ class ONNX2TopIR:
                 weight_data = self.quantize2int(np_data, weight_tensor_id, bit_width=8)
             else:
                 weight_data = np_data
-            weight_data_int8_NHWC = np.transpose(weight_data, [0, 2, 3, 1])
-            self.graph.AllTensors[weight_tensor_id].load_data(weight_data_int8_NHWC)  # weight_data_int8_NHWC
+            self.graph.AllTensors[weight_tensor_id].load_data(weight_data)  # weight_data_int8_NHWC
 
         if code == OperatorType.CONV_2D:
             conv_op.Group = 1

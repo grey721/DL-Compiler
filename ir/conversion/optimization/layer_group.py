@@ -19,6 +19,7 @@ def _gen_npu_op_group(net: GraphIR):
     fmo_size_record = []
     npu_op_group_id = 0
     skip_npu_op_id_list = []
+    print("here", net.SubGraphs)
     for sub_graph in net.SubGraphs:
         group_op_list = []
         for npu_op_id in sub_graph:  # 子图为一个组，重复op排除
@@ -27,6 +28,12 @@ def _gen_npu_op_group(net: GraphIR):
                 npu_op = net.get_npu_op(npu_op_id)
                 group_op_list.append(npu_op)
                 fmo_size_record.append(npu_op.NpuOpFmoSize)
+
+                if npu_op.NpuOpConvOp:
+                    if npu_op.NpuOpConvOp.Name == "Conv_63":
+                        print("here layer")
+                        print(npu_op.NpuOpConvOp)
+
                 # TODO 为什么输出特征图size大于后端最大尺寸反而跳过了，这块不懂
                 if npu_op.NpuOpFmoSize > backend.fmo_max_size:
                     continue
@@ -73,6 +80,7 @@ def _gen_npu_op_group(net: GraphIR):
 
                         try:
                             blk_split_mode = block_split_mode(h_slice, w_slice, c_slice)
+                            # npu_op_group会赋值n_k_n给OutputShape.c
                             npu_op_group_ins = npu_op_group(group_op_list,
                                                             blk_split_mode,
                                                             npu_op_group_id,
@@ -97,6 +105,11 @@ def _gen_npu_op_group(net: GraphIR):
                     npu_op_group_id += 1
                     group_op_list = []
                     fmo_size_record = []
+
+                if npu_op.NpuOpConvOp:
+                    if npu_op.NpuOpConvOp.Name == "Conv_63":
+                        print("here layer")
+                        print(npu_op.NpuOpConvOp)
 
     net.AllOps = deepcopy(npu_op_group_list)
 

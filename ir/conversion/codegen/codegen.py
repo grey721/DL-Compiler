@@ -1,6 +1,7 @@
 from ir.conversion.ir_transform import _register_ir_transformation_rule
 from ir.conversion.codegen.base import *
 from enum import Enum
+import json
 import cv2
 import os
 
@@ -149,9 +150,19 @@ def easy_info(npu_graph):
     path = f'{path_base}/{npu_graph.name}'
     if not os.path.exists(path):
         os.makedirs(path)
-    make_weight(path, npu_graph)  # 将权重保存文件
+
+    # 输出权重
+    weight_path = f'{path}/weight'
+    weights = npu_graph.WeightTensors
+    with open(weight_path, 'w') as f:
+        for weight in weights:
+            for j in weight:
+                print(j)
+
     make_image_to_memory(path, image_size=[128, 128, 3], image_path='')  # 保存图片二进制数据
 
+    # with open('config.json', 'w') as f:
+    #             json.dump(content, f, indent=4)
     # import pickle
     # with open(f"{path}/npu_graph.pkl", "wb") as f:
     #     pickle.dump(npu_graph, f)

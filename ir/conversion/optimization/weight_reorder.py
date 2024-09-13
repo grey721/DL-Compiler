@@ -468,16 +468,18 @@ def _weight_padding(net: GraphIR):
             k_n, k_h, k_w, k_c = weight.shape
 
             if k_n % 16 != 0:
-                if k_n < 32:
-                    n_k_n = 32
-                elif k_n < 64:
-                    n_k_n = 64
-                elif k_n < 128:
-                    n_k_n = 128
-                elif k_n < 256:
-                    n_k_n = 256
-                else:
-                    n_k_n = math.ceil(k_n / 16) * 16
+                # TODO 选择
+                n_k_n = math.ceil(k_n / 16) * 16
+                # if k_n < 32:
+                #     n_k_n = 32
+                # elif k_n < 64:
+                #     n_k_n = 64
+                # elif k_n < 128:
+                #     n_k_n = 128
+                # elif k_n < 256:
+                #     n_k_n = 256
+                # else:
+                #     n_k_n = math.ceil(k_n / 16) * 16
                 weight_ = np.zeros([n_k_n, k_h, k_w, k_c]).astype(np.int8)
                 weight_[0:k_n, :, :, :] = weight
                 npu_conv_op.WeightValue = weight_  # 给原weight填充0
@@ -486,7 +488,8 @@ def _weight_padding(net: GraphIR):
                 bais_[0:k_n] = bais
                 npu_conv_op.BiasValue = bais_
 
-                # TODO ?什么时候更新的C
+                # TODO Q:?什么时候更新的C  A：在layer_group
+                npu_conv_op.OutputShape[0].C = n_k_n
                 # assert npu_conv_op.OutputShape[0].C == n_k_n
 
 
@@ -501,6 +504,7 @@ def _weight_mapping(net: GraphIR):
     for target_op in target_op_list:
         npu_op_id = target_op.TopOpId
         net.add_weight_tensor(npu_op_id, target_op.WeightValue)
+
     assert len(net.WeightTensors) == len(target_op_list)
 
 
