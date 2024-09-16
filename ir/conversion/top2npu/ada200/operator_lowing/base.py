@@ -3,7 +3,8 @@ from typing import Callable, Dict
 
 
 class OpTransformRule(Enum):
-    NOPE = 1
+    NOPE = 0
+    GENERAL_LOWERING = 1
     CONV_LOWERING = 2
     LEAKYRELU_LOWERING = 3
     POOL_LOWERING = 4

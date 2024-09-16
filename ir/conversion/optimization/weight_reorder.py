@@ -469,7 +469,7 @@ def _weight_padding(net: GraphIR):
 
             if k_n % 16 != 0:
                 # TODO 选择
-                n_k_n = math.ceil(k_n / 16) * 16
+                n_k_n = math.ceil(k_n / 32) * 32
                 # if k_n < 32:
                 #     n_k_n = 32
                 # elif k_n < 64:
@@ -489,23 +489,22 @@ def _weight_padding(net: GraphIR):
                 npu_conv_op.BiasValue = bais_
 
                 # TODO Q:?什么时候更新的C  A：在layer_group
-                npu_conv_op.OutputShape[0].C = n_k_n
                 # assert npu_conv_op.OutputShape[0].C == n_k_n
+                npu_conv_op.OutputShape[0].C = n_k_n
 
 
 @_register_ir_transformation_rule(TransformRule.EASY_WEIGHT_MAPPING)
 def _weight_mapping(net: GraphIR):
-    target_op_list = []
     for op_id, npu_op in enumerate(net.AllOps):
         if isinstance(npu_op, NpuOp):
             if npu_op.NpuOpConv:
-                target_op_list.append(npu_op.NpuOpConvOp)
-
-    for target_op in target_op_list:
-        npu_op_id = target_op.TopOpId
-        net.add_weight_tensor(npu_op_id, target_op.WeightValue)
-
-    assert len(net.WeightTensors) == len(target_op_list)
+                npu_op_id = npu_op.NpuOpId
+                k_n = npu_op.NpuOpConvOp.WeightValue.shape[0]
+                weight = {
+                    "weight": npu_op.NpuOpConvOp.WeightValue.reshape(k_n, -1).tolist(),
+                    "bias":  npu_op.NpuOpConvOp.BiasValue.tolist()
+                }
+                net.add_weight_tensor(npu_op_id, weight)
 
 
 # weight_mapping_pass

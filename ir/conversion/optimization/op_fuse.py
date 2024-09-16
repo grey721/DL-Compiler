@@ -160,6 +160,9 @@ def _order_top_ops(net: GraphIR):  # 排序Top
 def _order_npu_ops(net: GraphIR):  # 排序NPU
     print("----start TransformRule.ORDER_NPU_OPS---")
     for op_idx, op in enumerate(net.AllOps):
+        op.NpuOpId = op_idx
+
+    for op_idx, op in enumerate(net.AllOps):
         if isinstance(op, NpuOp):
             pre_op_id = _find_pre_npu_op(net, op)
             post_op_id = _find_post_npu_op(net, op)

@@ -95,11 +95,24 @@ if __name__ == '__main__':
     # for_seek(toolkit1.model.graph.node, 'op_type', 'Split',1,1)
     # print(sys.getsizeof(my_list))\
     # 创建一个空的切片元组，用于最终的切片操作
-    mylist = [0, 1, 2, 3, 4, 5]
-    for i, j in enumerate(mylist):
-        if j == 2:
-            print(i, 'Delete')
-            del mylist[2]
-        else:
-            print(i, j)
+    class MyClass:
+        def __init__(self, a, b, c):
+            self.a = a
+            self.b = b
+            self.c = c
 
+        def print_hello(self):
+            print("hello world")
+
+        def to_dict(self):
+            """
+            将类的所有实例变量转换成一个字典
+            """
+            return {attr: getattr(self, attr) for attr in dir(self)
+                    if not callable(getattr(self, attr)) and not attr.startswith('_')}
+
+            # 使用示例
+
+
+    obj = MyClass(1, 'hello', 3.14)
+    print(obj.to_dict())

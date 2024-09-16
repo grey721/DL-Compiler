@@ -174,6 +174,28 @@ class OpBase:  # 算子基类
         fmo_size = self.OutputShape[0].C * self.OutputShape[0].H * self.OutputShape[0].W
         return fmo_size
 
+    # TODO
+    def to_param_dict(self):
+        param = {}
+        for attr_name in dir(self):
+            attr = getattr(self, attr_name)
+            if not callable(attr) and not attr_name.startswith('_'):
+                if "Shape" in attr_name:
+                    param[attr_name] = []
+                    for shape in attr:
+                        param[attr_name].append(shape.list[:])
+                elif "Value" in attr_name:
+                    continue
+                elif "offset" in attr_name:
+                    continue
+                elif "multiplier" in attr_name:
+                    continue
+                elif "shift" in attr_name:
+                    continue
+                else:
+                    param[attr_name] = attr
+        return param
+
 
 # ########################### Constant ########################
 class Constant(OpBase):

@@ -589,12 +589,12 @@ class NpuSoftmax(NpuActivation):
 
 
 class NpuMean(Mean):
+    Type = "NpuMean"
     Device = "cpu"
     TimeStep = None
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuMean"
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step

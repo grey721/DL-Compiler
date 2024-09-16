@@ -144,22 +144,59 @@ def Array2Txt_hwc_hex_bank(x, in_bit=8, out_bit=64, path_="", bank_start=0):
 
 
 @_register_ir_transformation_rule(TransformRule.EASY_OUTPUT)
-def easy_info(npu_graph):
+def easy_info(npu_graph: GraphIR):
     path_base = npu_graph.codegen_path
 
     path = f'{path_base}/{npu_graph.name}'
     if not os.path.exists(path):
         os.makedirs(path)
 
-    # 输出权重
-    weight_path = f'{path}/weight'
-    weights = npu_graph.WeightTensors
-    with open(weight_path, 'w') as f:
-        for weight in weights:
-            for j in weight:
-                print(j)
-
     make_image_to_memory(path, image_size=[128, 128, 3], image_path='')  # 保存图片二进制数据
+
+    # 输出权重
+    weights = npu_graph.WeightTensors
+    ops = npu_graph.AllOps
+
+    for idx, op in enumerate(ops):
+        layer_path = f'{path}/layer_{idx}'
+        if not os.path.exists(layer_path):
+            os.makedirs(layer_path)
+
+        # Op输出
+        if isinstance(op, NpuOp):
+            op_dict = {"Type": "NpuOp",
+                       "OpFlow": []
+                       }
+            for p in op.NpuOpFlow:
+                p_dict = p.to_param_dict()
+                op_dict["OpFlow"].append(p_dict)
+
+        else:
+            op_dict = op.to_param_dict()
+        try:
+            with open(f'{layer_path}/operator.json', 'w') as f:
+                json.dump(op_dict, f, indent=4)  # , indent=4
+        except:
+            print(op.Type)
+            for key in op_dict:
+                print(key, type(op_dict[key]))
+                print(op_dict[key])
+        op_id = op.NpuOpId
+
+        # Weight 输出
+        if op_id in npu_graph.WeightTensorIds:
+            weight_idx = npu_graph.WeightTensorIds.index(op_id)
+            res = npu_graph.WeightTensors[weight_idx]
+
+            with open(f'{layer_path}/weight.json', 'w') as f:
+                json.dump(res, f, indent=4)  # , indent=4
+
+    # output_dict = {"node_list": []}
+    # for op in ops:
+    #     output_dict["node_list"].append(op.to_param_dict())
+    # print(output_dict)
+    # with open(f'{path}/info.json', 'w') as f:
+    #     json.dump(output_dict, f, indent=4)
 
     # with open('config.json', 'w') as f:
     #             json.dump(content, f, indent=4)
@@ -169,5 +206,5 @@ def easy_info(npu_graph):
 
 
 codegen_transform = [
-                     TransformRule.EASY_OUTPUT,
-                     ]
+    TransformRule.EASY_OUTPUT,
+]

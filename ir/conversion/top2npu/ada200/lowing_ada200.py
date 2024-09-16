@@ -9,6 +9,7 @@ from ir.conversion.top2npu.ada200.operator_lowing.conv import *
 from ir.conversion.top2npu.ada200.operator_lowing.resize import *
 from ir.conversion.top2npu.ada200.operator_lowing.logistic import *
 from ir.conversion.top2npu.ada200.operator_lowing.elemwise import *
+from ir.conversion.top2npu.ada200.operator_lowing.split import *
 # TODO  以后实现
 # from ir.conversion.top2npu.ada200.operator_lowing.leakyrelu import *
 # from ir.conversion.top2npu.ada200.operator_lowing.softmax import *
@@ -26,7 +27,8 @@ lowing_ada200_list = [
     OpTransformRule.PAD_LOWERING,
     OpTransformRule.RESIZE_LOWERING,
     OpTransformRule.ELEMWISE_LOWERING,
-    OpTransformRule.LOGISTIC_LOWERING
+    OpTransformRule.LOGISTIC_LOWERING,
+    OpTransformRule.SPLIT_LOWERING
     # TODO 以后实现
     # OpTransformRule.LEAKYRELU_LOWERING,
     # OpTransformRule.FULLCONNECT_LOWERING,

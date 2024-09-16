@@ -334,6 +334,7 @@ class ONNX2TopIR:
             self.graph.AllTensors[bias_tensor_id].Type = TensorType.Bias
             self.graph.AllTensors[bias_tensor_id].ConsumerOp = op_idx
             conv_op.load_input_id(bias_tensor_id)
+            conv_op.InputShape.append(self.graph.AllTensors[bias_tensor_id].Shape)
 
             if self.graph.AllTensors[bias_tensor_id].Data is None:
                 for tensor in self.model.graph.initializer:
@@ -631,7 +632,7 @@ class ONNX2TopIR:
         self.graph.AllTensors[in_tensor_id].ConsumerOp = op_idx
 
         # ints的顺序与Numpy中的transpose用法一致
-        transpose_op.OutDimOrder = op.attribute[0].ints
+        transpose_op.OutDimOrder = list(op.attribute[0].ints)
 
         transpose_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
         if not self.graph.AllTensors[out_tensor_id].Shape:
@@ -803,14 +804,24 @@ class ONNX2TopIR:
 
             np_scales = self.graph.AllTensors[roi_tensor_id].Data
 
+            np_scales = np_scales.tolist()
             y_scale, x_scale = np_scales[2], np_scales[3]  # 放大倍数
             assert y_scale == x_scale
             resize_op.ScaleFactor = y_scale
+            if not self.graph.AllTensors[out_tensor_id].Shape:
+                shape = self.graph.AllTensors[in_tensor_id].Shape.list[:]
+                if len(shape) == 4:
+                    shape[2] = shape[2] * y_scale
+                    shape[3] = shape[3] * y_scale
+                    self.graph.AllTensors[out_tensor_id].Shape = Shape(shape)
+
         if scales_name is not None:
             scales_tensor_id = self.graph.AllTensorIds.index(scales_name)
             resize_op.load_input_id(scales_tensor_id)
             self.graph.AllTensors[scales_tensor_id].Type = TensorType.Parameter
             self.graph.AllTensors[scales_tensor_id].ConsumerOp = op_idx
+            raise NotImplementedError
+
         if sizes_name is not None:
             sizes_tensor_id = self.graph.AllTensorIds.index(sizes_name)
             resize_op.load_input_id(sizes_tensor_id)
@@ -829,7 +840,8 @@ class ONNX2TopIR:
 
             np_scales = self.graph.AllTensors[sizes_tensor_id].Data
 
-            self.graph.AllTensors[out_tensor_id].Shape = Shape(np_scales.tolist())
+            np_scales = np_scales.tolist()
+            self.graph.AllTensors[out_tensor_id].Shape = Shape(np_scales)
 
             in_h, in_w = resize_op.InputShape[0].H, resize_op.InputShape[0].W
             y_scale, x_scale = np_scales[2] / in_h, np_scales[3] / in_w  # 放大倍数
@@ -924,7 +936,7 @@ class ONNX2TopIR:
             else:
                 raise NotImplementedError
             self.graph.AllTensors[loc_tensor_id].load_data(np_loc_data)
-        pad_loc = list(self.graph.AllTensors[loc_tensor_id].Data)
+        pad_loc = self.graph.AllTensors[loc_tensor_id].Data.tolist()
 
         # pads should be a 1D tensor of shape [2 * input_rank]. pads format should be:
         # [x1_begin, x2_begin,...,x1_end, x2_end,...], where xi_begin is the number of
@@ -1117,11 +1129,12 @@ class ONNX2TopIR:
         cast_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
         cast_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
 
-        cast_op.Target = onnx2np_dtype_mapping[op.attribute[0].i]
+        # cast_op.Target = onnx2np_dtype_mapping[op.attribute[0].i]
+        cast_op.Target = op.attribute[0].i
 
         if self.graph.AllTensors[in_tensor_id].Data is not None:
             self.graph.AllTensors[out_tensor_id].Data = \
-                self.graph.AllTensors[in_tensor_id].Data.astype(cast_op.Target)
+                self.graph.AllTensors[in_tensor_id].Data.astype(onnx2np_dtype_mapping[cast_op.Target])
 
         self.graph.insert_op(cast_op, op_idx)
 
@@ -1170,9 +1183,9 @@ class ONNX2TopIR:
         slice_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
         slice_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
 
-        slice_op.start = self.graph.AllTensors[start_id].Data
-        slice_op.end = self.graph.AllTensors[end_id].Data
-        slice_op.axis = self.graph.AllTensors[axis_id].Data
+        slice_op.start = self.graph.AllTensors[start_id].Data.tolist()
+        slice_op.end = self.graph.AllTensors[end_id].Data.tolist()
+        slice_op.axis = self.graph.AllTensors[axis_id].Data.tolist()
 
         if self.graph.AllTensors[in_tensor_id].Data is not None:
             axes = slice_op.axis
