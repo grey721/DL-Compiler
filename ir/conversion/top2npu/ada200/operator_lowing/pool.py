@@ -24,7 +24,7 @@ def _lowering(net, mode):
 def _lowering_int8(op):
     npu_pool = NpuPool()
     npu_pool.__dict__.update(op.__dict__)
-    npu_pool.Type = "NpuPool"
+    # npu_pool.Name = "NpuPool"
     OutputH = op.OutputShape[0].H
     OutputW = op.OutputShape[0].W
     InputH = op.InputShape[0].H
@@ -59,7 +59,7 @@ def _lowering_int8(op):
 def _lowering_none(op):
     npu_pool = NpuPool()
     npu_pool.__dict__.update(op.__dict__)
-    npu_pool.Type = "NpuPool"
+    # npu_pool.Name = "NpuPool"
     OutputH = op.OutputShape[0].H
     OutputW = op.OutputShape[0].W
     InputH = op.InputShape[0].H
@@ -85,5 +85,5 @@ def _lowering_none(op):
 def _lowering_fp32(op):
     npu_pool = NpuPool()
     npu_pool.__dict__.update(op.__dict__)
-    npu_pool.Name = "NpuPool"
+    # npu_pool.Name = "NpuPool"
     return npu_pool

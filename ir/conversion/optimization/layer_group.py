@@ -29,11 +29,6 @@ def _gen_npu_op_group(net: GraphIR):
                 group_op_list.append(npu_op)
                 fmo_size_record.append(npu_op.NpuOpFmoSize)
 
-                if npu_op.NpuOpConvOp:
-                    if npu_op.NpuOpConvOp.Name == "Conv_63":
-                        print("here layer")
-                        print(npu_op.NpuOpConvOp)
-
                 # TODO 为什么输出特征图size大于后端最大尺寸反而跳过了，这块不懂
                 if npu_op.NpuOpFmoSize > backend.fmo_max_size:
                     continue
@@ -105,11 +100,6 @@ def _gen_npu_op_group(net: GraphIR):
                     npu_op_group_id += 1
                     group_op_list = []
                     fmo_size_record = []
-
-                if npu_op.NpuOpConvOp:
-                    if npu_op.NpuOpConvOp.Name == "Conv_63":
-                        print("here layer")
-                        print(npu_op.NpuOpConvOp)
 
     net.AllOps = deepcopy(npu_op_group_list)
 

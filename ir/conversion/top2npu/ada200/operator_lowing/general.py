@@ -19,5 +19,5 @@ def _lowering(net, mode):
 def _lowering_none(op):
     npu_op = NpuReshape()
     npu_op.__dict__.update(op.__dict__)
-    npu_op.Type = "Npu" + op.Type
+    # npu_op.Name = "Npu" + op.Type
     return npu_op

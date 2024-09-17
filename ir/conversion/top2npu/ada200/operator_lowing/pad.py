@@ -21,19 +21,19 @@ def _lowering(net, mode):
 def _lowering_int8(op):
     npu_pad = NpuPad()
     npu_pad.__dict__.update(op.__dict__)
-    npu_pad.Name = "NpuPad"
+    # npu_pad.Name = "NpuPad"
     return npu_pad
 
 
 def _lowering_fp32(op):
     npu_pad = NpuPad()
     npu_pad.__dict__.update(op.__dict__)
-    npu_pad.Name = "NpuPad"
+    # npu_pad.Name = "NpuPad"
     return npu_pad
 
 
 def _lowering_none(op):
     npu_pad = NpuPad()
     npu_pad.__dict__.update(op.__dict__)
-    npu_pad.Name = "NpuPad"
+    # npu_pad.Name = "NpuPad"
     return npu_pad

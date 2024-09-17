@@ -23,15 +23,19 @@ def _lowering(net, mode):
 def _lowering_int8(op):
     npu_split = NpuSplit()
     npu_split.__dict__.update(op.__dict__)
+    # npu_split.Name = "NpuSplit"
     return npu_split
 
 
 def _lowering_fp32(op):
     npu_split = NpuSplit()
     npu_split.__dict__.update(op.__dict__)
+    # npu_split.Name = "NpuSplit"
     return npu_split
+
 
 def _lowering_none(op):
     npu_split = NpuSplit()
     npu_split.__dict__.update(op.__dict__)
+    # npu_split.Name = "NpuSplit"
     return npu_split

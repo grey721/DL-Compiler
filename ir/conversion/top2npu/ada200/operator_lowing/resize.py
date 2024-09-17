@@ -35,7 +35,7 @@ def _lowering(net, mode):
 def _lowering_int8(op):
     npu_resize = NpuResize()
     npu_resize.__dict__.update(op.__dict__)
-    npu_resize.Type = "NpuResize"
+    # npu_resize.Name = "NpuResize"
 
     input_shape = [npu_resize.InputShape[0].N,
                    npu_resize.InputShape[0].H,
@@ -57,13 +57,13 @@ def _lowering_int8(op):
 def _lowering_fp32(op):
     npu_resize = NpuResize()
     npu_resize.__dict__.update(op.__dict__)
-    npu_resize.Type = "NpuResize"
+    # npu_resize.Name = "NpuResize"
     return npu_resize
 
 
 def _lowering_none(op):
     npu_resize = NpuResize()
     npu_resize.__dict__.update(op.__dict__)
-    npu_resize.Type = "NpuResize"
+    # npu_resize.Name = "NpuResize"
     return npu_resize
 

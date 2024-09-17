@@ -172,7 +172,10 @@ def easy_info(npu_graph: GraphIR):
                 op_dict["OpFlow"].append(p_dict)
 
         else:
-            op_dict = op.to_param_dict()
+            param_dict = op.to_param_dict()
+            op_dict = {"Type": op.Type,
+                       "param": param_dict
+                       }
         try:
             with open(f'{layer_path}/operator.json', 'w') as f:
                 json.dump(op_dict, f, indent=4)  # , indent=4

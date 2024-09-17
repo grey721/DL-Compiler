@@ -19,7 +19,7 @@ def _lowering(net, mode):
 def _lowering_int8(op):
     npu_concat = NpuConcat()
     npu_concat.__dict__.update(op.__dict__)
-    npu_concat.Type = "NpuConcat"
+    # npu_concat.Name = "NpuConcat"
     return npu_concat
 
 
@@ -30,5 +30,5 @@ def _lowering_fp32(op):
 def _lowering_none(op):
     npu_concat = NpuConcat()
     npu_concat.__dict__.update(op.__dict__)
-    npu_concat.Type = "NpuConcat"
+    # npu_concat.Name = "NpuConcat"
     return npu_concat

@@ -25,7 +25,7 @@ def _lowering(net, mode):
 def _lowering_int8(op, net):
     npu_elemwise = NpuElemWise()
     npu_elemwise.__dict__.update(op.__dict__)
-    npu_elemwise.Type = "NpuElemWise"
+    # npu_elemwise.Name = "NpuElemWise"
 
     npu_elemwise.input_offset = op.get_input0_zero_point_numpy(net)
     npu_elemwise.input1_offset = op.get_input1_zero_point_numpy(net)
@@ -82,7 +82,7 @@ def _lowering_fp32(op, net):
 def _lowering_none(op):
     npu_elemwise = NpuElemWise()
     npu_elemwise.__dict__.update(op.__dict__)
-    npu_elemwise.Type = "NpuElemWise"
+    # npu_elemwise.Name = "NpuElemWise"
 
     # if npu_elemwise.do_relu:
 

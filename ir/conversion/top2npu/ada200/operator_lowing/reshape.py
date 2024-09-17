@@ -19,19 +19,19 @@ def _lowering(net, mode):
 def _lowering_int8(op):
     npu_reshape = NpuReshape()
     npu_reshape.__dict__.update(op.__dict__)
-    npu_reshape.Type = "NpuReshape"
+    # npu_reshape.Name = "NpuReshape"
     return npu_reshape
 
 
 def _lowering_fp32(op):
     npu_reshape = NpuReshape()
     npu_reshape.__dict__.update(op.__dict__)
-    npu_reshape.Type = "NpuReshape"
+    # npu_reshape.Name = "NpuReshape"
     return npu_reshape
 
 
 def _lowering_none(op):
     npu_reshape = NpuReshape()
     npu_reshape.__dict__.update(op.__dict__)
-    npu_reshape.Type = "NpuReshape"
+    # npu_reshape.Name = "NpuReshape"
     return npu_reshape

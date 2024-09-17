@@ -131,7 +131,7 @@ def cmodel(x, input_shape, npu_sigmoid, s_in):
 def _lowering_int8(op, net):
     npu_logistic = NpuLogistic()
     npu_logistic.__dict__.update(op.__dict__)
-    npu_logistic.Type = "NpuLogistic"
+    # npu_logistic.Name = "NpuLogistic"
 
     input_scale = op.get_input_scale_numpy(net)
     output_scale = op.get_output_scale_numpy(net)
@@ -155,5 +155,5 @@ def _lowering_fp32(op, net):
 def _lowering_none(op):
     npu_sigmoid = NpuLogistic()
     npu_sigmoid.__dict__.update(op.__dict__)
-    npu_sigmoid.Type = "NpuSigmoid"
+    # npu_sigmoid.Name = "NpuSigmoid"
     return npu_sigmoid

@@ -26,7 +26,7 @@ def _lowering(net, mode):
 def _lowering_int8(op, net):
     NpuConv = NpuConv2d()
     NpuConv.__dict__.update(op.__dict__)
-    NpuConv.Type = "NpuConv2d"
+    # NpuConv.Name = "NpuConv2d"
 
     weight_scale = op.get_weight_scale_numpy(net)
     input_scale = op.get_input_scale_numpy(net)
@@ -93,14 +93,14 @@ def _lowering_int8(op, net):
 def _lowering_fp32(op, net):
     NpuConv = NpuConv2d()
     NpuConv.__dict__.update(op.__dict__)
-    NpuConv.Type = "NpuConv2d"
+    # NpuConv.Name = "NpuConv2d"
     raise NotImplementedError
 
 
 def _lowering_none(op, net):
     NpuConv = NpuConv2d()
     NpuConv.__dict__.update(op.__dict__)
-    NpuConv.Type = "NpuConv2d"
+    # NpuConv.Name = "NpuConv2d"
 
     # 加载参数
     weight = op.get_weight_numpy(net)

@@ -10,8 +10,8 @@ from ir.conversion.codegen.codegen import *
 
 if __name__ == '__main__':
     # config
-    model_path = 'assets/yolov3.onnx'
-    config_path = 'assets/yolov3.json'  # 'assets/yolov3.json'
+    model_path = 'assets/yolov5s.onnx'
+    config_path = None  # 'assets/yolov3.json'
     quantization_mode = "int8"  # mode="int8"
 
     if config_path is None:

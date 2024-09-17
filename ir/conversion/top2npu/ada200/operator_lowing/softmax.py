@@ -19,12 +19,12 @@ def _lowering(net, mode):
 def _lowering_int8(op):
     npu_transpose = NpuSoftmax()
     npu_transpose.__dict__.update(op.__dict__)
-    npu_transpose.Name = "NpuSoftmax"
+    # npu_transpose.Name = "NpuSoftmax"
     return npu_transpose
 
 
 def _lowering_fp32(op):
     npu_transpose = NpuSoftmax()
     npu_transpose.__dict__.update(op.__dict__)
-    npu_transpose.Name = "NpuSoftmax"
+    # npu_transpose.Name = "NpuSoftmax"
     return npu_transpose

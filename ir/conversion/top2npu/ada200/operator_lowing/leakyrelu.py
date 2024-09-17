@@ -143,7 +143,7 @@ def cmodel(x, input_shape, npu_leakyrelu):  # x=input data;
 def _lowering_int8(op, net):
     npu_leakyrelu = NpuLeakyRelu()
     npu_leakyrelu.__dict__.update(op.__dict__)
-    npu_leakyrelu.Type = "NpuLeakyRelu"
+    # npu_leakyrelu.Name = "NpuLeakyRelu"
 
     npu_leakyrelu.input_offset = op.get_input_zero_point_numpy(net)
     npu_leakyrelu.output_offset = op.get_output_zero_point_numpy(net)
