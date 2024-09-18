@@ -183,7 +183,7 @@ class OpBase:  # 算子基类
                 if "Shape" in attr_name:
                     param[attr_name] = []
                     for shape in attr:
-                        param[attr_name].append(shape.list[:])
+                        param[attr_name].append(shape.list)
                 elif "Value" in attr_name:
                     continue
                 elif "offset" in attr_name:

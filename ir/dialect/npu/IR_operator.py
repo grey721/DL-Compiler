@@ -25,7 +25,6 @@ class NpuConv2d(Conv2d):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuConv2d"
         self.conv_type = 0
 
     def block_shape_reverse_infrence(self, block_address_list):
@@ -179,7 +178,6 @@ class NpuActivation(Activation):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuActivation"
 
     def shape_reverse_infrence(self, address_list):
         return address_list
@@ -209,7 +207,6 @@ class NpuLeakyRelu(NpuActivation):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuLeakyRelu"
         self.lut_dict = None
 
 
@@ -224,7 +221,6 @@ class NpuLogistic(NpuActivation):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuLogistic"
         self.lut_dict = None
 
 
@@ -236,7 +232,6 @@ class NpuPool(Pool):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuPool"
 
     def block_shape_reverse_infrence(self, block_address_list):
 
@@ -357,7 +352,6 @@ class NpuResize(Resize):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuResize"
 
     def block_shape_reverse_infrence(self, block_address_list):
 
@@ -459,7 +453,6 @@ class NpuConcat(Concat):
 
     def __init__(self):
         super().__init__()
-        self.Type = "NpuConcat"
         self.main_input_tensor_id = None
 
     def block_shape_reverse_infrence(self, block_address_list):
@@ -512,7 +505,6 @@ class NpuSplit(Split):
 
     def __init__(self):
         super().__init__()
-        self.Type = "NpuSplit"
         # TODO
 
 
@@ -532,7 +524,6 @@ class NpuElemWise(ElemWise):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuElemwise"
 
     def shape_reverse_infrence(self, address_list):
         return address_list
@@ -558,7 +549,6 @@ class NpuReshape(Reshape):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuReshape"
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
@@ -570,7 +560,6 @@ class NpuTranspose(Transpose):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuTranspose"
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
@@ -582,7 +571,6 @@ class NpuSoftmax(NpuActivation):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuSoftmax"
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
@@ -601,7 +589,6 @@ class NpuMean(Mean):
 
 
 class NpuPad(Pad):
-    Type = "NpuPad"
     Device = "npu"
     TimeStep = None
 
@@ -695,7 +682,6 @@ class NpuPad(Pad):
 
 
 class NpuFullConnected(FullConnected):
-    Type = "NpuFullConnected"
     fmi_size = None
     fmo_size = None
     weight_size = None

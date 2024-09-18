@@ -1,9 +1,11 @@
-from ir.conversion.ir_transform import _register_ir_transformation_rule
-from ir.conversion.codegen.base import *
-from enum import Enum
 import json
-import cv2
 import os
+from enum import Enum
+
+import cv2
+
+from ir.conversion.codegen.base import *
+from ir.conversion.ir_transform import _register_ir_transformation_rule
 
 
 class TransformRule(Enum):
@@ -164,16 +166,28 @@ def easy_info(npu_graph: GraphIR):
 
         # Op输出
         if isinstance(op, NpuOp):
-            op_dict = {"Type": "NpuOp",
-                       "OpFlow": []
+            op_dict = {"type": "NpuOp",
+                       "provider": op.PreTopOpId,
+                       "consumer": op.PostTopOpId,
+                       "input_dim": [shape.list for shape in op.InputShape],
+                       "input_dim_num": [len(t.list) for t in op.InputShape],
+                       "output_dim": [shape.list for shape in op.OutputShape],
+                       "output_dim_num": [len(t.list) for t in op.OutputShape],
+                       "flow": []
                        }
             for p in op.NpuOpFlow:
                 p_dict = p.to_param_dict()
-                op_dict["OpFlow"].append(p_dict)
+                op_dict["flow"].append(p_dict)
 
         else:
             param_dict = op.to_param_dict()
-            op_dict = {"Type": op.Type,
+            op_dict = {"type": op.Type,
+                       "provider": op.PreTopOpId,
+                       "consumer": op.PostTopOpId,
+                       "input_dim": param_dict["InputShape"],
+                       "input_dim_num": [len(t) for t in param_dict["InputShape"]],
+                       "output_dim": param_dict["OutputShape"],
+                       "output_dim_num": [len(t) for t in param_dict["OutputShape"]],
                        "param": param_dict
                        }
         try:

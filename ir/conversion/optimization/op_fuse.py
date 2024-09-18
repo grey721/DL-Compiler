@@ -5,7 +5,9 @@ from ir.conversion.ir_transform import _find_post_op, _find_pre_op, \
     _copy_opbase_input_info, \
     _copy_opbase_output_info, \
     _find_pre_npu_op, \
-    _find_post_npu_op
+    _find_post_npu_op, \
+    _order_pre_op, \
+    _order_post_op
 from enum import Enum
 
 
@@ -160,15 +162,28 @@ def _order_top_ops(net: GraphIR):  # 排序Top
 def _order_npu_ops(net: GraphIR):  # 排序NPU
     print("----start TransformRule.ORDER_NPU_OPS---")
     for op_idx, op in enumerate(net.AllOps):
+        print(f"iter:{op_idx}, {op.Type}")
         op.NpuOpId = op_idx
 
     for op_idx, op in enumerate(net.AllOps):
-        if isinstance(op, NpuOp):
-            pre_op_id = _find_pre_npu_op(net, op)
-            post_op_id = _find_post_npu_op(net, op)
-            op.PreTopOpId = pre_op_id
-            op.PostTopOpId = post_op_id
-            print(op.NpuOpId, pre_op_id, post_op_id)
+        pre_op_id = _order_pre_op(net, op)
+        post_op_id = _order_post_op(net, op)
+        op.PreTopOpId = pre_op_id
+        op.PostTopOpId = post_op_id
+        print(op.NpuOpId, op.Type, pre_op_id, post_op_id)
+    # old
+    # print("----start TransformRule.ORDER_NPU_OPS---")
+    # for op_idx, op in enumerate(net.AllOps):
+    #     print(f"iter:{op_idx}, {op.Type}")
+    #     op.NpuOpId = op_idx
+    #
+    # for op_idx, op in enumerate(net.AllOps):
+    #     if isinstance(op, NpuOp):
+    #         pre_op_id = _find_pre_npu_op(net, op)
+    #         post_op_id = _find_post_npu_op(net, op)
+    #         op.PreTopOpId = pre_op_id
+    #         op.PostTopOpId = post_op_id
+    #         print(op.NpuOpId, pre_op_id, post_op_id)
 
 
 @_register_ir_transformation_rule(TransformRule.NPU_RESHAPE_CONV)
@@ -2011,6 +2026,7 @@ def _delete_fuse_constant(net: GraphIR):
     print("-----TransformRule DELETE_FUSE_CONST-----")
 
     def _fuse_post(graph, current_op, result):
+        # TODO 当一个算子的所有输入都是常数或参数，则也融合
         post_op_ids = _find_post_op(graph, current_op)
         for post_idx in post_op_ids:
             post_op = graph.get_op(post_idx)
@@ -2040,58 +2056,6 @@ def _delete_fuse_constant(net: GraphIR):
     for idx in delete_list:
         print('Delete:', net.AllOps[idx].Name)
         net.delete_op(idx)
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_ACTIVATION_ELW_shortcut)
-def _post_fuse_activation_pool(net: GraphIR):
-    print("-----TransformRule NPU_CONV_ACTIVATION_ELW-----")
-    i = 0
-    tensor_record = []
-    for op in net.AllOps:
-        _update_tensor_record(tensor_record, op)
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuConv2d):
-            flag = True
-            mode = -1
-            conv_post_ids = _find_post_op(net, op)
-            print("Post Op:", conv_post_ids)
-            acti_ops = []
-            elw_ops = []
-
-            for post_id in conv_post_ids:
-                conv_post_op = net.get_op(post_id)
-                if isinstance(conv_post_op, Activation):
-                    acti_ops.append(conv_post_op)
-
-                elif isinstance(conv_post_op, ElemWise):
-                    elw_ops.append(conv_post_op)
-
-                else:
-                    flag = False
-
-            if flag and len(acti_ops) == 1 and len(elw_ops) == 1:
-                acti_post_op_ids = _find_post_op(net, acti_ops[0])
-                if len(acti_post_op_ids) == 1 and acti_post_op_ids[0] in conv_post_ids:
-                    flag = True
-                else:
-                    flag = False
-
-            print("conv_post_op_num: ", len(conv_post_ids))
-            print("conv_post_acti_num: ", len(acti_ops))
-            print("conv_post_elw_num: ", len(elw_ops))
-            print("flag: ", flag)
-
-            if flag:
-                npu_op = NpuOp()
-                npu_op.InTensors = op.InTensors
-                npu_op.OutTensors = elw_ops[0].OutTensors
-                _copy_opbase_input_info(npu_op, op)
-                _copy_opbase_output_info(npu_op, elw_ops[0])
-                npu_op.NpuOpActivate = True
-                npu_op.NpuOpActivateOp = acti_ops[0]
-                npu_op.NpuOpElemWise = True
-                npu_op.NpuOpElemWiseOp = elw_ops[0]
 
 
 # op_fuse_pass
