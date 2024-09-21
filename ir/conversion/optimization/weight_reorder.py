@@ -501,7 +501,8 @@ def _weight_mapping(net: GraphIR):
                 npu_op_id = npu_op.NpuOpId
                 k_n = npu_op.NpuOpConvOp.WeightValue.shape[0]
                 weight = {
-                    "weight": npu_op.NpuOpConvOp.WeightValue.reshape(k_n, -1).tolist(),
+                    "weight": npu_op.NpuOpConvOp.WeightValue.reshape(k_n, -1).transpose(1, 0).tolist(),
+
                     "bias":  npu_op.NpuOpConvOp.BiasValue.tolist()
                 }
                 net.add_weight_tensor(npu_op_id, weight)

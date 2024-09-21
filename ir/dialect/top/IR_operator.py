@@ -166,12 +166,18 @@ class OpBase:  # 算子基类
 
     def get_fmi_size(self):  # 特征图输入大小
         """Op Input: H*W*C"""
-        fmi_size = self.InputShape[0].C * self.InputShape[0].H * self.InputShape[0].W
+        try:
+            fmi_size = self.InputShape[0].C * self.InputShape[0].H * self.InputShape[0].W
+        except TypeError:
+            fmi_size = self.InputShape[0].get_size()
         return fmi_size
 
     def get_fmo_size(self):  # 特征图输出大小
         """Op Output: H*W*C"""
-        fmo_size = self.OutputShape[0].C * self.OutputShape[0].H * self.OutputShape[0].W
+        try:
+            fmo_size = self.OutputShape[0].C * self.OutputShape[0].H * self.OutputShape[0].W
+        except TypeError:
+            fmo_size = self.OutputShape[0].get_size()
         return fmo_size
 
     # TODO
@@ -307,6 +313,7 @@ class ConvBase(OpBase):
     def __init__(self):
         super().__init__()
         # 卷积核尺寸
+        self.KerM = None
         self.KerH = None
         self.KerW = None
 
@@ -539,7 +546,7 @@ class Pool(OpBase):
             f'Input shape:{self.InputShape[0]}\n'
             f'Output tensor Id:{self.OutTensors[0]}\n'
             f'Output shape:{self.OutputShape[0]}\n'
-            f'############## Conv2d.{self.TopOpId} ##############\n'
+            f'############## {self.Type}.{self.TopOpId} ##############\n'
         )
 
     def shape_inference(self) -> list:

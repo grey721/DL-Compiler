@@ -162,10 +162,7 @@ def _order_top_ops(net: GraphIR):  # 排序Top
 def _order_npu_ops(net: GraphIR):  # 排序NPU
     print("----start TransformRule.ORDER_NPU_OPS---")
     for op_idx, op in enumerate(net.AllOps):
-        print(f"iter:{op_idx}, {op.Type}")
         op.NpuOpId = op_idx
-
-    for op_idx, op in enumerate(net.AllOps):
         pre_op_id = _order_pre_op(net, op)
         post_op_id = _order_post_op(net, op)
         op.PreTopOpId = pre_op_id
@@ -787,7 +784,7 @@ def _post_fuse_conv_activation_elw(net: GraphIR):
         i += 1
         if isinstance(op, NpuConv2d):
             flag = False
-            shortcut_flag = False
+            resnet_flag = False
             mode = -1
             post_conv_ids = _find_post_op(net, op)
             print("Post Op:", post_conv_ids)
@@ -795,7 +792,7 @@ def _post_fuse_conv_activation_elw(net: GraphIR):
             elw_ops = []
             elw_op_ids = []
             post_elw_ops = []
-            post__elw_ids = []
+            post_elw_ids = []
             post_acti_elw_num = 0
             post_acti_concat_num = 0
             post_acti_pool_num = 0
@@ -812,15 +809,15 @@ def _post_fuse_conv_activation_elw(net: GraphIR):
                     acti_ops.append(acti_op)
                     acti_post_op_ids = _find_post_op(net, acti_op)
                     for acti_post_op_idx in acti_post_op_ids:
-                        acti_post_op = net.get_op(acti_post_op_idx)
-                        _update_tensor_record(tensor_record, acti_post_op)
-                        elw_ops.append(acti_post_op)
+                        post_acti_op = net.get_op(acti_post_op_idx)
+                        _update_tensor_record(tensor_record, post_acti_op)
+                        elw_ops.append(post_acti_op)
                         elw_op_ids.append(acti_post_op_idx)
-                        acti_elw_post_op_ids = _find_post_op(net, acti_post_op)
-                        for acti_elw_post_op_idx in acti_elw_post_op_ids:
-                            acti_elw_post_op = net.get_op(acti_elw_post_op_idx)
-                            post_elw_ops.append(acti_elw_post_op)
-                            post__elw_ids.append(acti_elw_post_op_idx)
+                        post_elw_op_ids = _find_post_op(net, post_acti_op)
+                        for post_elw_op_idx in post_elw_op_ids:
+                            post_elw_op = net.get_op(post_elw_op_idx)
+                            post_elw_ops.append(post_elw_op)
+                            post_elw_ids.append(post_elw_op_idx)
 
                     for post_op in elw_ops:
                         if isinstance(post_op, NpuElemWise):
@@ -837,22 +834,28 @@ def _post_fuse_conv_activation_elw(net: GraphIR):
                             post_acti_other_num += 1
 
             elif len(post_conv_ids) == 2:
-                for conv_post_id in post_conv_ids:
-                    conv_post_op = net.get_op(conv_post_id)
-                    if isinstance(conv_post_op, Activation):
-                        _update_tensor_record(tensor_record, conv_post_op)
-                        acti_ops.append(conv_post_op)
+                for post_conv_op_id in post_conv_ids:
+                    post_conv_op = net.get_op(post_conv_op_id)
+                    if isinstance(post_conv_op, Activation):
+                        _update_tensor_record(tensor_record, post_conv_op)
+                        acti_ops.append(post_conv_op)
 
-                    elif isinstance(conv_post_op, ElemWise):
-                        _update_tensor_record(tensor_record, conv_post_op)
-                        elw_op_ids.append(conv_post_id)
-                        elw_ops.append(conv_post_op)
+                    elif isinstance(post_conv_op, ElemWise):
+                        _update_tensor_record(tensor_record, post_conv_op)
+                        elw_op_ids.append(post_conv_op_id)
+                        elw_ops.append(post_conv_op)
+
+                        post_elw_op_ids = _find_post_op(net, post_conv_op)
+                        for post_elw_op_idx in post_elw_op_ids:
+                            post_elw_op = net.get_op(post_elw_op_idx)
+                            post_elw_ops.append(post_elw_op)
+                            post_elw_ids.append(post_elw_op_idx)
 
                 if len(acti_ops) == 1 and len(elw_ops) == 1:  # 激活后面的op是这两个
                     acti_post_op_ids = _find_post_op(net, acti_ops[0])
                     if len(acti_post_op_ids) == 1 and acti_post_op_ids[0] in post_conv_ids:
                         post_acti_elw_num += 1
-                        shortcut_flag = True
+                        resnet_flag = True
 
             for elw_post_op in post_elw_ops:
                 if isinstance(elw_post_op, (NpuConv2d, NpuOp)):
@@ -872,7 +875,7 @@ def _post_fuse_conv_activation_elw(net: GraphIR):
             print("post_elw_concat_num: ", post_elw_concat_num)
             print("post_elw_other_num: ", post_elw_other_num)
 
-            if (shortcut_flag or
+            if (resnet_flag or
                     (post_acti_other_num == 0 and post_elw_other_num == 0 and post_acti_elw_num > 0)):
                 flag = True
 
@@ -925,8 +928,8 @@ def _post_fuse_conv_activation_elw(net: GraphIR):
                 net.delete_op(op_id)  # delete acti
                 net.delete_op(op_id)  # delete elw
                 if mode == 2 or mode == 3:
-                    assert op_id == net.get_op_idx(post_elw_concat_op)
-                    net.delete_op(op_id)
+                    anti_op_id = net.get_op_idx(post_elw_concat_op)
+                    net.delete_op(anti_op_id)
                 npu_op.init_all()
                 net.insert_op(npu_op, op_id)
                 print("op_id:", op.TopOpId)
@@ -1111,15 +1114,12 @@ def _post_fuse_pool_activation(net: GraphIR):
                 op_id = net.get_op_idx(op)
                 if post_pool_concat_num + post_pool_elw_num + post_acti_concat_num == 0:
                     mode = 0
-                else:
-                    if (post_pool_concat_num + post_pool_elw_num) > 0 and post_acti_concat_num == 0:
-                        mode = 1
-                    else:
-                        if (post_pool_concat_num + post_pool_elw_num) == 0 and post_acti_concat_num > 0:
-                            mode = 2
-                        else:
-                            if (post_pool_concat_num + post_pool_elw_num) > 0 and post_acti_concat_num > 0:
-                                mode = 3
+                elif (post_pool_concat_num + post_pool_elw_num) > 0 and post_acti_concat_num == 0:
+                    mode = 1
+                elif (post_pool_concat_num + post_pool_elw_num) == 0 and post_acti_concat_num > 0:
+                    mode = 2
+                elif (post_pool_concat_num + post_pool_elw_num) > 0 and post_acti_concat_num > 0:
+                    mode = 3
                 print("mode: ", mode)
                 npu_op = NpuOp()
                 npu_op.InTensors = op.InTensors
@@ -2026,13 +2026,26 @@ def _delete_fuse_constant(net: GraphIR):
     print("-----TransformRule DELETE_FUSE_CONST-----")
 
     def _fuse_post(graph, current_op, result):
-        # TODO 当一个算子的所有输入都是常数或参数，则也融合
         post_op_ids = _find_post_op(graph, current_op)
         for post_idx in post_op_ids:
             post_op = graph.get_op(post_idx)
-            if isinstance(post_op, value_class_operator) or isinstance(post_op, shape_class_operator):  # 在此限制可与常数融合的算子类型
+            # 在此限制可与常数融合的算子类型
+            # 单输入单输出
+            if isinstance(post_op, value_class_operator) or isinstance(post_op, shape_class_operator):
+                if post_idx not in result:
+                    for _out_tensor_id in post_op.OutTensors:
+                        net.AllTensors[_out_tensor_id].Type = TensorType.Const
+                    result.append(post_idx)
                 _fuse_post(graph, post_op, result)
-                result.append(post_idx)
+            else:
+                flag = True
+                for _in_tensor_id in post_op.InTensors:
+                    if net.AllTensors[_in_tensor_id].Type != TensorType.Const:
+                        flag = False
+                if flag:
+                    if post_idx not in result:
+                        result.append(post_idx)
+                    _fuse_post(graph, post_op, result)
 
     delete_list = []
     for _op_id, op in enumerate(net.AllOps):
@@ -2040,7 +2053,8 @@ def _delete_fuse_constant(net: GraphIR):
             out_tensor_idx = op.OutTensors[0]
             if net.AllTensors[out_tensor_idx].Type != TensorType.Parameter:
                 _fuse_post(net, op, delete_list)
-            delete_list.append(_op_id)
+            if _op_id not in delete_list:
+                delete_list.append(_op_id)
 
     def quick_sort(arr):
         if len(arr) <= 1:

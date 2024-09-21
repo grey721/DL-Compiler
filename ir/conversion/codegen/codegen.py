@@ -150,8 +150,14 @@ def easy_info(npu_graph: GraphIR):
     path_base = npu_graph.codegen_path
 
     path = f'{path_base}/{npu_graph.name}'
-    if not os.path.exists(path):
-        os.makedirs(path)
+    if os.path.exists(path):
+        _tail = 1
+        _path = path + f"_{_tail}"
+        while os.path.exists(_path):
+            _tail += 1
+            _path = path + f"_{_tail}"
+        path = _path
+    os.makedirs(path)
 
     make_image_to_memory(path, image_size=[128, 128, 3], image_path='')  # 保存图片二进制数据
 
@@ -223,5 +229,5 @@ def easy_info(npu_graph: GraphIR):
 
 
 codegen_transform = [
-    TransformRule.EASY_OUTPUT,
+    # TransformRule.EASY_OUTPUT,
 ]

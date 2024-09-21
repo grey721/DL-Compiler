@@ -878,19 +878,19 @@ class NpuOp(OpBase):
                         vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.ACTIVATION_SHORT_CUT_OUTPUT
 
-                    if isinstance(p, NpuConv2d):
+                    elif isinstance(p, NpuConv2d):
                         vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.INPUT_SHORT_CUT_OUTPUT
 
-                    if isinstance(p, NpuPool):
+                    elif isinstance(p, NpuPool):
                         vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.POOL_SHORT_CUT_OUTPUT
 
-                    if isinstance(p, NpuResize):
+                    elif isinstance(p, NpuResize):
                         vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.RESIZE_SHORT_CUT_OUTPUT
 
-                    if isinstance(p, NpuElemWise):
+                    elif isinstance(p, NpuElemWise):
                         vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.ELEW_SHORT_CUT_OUTPUT
 
