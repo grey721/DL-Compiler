@@ -173,8 +173,8 @@ def easy_info(npu_graph: GraphIR):
         # Op输出
         if isinstance(op, NpuOp):
             op_dict = {"type": "NpuOp",
-                       "provider": op.PreTopOpId,
-                       "consumer": op.PostTopOpId,
+                       "provider": op.PreOpId,
+                       "consumer": op.PostOpId,
                        "input_dim": [shape.list for shape in op.InputShape],
                        "input_dim_num": [len(t.list) for t in op.InputShape],
                        "output_dim": [shape.list for shape in op.OutputShape],
@@ -188,13 +188,13 @@ def easy_info(npu_graph: GraphIR):
         else:
             param_dict = op.to_param_dict()
             op_dict = {"type": op.Type,
-                       "provider": op.PreTopOpId,
-                       "consumer": op.PostTopOpId,
+                       "provider": op.PreOpId,
+                       "consumer": op.PostOpId,
                        "input_dim": param_dict["InputShape"],
                        "input_dim_num": [len(t) for t in param_dict["InputShape"]],
                        "output_dim": param_dict["OutputShape"],
                        "output_dim_num": [len(t) for t in param_dict["OutputShape"]],
-                       "param": param_dict
+                       "flow": [param_dict]
                        }
         try:
             with open(f'{layer_path}/operator.json', 'w') as f:
@@ -230,5 +230,5 @@ def easy_info(npu_graph: GraphIR):
 
 
 codegen_transform = [
-    # TransformRule.EASY_OUTPUT,
+    TransformRule.EASY_OUTPUT,
 ]

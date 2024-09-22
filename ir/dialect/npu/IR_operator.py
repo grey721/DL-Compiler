@@ -25,7 +25,7 @@ class NpuConv2d(Conv2d):
 
     def __init__(self):
         super().__init__()
-        self.conv_type = 0
+        self.conv_type = 0    # deconv:1 conv:0
 
     def block_shape_reverse_infrence(self, block_address_list):
 
@@ -207,7 +207,7 @@ class NpuLeakyRelu(NpuActivation):
 
     def __init__(self):
         super().__init__()
-        self.lut_dict = None
+        # self.lut_dict = None
 
 
 class NpuLogistic(NpuActivation):
@@ -221,7 +221,7 @@ class NpuLogistic(NpuActivation):
 
     def __init__(self):
         super().__init__()
-        self.lut_dict = None
+        # self.lut_dict = None
 
 
 class NpuPool(Pool):
@@ -763,7 +763,7 @@ class NpuOp(OpBase):
         self.concat_input_tensor = []
         self.short_cut_out_tensor = []  # 允许网络中的某些层直接跳过一些层与后续层相连?
         self.elemwise_input_tensor = []
-        self.output_tensor_for_cancat = []
+        self.output_tensor_for_concat = []
         self.concat_output = False
         self.concat_output_shape = None
         self.fmi_from_global_memory = False
@@ -832,7 +832,7 @@ class NpuOp(OpBase):
             return True
 
         except TypeError:
-            self.fuse_ops([ops])
+            return self.fuse_ops([ops])
 
     def add_fmi_tensor(self, ir_tensor_id):
         self.fmi_tensor.append(ir_tensor_id)
@@ -856,8 +856,8 @@ class NpuOp(OpBase):
             self.elemwise_input_tensor.append(ir_tensor_id)
 
     def add_output_tensor_for_cancat(self, ir_tensor_id):
-        if ir_tensor_id not in self.output_tensor_for_cancat:
-            self.output_tensor_for_cancat.append(ir_tensor_id)
+        if ir_tensor_id not in self.output_tensor_for_concat:
+            self.output_tensor_for_concat.append(ir_tensor_id)
 
     def set_fmi_tensors(self, ir_tensor_ids):
         self.fmi_tensor = ir_tensor_ids[0:1]
@@ -878,7 +878,7 @@ class NpuOp(OpBase):
         self.elemwise_input_tensor = ir_tensor_ids
 
     def set_output_tensors_for_cancat(self, ir_tensor_ids):
-        self.output_tensor_for_cancat = ir_tensor_ids
+        self.output_tensor_for_concat = ir_tensor_ids
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
@@ -1171,8 +1171,8 @@ class block_param(object):
         h, w, c = npu_op.OutputShape[0].H, npu_op.OutputShape[0].W, npu_op.OutputShape[0].C
         short_cut_out_tensor_info['origin_shape'] = [h, w, c]
         block_tensor_size = h * w * c
-        if len(self.NpuOp.output_tensor_for_cancat) == 1:
-            if short_cut_out_tensor_info['tensor_id'] == self.NpuOp.output_tensor_for_cancat[0]:
+        if len(self.NpuOp.output_tensor_for_concat) == 1:
+            if short_cut_out_tensor_info['tensor_id'] == self.NpuOp.output_tensor_for_concat[0]:
                 concat_in_tensor_list = self.NpuOp.concat_in_tensor_list
                 assert len(concat_in_tensor_list) == 2
                 tensor_id = short_cut_out_tensor_info['tensor_id']

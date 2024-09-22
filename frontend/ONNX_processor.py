@@ -205,6 +205,7 @@ class ONNX2TopIR:
         elem_op.Mode = mode
         elem_op.TopOpId = op_idx
 
+        tensor_num = 0
         # 输入
         in_tensors_name = op.input
         for name in in_tensors_name:
@@ -217,6 +218,10 @@ class ONNX2TopIR:
             elem_op.load_input_id(in_tensor_id)
             elem_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
             self.graph.AllTensors[in_tensor_id].ConsumerOp = op_idx
+            if self.graph.AllTensors[in_tensor_id].Type == TensorType.Intermediate:
+                tensor_num += 1
+        if tensor_num != len(in_tensors_name):
+            elem_op.Mode = 0 - elem_op.Mode
 
         # 输出
         out_tensors_name = op.output
@@ -302,9 +307,9 @@ class ONNX2TopIR:
                 conv_op.PadH = a.ints[0]
                 conv_op.PadW = a.ints[1]
                 if conv_op.PadH == 0 and conv_op.PadW == 0:
-                    conv_op.Padding = 1  # Padding.Padding.VALID  VALID填充，确保卷积核保持在有区
+                    conv_op.Padding = 1  # Padding.VALID  VALID填充，确保卷积核保持在有区
                 else:
-                    conv_op.Padding = 0  # Padding.Padding.SAME  SAME填充，足够的填充以确保输出数据与输入数据具有相同的尺寸
+                    conv_op.Padding = 0  # Padding.SAME  SAME填充，足够的填充以确保输出数据与输入数据具有相同的尺寸
             elif a.name == "kernel_shape":
                 conv_op.KerH = a.ints[0]
                 conv_op.KerW = a.ints[1]
@@ -591,18 +596,14 @@ class ONNX2TopIR:
         assert act_op.InputShape[0].H == act_op.OutputShape[0].H
 
         if op_code == OperatorType.LEAKY_RELU:
-            act_op.Type = 'LeakyRELU'
             act_op.Mode = ActivationMode.LEAKY_RELU
             act_op.Alpha = op.attribute[0].f
         elif op_code == OperatorType.PRELU:
-            act_op.Type = 'PRELU'
             act_op.Mode = ActivationMode.PRELU
             act_op.Alpha = op.attribute[0].f
         elif op_code == OperatorType.LOGISTIC:
-            act_op.Type = 'Sigmoid'
             act_op.Mode = ActivationMode.SIGMOID
         elif op_code == OperatorType.RELU:
-            act_op.Type = 'RELU'
             act_op.Mode = ActivationMode.RELU
 
         self.graph.insert_op(act_op, op_idx)
@@ -632,7 +633,7 @@ class ONNX2TopIR:
         self.graph.AllTensors[in_tensor_id].ConsumerOp = op_idx
 
         # ints的顺序与Numpy中的transpose用法一致
-        transpose_op.OutDimOrder = list(op.attribute[0].ints)
+        transpose_op.DimOrder = list(op.attribute[0].ints)
 
         transpose_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
         if not self.graph.AllTensors[out_tensor_id].Shape:
@@ -740,7 +741,7 @@ class ONNX2TopIR:
         concat_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
         self.graph.AllTensors[out_tensor_id].OwnerOp = op_idx
 
-        assert concat_op.FusedActFunc == 0
+        # assert concat_op.FusedActFunc == 0
 
         if data is not None:
             self.graph.AllTensors[out_tensor_id].Data = data
@@ -1000,7 +1001,7 @@ class ONNX2TopIR:
             else:
                 raise NotImplementedError
             self.graph.AllTensors[split_tensor_id].load_data(np_split_data)
-        split_op.split_shape = self.graph.AllTensors[split_tensor_id].Data.tolist()
+        split_op.Target = self.graph.AllTensors[split_tensor_id].Data.tolist()
 
         # Split Axis
         split_op.Axis = op.attribute[0].i
@@ -1024,7 +1025,7 @@ class ONNX2TopIR:
             self.graph.AllTensors[out_tensor_id].OwnerOp = op_idx
 
         for i in range(len(split_op.OutTensors)):
-            assert split_op.split_shape[i] == split_op.OutputShape[i].get_n_shape(1)[op.attribute[0].i]
+            assert split_op.Target[i] == split_op.OutputShape[i].get_n_shape(1)[op.attribute[0].i]
 
         self.graph.insert_op(split_op, op_idx)
 
@@ -1183,14 +1184,14 @@ class ONNX2TopIR:
         slice_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
         slice_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
 
-        slice_op.start = self.graph.AllTensors[start_id].Data.tolist()
-        slice_op.end = self.graph.AllTensors[end_id].Data.tolist()
-        slice_op.axis = self.graph.AllTensors[axis_id].Data.tolist()
+        slice_op.Start = self.graph.AllTensors[start_id].Data.tolist()
+        slice_op.End = self.graph.AllTensors[end_id].Data.tolist()
+        slice_op.Axis = self.graph.AllTensors[axis_id].Data.tolist()
 
         if self.graph.AllTensors[in_tensor_id].Data is not None:
-            axes = slice_op.axis
-            starts = slice_op.start
-            ends = slice_op.end
+            axes = slice_op.Axis
+            starts = slice_op.Start
+            ends = slice_op.End
             data = self.graph.AllTensors[in_tensor_id].Data
             if axes is None:
                 axes = range(len(starts))  # 如果没有指定轴，则对所有维度进行切片
@@ -1251,11 +1252,11 @@ class ONNX2TopIR:
             else:
                 raise NotImplementedError
             self.graph.AllTensors[unsqueeze_id].load_data(np_data)
-        unsqueeze_op.axis = self.graph.AllTensors[unsqueeze_id].Data.tolist()
+        unsqueeze_op.Axis = self.graph.AllTensors[unsqueeze_id].Data.tolist()
 
         if self.graph.AllTensors[in_tensor_id].Data is not None:
             self.graph.AllTensors[out_tensor_id].Data = \
-                np.expand_dims(self.graph.AllTensors[in_tensor_id].Data, axis=unsqueeze_op.axis[0])
+                np.expand_dims(self.graph.AllTensors[in_tensor_id].Data, axis=unsqueeze_op.Axis[0])
 
         self.graph.insert_op(unsqueeze_op, op_idx)
 

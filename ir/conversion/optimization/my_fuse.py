@@ -14,7 +14,7 @@ class TransformRule(Enum):
     ORDER_NPU_OPS = 2
     DELETE_FUSE_CONST = 3
     NPU_PAD = 4
-    NPU_SINGLE_INPUT_SINGLE_OUTPUT = 5
+    NPU_SISO_OP = 5
 
     SHORTCUT_CONV_ACTIVATION_ELW = 6
     NPU_CONCAT = 7
@@ -67,7 +67,10 @@ def _check_op_state(net, op, tensor_record):
     """ op的输入怎么以及完备 """
     flag = False
     flag_list = []
-    op_in_tensors = [t for t in op.InTensors if net.AllTensors[t].Type != TensorType.Const]
+    op_in_tensors = [t for t in op.InTensors if net.AllTensors[t].Type == TensorType.Intermediate]
+    if isinstance(op, NpuOp):
+        op_in_tensors.extend(op.elemwise_input_tensor)
+        op_in_tensors.extend(op.concat_input_tensor)
     for tensor_id in op_in_tensors:
         if tensor_id in tensor_record:
             flag_list.append(1)
@@ -86,20 +89,6 @@ def _update_tensor_record(tensor_record, op):
         tensor_record.extend(op.OutTensors)
 
 
-def _check_post_op_only_conv_or_out(net, op):
-    """post op is all: Conv2d / FullConnected / NpuOp / NpuPad"""
-    flag = True
-    post_op_ids = _find_post_op(net, op)
-    for post_op_ids_idx in post_op_ids:
-        post_op = net.get_op(post_op_ids_idx)
-        if not (isinstance(post_op, NpuConv2d)
-                or isinstance(post_op, NpuFullConnected)
-                or isinstance(post_op, NpuOp)
-                or isinstance(post_op, NpuPad)):
-            flag = False
-    return flag
-
-
 # MAIN
 @_register_ir_transformation_rule(TransformRule.ORDER_TOP_OPS)
 def _order_top_ops(net: GraphIR):  # 排序Top
@@ -109,6 +98,8 @@ def _order_top_ops(net: GraphIR):  # 排序Top
         post_op_id = _find_post_op(net, op)
         op.PreTopOpId = pre_op_id
         op.PostTopOpId = post_op_id
+        if len(op.PostTopOpId) > 1:
+            op.memory = True
         print(net.get_op_idx(op), pre_op_id, post_op_id)
 
 
@@ -119,8 +110,8 @@ def _order_npu_ops(net: GraphIR):  # 排序NPU
         op.NpuOpId = op_idx
         pre_op_id = _order_pre_op(net, op)
         post_op_id = _order_post_op(net, op)
-        op.PreTopOpId = pre_op_id
-        op.PostTopOpId = post_op_id
+        op.PreOpId = pre_op_id
+        op.PostOpId = post_op_id
         print(op.NpuOpId, op.Type, pre_op_id, post_op_id)
 
 
@@ -150,7 +141,7 @@ def _post_fuse_pad(net: GraphIR):  # 融合Pad和Conv、Pool
                 net.delete_op(_op_id)
 
 
-@_register_ir_transformation_rule(TransformRule.NPU_SINGLE_INPUT_SINGLE_OUTPUT)
+@_register_ir_transformation_rule(TransformRule.NPU_SISO_OP)
 def _fuse_single_output(net: GraphIR):
     print("----start TransformRule.COMMON---")
 
@@ -329,14 +320,16 @@ def _fuse_concat(net: GraphIR):
 
         post_op_id = post_op_ids[0]
         post_op = net.get_op(post_op_id)
-        print("      Post Op:", post_op_ids, post_op.Name)
-        print("      Temp Op:", temp_ids)
+        print("      Post Ops:", post_op_ids, post_op.Name)
+        print("      Temp Ops:", temp_ids)
 
-        if isinstance(post_op, (NpuElemWise, NpuConcat)):
+        if isinstance(post_op, (NpuElemWise, NpuConcat, NpuOp)):
             temp_ids = [x for x in temp_ids if x not in op_record]
             if _check_op_state(net, post_op, tensor_record):
+                print("      Post Op Ready")
                 n_ops.append(post_op)
             elif temp_ids:
+                print("      Load Temp Op")
                 post_op_id = temp_ids.pop(-1)
                 post_op = net.get_op(post_op_id)
                 n_ops.append(post_op)
@@ -366,13 +359,14 @@ def _fuse_concat(net: GraphIR):
             #     net.delete_op(idx-1)
             #     net.delete_op(idx-1)
             #     net.insert_op(npu_op, idx-1)
+    print("Net Lens:", len(net.AllOps))
 
 
 op_fuse_transform = [
     TransformRule.ORDER_TOP_OPS,
     TransformRule.DELETE_FUSE_CONST,
     TransformRule.NPU_PAD,
-    TransformRule.NPU_SINGLE_INPUT_SINGLE_OUTPUT,
+    TransformRule.NPU_SISO_OP,
     TransformRule.SHORTCUT_CONV_ACTIVATION_ELW,
     TransformRule.NPU_CONCAT,
     TransformRule.ORDER_NPU_OPS

@@ -120,14 +120,14 @@ def _order_post_op(net, op):
             inputs.extend(post_op.concat_input_tensor)
             for t_name in inputs:
                 if t_name in outputs:
-                    op_id = net.AllOps.index(post_op)
+                    op_id = net.get_op_idx(post_op)
                     if op_id is not None:
                         post_op_id.append(op_id)
         else:
             inputs = post_op.InTensors
             for t_name in inputs:
                 if t_name in outputs:
-                    op_id = net.AllOps.index(post_op)
+                    op_id = net.get_op_idx(post_op)
                     if op_id is not None:
                         post_op_id.append(op_id)
     return post_op_id
@@ -153,14 +153,14 @@ def _order_pre_op(net, op):
             outputs.extend(pre_op.fmo_tensor)  # 当前Op的所有输出
             for tensor in inputs:  # 指定op的输入
                 if tensor in outputs:
-                    op_id = net.AllOps.index(pre_op)
+                    op_id = net.get_op_idx(pre_op)
                     if op_id is not None:
                         pre_op_id.append(op_id)
         else:
             outputs = pre_op.OutTensors
             for tensor in inputs:  # 指定op的输入
                 if tensor in outputs:
-                    op_id = net.AllOps.index(pre_op)
+                    op_id = net.get_op_idx(pre_op)
                     if op_id is not None:
                         pre_op_id.append(op_id)
     return pre_op_id

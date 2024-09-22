@@ -143,9 +143,9 @@ class OperatorType(object):
 class OpBase:  # 算子基类
     OutputShape: list[Shape]
     InputShape: list[Shape]
-    Skip = False
-
+    # Skip = False
     TopOpId = None  # 标记该算子在TopIR中的哈希值
+    memory = False
 
     def __init__(self) -> None:
         self.Name = None
@@ -155,8 +155,8 @@ class OpBase:  # 算子基类
         self.InputShape = []
         self.OutTensors = []
         self.OutputShape = []
-        # self.PreOpId = []  # 上一个op id
-        # self.PostOpId = []  # 下一个op id
+        self.PreOpId = []  # 上一个op id
+        self.PostOpId = []  # 下一个op id
 
     def load_input_id(self, ir_tensor_id):
         self.InTensors.append(ir_tensor_id)
@@ -186,21 +186,20 @@ class OpBase:  # 算子基类
         for attr_name in dir(self):
             attr = getattr(self, attr_name)
             if not callable(attr) and not attr_name.startswith('_'):
+                skip_name_list = ("Value", "offset", "multiplier", "shift", "quantized", "size")
+                flag = False
+                for name in skip_name_list:
+                    if name in attr_name:
+                        flag = True
+                        break
+                if flag:
+                    continue
                 if "Shape" in attr_name:
                     param[attr_name] = []
                     for shape in attr:
                         param[attr_name].append(shape.list)
-                elif "Value" in attr_name:
-                    continue
-                elif "offset" in attr_name:
-                    continue
-                elif "multiplier" in attr_name:
-                    continue
-                elif "shift" in attr_name:
-                    continue
                 else:
                     param[attr_name] = attr
-        param["save"] = False
         return param
 
 
@@ -230,7 +229,7 @@ class Constant(OpBase):
 class ElementWiseMode(object):  # 元操作代码
     ELW_ADD = 0
     ELW_SUB = 1
-    ELW_MUL = 2  # 元素乘法
+    ELW_MUL = 2
     ELW_DIV = 3
     ELW_POW = 4
 
@@ -238,8 +237,8 @@ class ElementWiseMode(object):  # 元操作代码
 class ElemWise(OpBase):
     Type = "ElemWise"
     Mode = None
-    do_relu = False
-    FusedActFunc = 0
+    # do_relu = False
+    # FusedActFunc = 0
 
     def __init__(self):
         super().__init__()  # 用于在子类实例中初始化父类中的__init__，必须先调用，子类才能有父类的初始化
@@ -290,26 +289,12 @@ class ElemWise(OpBase):
 
 # ###################  conv related ############################
 class ConvBase(OpBase):
-    # Pad
-    Padding = None  # 开关
-    PadH = None  # 分别表示高度和宽度方向上的填充大小
-    PadW = None
-    Auto_pads = "PAD_ZERO"
-    #  卷积核在相应维度上的膨胀
-    Dilation = None
-    # 将输入和卷积核分组
-    Group = None
-    # 偏置值,None则无偏置
-    Bias = None
-    # 卷积核权重值
-    WeightValue = None
-    # 偏置项
-    BiasValue = None
+    # Auto_pads = "PAD_ZERO"
     # 是否是首层
     FirstLayer = False
     KerM_16 = False
     # 激活函数
-    do_relu = False
+    # do_relu = False
 
     def __init__(self):
         super().__init__()
@@ -319,8 +304,29 @@ class ConvBase(OpBase):
         self.KerW = None
 
         # 卷积核在输入特征图上滑动的步长
-        self.StrideH = None
-        self.StrideW = None
+        self.StrideH = 1
+        self.StrideW = 1
+
+        # Pad
+        # Padding.VALID = 1 VALID填充，确保卷积核保持在有区
+        # Padding.SAME = 0 SAME填充，足够的填充以确保输出数据与输入数据具有相同的尺寸
+        self.Padding = None  # 两种填充规则
+        self.PadH = None  # 分别表示高度和宽度方向上的填充大小
+        self.PadW = None
+
+        #  卷积核在相应维度上的膨胀
+        self.DilationH = 1
+        self.DilationW = 1
+
+        # 将输入和卷积核分组
+        self.Group = 1
+
+        # 偏置值,None则无偏置
+        self.Bias = False
+        # 卷积核权重值
+        self.WeightValue = None
+        # 偏置项
+        self.BiasValue = None
 
     # TODO confirm 哪个正确？
     def get_mac(self):
@@ -530,7 +536,7 @@ class Pool(OpBase):
     Padding = None
     PadH = None
     PadW = None
-    do_relu = False
+    # do_relu = False
 
     def __init__(self):
         super().__init__()
@@ -573,10 +579,10 @@ class ActivationMode(object):
 
 
 class Activation(OpBase):
-    Type = "Activation"
+    Type = "Act"
     Mode = None
     Alpha = 0
-    MaxLimit = None
+    # MaxLimit = None
 
     def __init__(self):
         super().__init__()
@@ -659,11 +665,11 @@ class Concat(OpBase):
     Type = "Concat"
     # 链接的轴
     Axis = None
-    FusedActFunc = False
+    # FusedActFunc = False
 
     # TODO 什么参数？
     # quant_param
-    RescaleInput = -1
+    # RescaleInput = -1
 
     def __init__(self):
         super().__init__()
@@ -756,7 +762,7 @@ class Reshape(OpBase):
 
 class Transpose(OpBase):
     Type = "Transpose"
-    OutDimOrder = None
+    DimOrder = None
 
     def __init__(self):
         super().__init__()
@@ -765,7 +771,7 @@ class Transpose(OpBase):
         return (
             f'############## Transpose.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
-            f'ReDim:{self.OutDimOrder}\n'
+            f'ReDim:{self.DimOrder}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
             f'Input shape:{self.InputShape[0]}\n'
@@ -777,7 +783,7 @@ class Transpose(OpBase):
     def shape_inference(self):
         n_shape = []
         in_shape = self.InputShape[0].list
-        for i in self.OutDimOrder:
+        for i in self.DimOrder:
             n_shape.append(in_shape[i])
         return n_shape
 
@@ -814,7 +820,7 @@ class Pad(OpBase):
 class Split(OpBase):
     Type = "Split"
     Axis = None
-    split_shape = None
+    Target = None
 
     def __init__(self):
         super().__init__()
@@ -824,7 +830,7 @@ class Split(OpBase):
             f'############## Split.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
             f'Axis:{self.Axis}\n'
-            f'Split:{self.split_shape}\n'
+            f'Split:{self.Target}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
             f'Input shape:{self.InputShape[0]}\n'
@@ -836,7 +842,7 @@ class Split(OpBase):
     def shape_inference(self):
         sample = self.InputShape[0].list
         n_shape = []
-        for dim_value in self.split_shape:
+        for dim_value in self.Target:
             temp = sample[:]  # 类似于deepcopy
             temp[self.Axis] = dim_value
             n_shape.append(temp)
@@ -846,7 +852,7 @@ class Split(OpBase):
 
 class Mean(OpBase):
     Type = "Mean"
-    axis = None
+    Axis = None
     keep_dims = None  # 输出数据的维度与原始输入数据的维度相同，否者该维度长度将为1？
 
     def __init__(self):
@@ -880,7 +886,7 @@ class OpShape(OpBase):
 
 class Unsqueeze(OpBase):
     Type = "Unsqueeze"
-    axis = None
+    Axis = None
 
     def __init__(self):
         super().__init__()
@@ -890,7 +896,7 @@ class Unsqueeze(OpBase):
         return (
             f'############## Unsqueeze.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
-            f'Axes:{self.axis}\n'
+            f'Axes:{self.Axis}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
             f'Input shape:{self.InputShape[0]}\n'
@@ -925,9 +931,9 @@ class Floor(OpBase):
 
 class Slice(OpBase):
     Type = "Slice"  # 左开右闭
-    start = None
-    end = None
-    axis = None
+    Start = None
+    End = None
+    Axis = None
 
     def __init__(self):
         super().__init__()
@@ -937,9 +943,9 @@ class Slice(OpBase):
         return (
             f'############## Slice.{self.TopOpId} ##############\n'
             f'Op Name:{self.Name}\n'
-            f'Axis:{self.axis}\n'
-            f'Start:{self.start}\n'
-            f'End:{self.end}\n'
+            f'Axis:{self.Axis}\n'
+            f'Start:{self.Start}\n'
+            f'End:{self.End}\n'
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors[0]}\n'
             f'Input shape:{self.InputShape[0]}\n'
