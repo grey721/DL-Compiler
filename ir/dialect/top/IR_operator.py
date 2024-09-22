@@ -200,6 +200,7 @@ class OpBase:  # 算子基类
                     continue
                 else:
                     param[attr_name] = attr
+        param["save"] = False
         return param
 
 

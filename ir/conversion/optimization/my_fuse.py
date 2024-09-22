@@ -11,10 +11,10 @@ from ir.graph.Graph_IR import *
 
 class TransformRule(Enum):
     ORDER_TOP_OPS = 1
-    DELETE_FUSE_CONST = 2
-    NPU_PAD = 3
-    NPU_COMMON = 4
-    ORDER_NPU_OPS = 5
+    ORDER_NPU_OPS = 2
+    DELETE_FUSE_CONST = 3
+    NPU_PAD = 4
+    NPU_SINGLE_INPUT_SINGLE_OUTPUT = 5
 
     SHORTCUT_CONV_ACTIVATION_ELW = 6
     NPU_CONCAT = 7
@@ -150,7 +150,7 @@ def _post_fuse_pad(net: GraphIR):  # 融合Pad和Conv、Pool
                 net.delete_op(_op_id)
 
 
-@_register_ir_transformation_rule(TransformRule.NPU_COMMON)
+@_register_ir_transformation_rule(TransformRule.NPU_SINGLE_INPUT_SINGLE_OUTPUT)
 def _fuse_single_output(net: GraphIR):
     print("----start TransformRule.COMMON---")
 
@@ -372,7 +372,7 @@ op_fuse_transform = [
     TransformRule.ORDER_TOP_OPS,
     TransformRule.DELETE_FUSE_CONST,
     TransformRule.NPU_PAD,
-    TransformRule.NPU_COMMON,
+    TransformRule.NPU_SINGLE_INPUT_SINGLE_OUTPUT,
     TransformRule.SHORTCUT_CONV_ACTIVATION_ELW,
     TransformRule.NPU_CONCAT,
     TransformRule.ORDER_NPU_OPS
