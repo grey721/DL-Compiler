@@ -160,12 +160,23 @@ def easy_info(npu_graph: GraphIR):
     os.makedirs(path)
 
     make_image_to_memory(path, image_size=[128, 128, 3], image_path='')  # 保存图片二进制数据
+    net_input_shapes = [npu_graph.AllTensors[idx].Shape.list for idx in npu_graph.NetInTensors]
+    net_output_shapes = [npu_graph.AllTensors[idx].Shape.list for idx in npu_graph.NetOutTensors]
+    top_info = {
+        "name": npu_graph.name,
+        "layer_num": len(npu_graph.AllOps),
+        "input_num": len(npu_graph.NetInTensors),
+        "input_dims": [len(shape) for shape in net_input_shapes],
+        "input_shape":  net_input_shapes,
+        "output_num": len(npu_graph.NetOutTensors),
+        "output_dims": [len(shape) for shape in net_output_shapes],
+        "output_shape": net_output_shapes,
+    }
+    with open(f'{path}/top_info.json', 'w') as f:
+        json.dump(top_info, f, indent=4)  # , indent=4
 
     # 输出权重
-    weights = npu_graph.WeightTensors
-    ops = npu_graph.AllOps
-
-    for idx, op in enumerate(ops):
+    for idx, op in enumerate(npu_graph.AllOps):
         layer_path = f'{path}/layer_{idx}'
         if not os.path.exists(layer_path):
             os.makedirs(layer_path)
