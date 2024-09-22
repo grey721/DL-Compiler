@@ -463,6 +463,8 @@ def _weight_padding(net: GraphIR):
         if isinstance(npu_op, NpuOp) and npu_op.NpuOpConv:
             # weight_split
             npu_conv_op = npu_op.NpuOpConvOp
+            if npu_conv_op is None:
+                continue
             weight = npu_conv_op.WeightValue
             bais = npu_conv_op.BiasValue
             k_n, k_h, k_w, k_c = weight.shape
@@ -497,15 +499,17 @@ def _weight_padding(net: GraphIR):
 def _weight_mapping(net: GraphIR):
     for op_id, npu_op in enumerate(net.AllOps):
         if isinstance(npu_op, NpuOp):
-            if npu_op.NpuOpConv:
-                npu_op_id = npu_op.NpuOpId
-                k_n = npu_op.NpuOpConvOp.WeightValue.shape[0]
-                weight = {
-                    "weight": npu_op.NpuOpConvOp.WeightValue.reshape(k_n, -1).transpose(1, 0).tolist(),
+            npu_conv_op = npu_op.NpuOpConvOp
+            if npu_conv_op is None:
+                continue
+            npu_op_id = npu_op.NpuOpId
+            k_n = npu_conv_op.WeightValue.shape[0]
+            weight = {
+                "weight": npu_conv_op.WeightValue.reshape(k_n, -1).transpose(1, 0).tolist(),
 
-                    "bias":  npu_op.NpuOpConvOp.BiasValue.tolist()
-                }
-                net.add_weight_tensor(npu_op_id, weight)
+                "bias":  npu_conv_op.BiasValue.tolist()
+            }
+            net.add_weight_tensor(npu_op_id, weight)
 
 
 # weight_mapping_pass

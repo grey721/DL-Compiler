@@ -123,8 +123,6 @@ def _order_post_op(net, op):
                     op_id = net.AllOps.index(post_op)
                     if op_id is not None:
                         post_op_id.append(op_id)
-        elif isinstance(post_op, list):
-            continue
         else:
             inputs = post_op.InTensors
             for t_name in inputs:

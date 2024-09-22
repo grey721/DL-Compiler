@@ -204,6 +204,7 @@ def easy_info(npu_graph: GraphIR):
             for key in op_dict:
                 print(key, type(op_dict[key]))
                 print(op_dict[key])
+            raise ValueError
         op_id = op.NpuOpId
 
         # Weight 输出

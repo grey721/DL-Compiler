@@ -179,18 +179,11 @@ def _fuse_single_output(net: GraphIR):
             fuse_op(op_id, op_list)
             if len(op_list) > 1:
                 net.delete_op(op_id)
-                # TODO 生成NPU OP
+
                 npu_op = NpuOp()
-                npu_op.NpuOpFlow = op_list
+                npu_op.fuse_ops(op_list)
                 net.insert_op(npu_op, op_id)
 
-                _copy_opbase_input_info(npu_op, op_list[0])
-                _copy_opbase_output_info(npu_op, op_list[-1])
-
-                npu_op.NpuOpConv = True
-                npu_op.NpuOpConvOp = op_list[0]
-
-                npu_op.init_all()
                 print(f'iter:{op_id}', [x.Type for x in op_list])
             else:
                 print(f'iter:{op_id}', npu_op.Type)
@@ -294,29 +287,13 @@ def _post_fuse_conv_activation_elw(net: GraphIR):
             if flag:
                 op_id = net.get_op_idx(op)
                 npu_op = NpuOp()
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-
-                npu_op.OutTensors = elw_ops[0].OutTensors
-                _copy_opbase_output_info(npu_op, elw_ops[0])
-
-                npu_op.NpuOpConvOp = op
-                npu_op.NpuOpActivate = True
-                npu_op.NpuOpActivateOp = acti_ops[0]
-                npu_op.NpuOpElemWise = True
-                npu_op.NpuOpElemWiseOp = elw_ops[0]
-
-                npu_op.NpuOpFlow.append(npu_op.NpuOpConvOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpActivateOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpElemWiseOp)
-
+                npu_op.fuse_ops([op, acti_ops[0], elw_ops[0]])
                 assert (op_id + 1) == post_conv_ids[0]
                 assert (op_id + 2) == elw_op_ids[0]
                 net.delete_op(op_id)  # delete conv
                 net.delete_op(op_id)  # delete acti
                 net.delete_op(op_id)  # delete elw
 
-                npu_op.init_all()
                 net.insert_op(npu_op, op_id)
                 print("op_id:", op.TopOpId)
 
@@ -329,6 +306,7 @@ def _fuse_concat(net: GraphIR):
     op_record = [0]
     temp_ids = []
     i = -1
+    # TODO 仅单输入网络可用，且第一个必须是网络输入op
     while True:
         i += 1
         current_op = n_ops[-1]
@@ -367,6 +345,27 @@ def _fuse_concat(net: GraphIR):
         op_record.append(post_op_id)
 
     net.AllOps = n_ops
+
+    for op in net.AllOps:
+        if isinstance(op, NpuConcat):
+            idx = net.get_op_idx(op)
+            pre_op = net.AllOps[idx-1]
+            if isinstance(pre_op, NpuOp):
+                pre_op.fuse_ops(op)
+
+                net.delete_op(idx)
+            # else:
+            #     npu_op = NpuOp()
+            #     npu_op.NpuOpFlow.append(pre_op)
+            #     npu_op.NpuOpFlow.append(op)
+            #
+            #     _copy_opbase_input_info(npu_op, pre_op)
+            #     _copy_opbase_output_info(npu_op, op)
+            #     npu_op.init_all()
+            #
+            #     net.delete_op(idx-1)
+            #     net.delete_op(idx-1)
+            #     net.insert_op(npu_op, idx-1)
 
 
 op_fuse_transform = [
