@@ -8,21 +8,24 @@ def _lowering(net, mode):
     for op in net.AllOps:
         if isinstance(op, ElemWise):
             # if op.ElwMode == ElementwiseMode.ELW_ADD:
-            if mode == "int8":
+            if mode is None:
+                NpuOp = _lowering_none(op)
+            elif mode == "int8":
                 NpuOp = _lowering_int8(op, net)
-            if mode == "fp32":
+            elif mode == "fp32":
                 NpuOp = _lowering_fp32(op, net)
+            else:
+                raise NotImplementedError('Unsupported lowing mode')
 
             op_id = net.get_op_idx(op)
             net.delete_op(op_id)
-            print(op_id)
             net.insert_op(NpuOp, op_id)
 
 
 def _lowering_int8(op, net):
     npu_elemwise = NpuElemWise()
     npu_elemwise.__dict__.update(op.__dict__)
-    npu_elemwise.Name = "NpuElemWise"
+    # npu_elemwise.Name = "NpuElemWise"
 
     npu_elemwise.input_offset = op.get_input0_zero_point_numpy(net)
     npu_elemwise.input1_offset = op.get_input1_zero_point_numpy(net)
@@ -74,3 +77,13 @@ def _lowering_int8(op, net):
 
 def _lowering_fp32(op, net):
     raise NotImplementedError
+
+
+def _lowering_none(op):
+    npu_elemwise = NpuElemWise()
+    npu_elemwise.__dict__.update(op.__dict__)
+    # npu_elemwise.Name = "NpuElemWise"
+
+    # if npu_elemwise.do_relu:
+
+    return npu_elemwise

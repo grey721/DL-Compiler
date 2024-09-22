@@ -1,7 +1,6 @@
 from ir.graph.Graph_IR import *
-from ir.dialect.top.IR_tensor import *
 from ir.dialect.npu.IR_operator import *
-from ir.conversion.optimization.ir_transform import _register_ir_transformation_rule, \
+from ir.conversion.ir_transform import _register_ir_transformation_rule, \
     _find_pre_npu_op, \
     _find_post_npu_op
 # from backend.ada200.ada200 import ada200

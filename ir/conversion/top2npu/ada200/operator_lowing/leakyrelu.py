@@ -1,9 +1,9 @@
 from ir.conversion.top2npu.ada200.operator_lowing.base import OpTransformRule, _register_op_transformation_rule
 from ir.dialect.npu.IR_operator import *
 
-from python_support.vpu import *
-from python_support.memory import *
-from python_support.util import *
+# from python_support.vpu import *
+# from python_support.memory import *
+# from python_support.util import *
 
 
 @_register_op_transformation_rule(OpTransformRule.LEAKYRELU_LOWERING)
@@ -12,10 +12,14 @@ def _lowering(net, mode):
         if isinstance(op, Activation):
             if op.Mode != ActivationMode.LEAKY_RELU:
                 continue
-            if mode == "int8":
+            if mode is None:
+                NpuOp = _lowering_none(op)
+            elif mode == "int8":
                 NpuOp = _lowering_int8(op, net)
-            if mode == "fp32":
+            elif mode == "fp32":
                 NpuOp = _lowering_fp32(op, net)
+            else:
+                raise NotImplementedError('Unsupported lowing mode')
 
             op_id = net.get_op_idx(op)
             net.delete_op(op_id)
@@ -143,7 +147,7 @@ def cmodel(x, input_shape, npu_leakyrelu):  # x=input data;
 def _lowering_int8(op, net):
     npu_leakyrelu = NpuLeakyRelu()
     npu_leakyrelu.__dict__.update(op.__dict__)
-    npu_leakyrelu.Type = "NpuLeakyRelu"
+    # npu_leakyrelu.Name = "NpuLeakyRelu"
 
     npu_leakyrelu.input_offset = op.get_input_zero_point_numpy(net)
     npu_leakyrelu.output_offset = op.get_output_zero_point_numpy(net)
@@ -164,3 +168,9 @@ def _lowering_int8(op, net):
 
 def _lowering_fp32(op, net):
     raise NotImplementedError
+
+
+def _lowering_none(op):
+    npu_leakyrelu = NpuLeakyRelu()
+    npu_leakyrelu.__dict__.update(op.__dict__)
+    return npu_leakyrelu

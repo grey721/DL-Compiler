@@ -85,6 +85,12 @@ class Shape:  # 专门用于表示张量形状的class
         else:
             return self.list
 
+    def get_size(self):
+        res = 1
+        for i in self.list:
+            res *= i
+        return res
+
 
 class TensorType(object):
     Intermediate = 0

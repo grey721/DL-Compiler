@@ -1,6 +1,4 @@
 from ir.graph.Graph_IR import *
-from ir.dialect.npu.IR_memory import *
-from ir.dialect.top.IR_tensor import *
 from ir.dialect.npu.IR_operator import *
 from backend.ada200.ada200 import ada200
 from ir.conversion.optimization.memory.base import *
@@ -8,7 +6,7 @@ from ir.conversion.optimization.memory.base import *
 # from ir.conversion.optimization.memory.schedule import *
 # from ir.conversion.optimization.memory.allocation import *
 # from ir.conversion.optimization.memory.life_cycle import *
-from ir.conversion.optimization.ir_transform import _register_ir_transformation_rule
+from ir.conversion.ir_transform import _register_ir_transformation_rule
 
 
 @_register_ir_transformation_rule(TransformRule.GEN_NPU_OP_GROUP)
@@ -21,6 +19,7 @@ def _gen_npu_op_group(net: GraphIR):
     fmo_size_record = []
     npu_op_group_id = 0
     skip_npu_op_id_list = []
+    print("here", net.SubGraphs)
     for sub_graph in net.SubGraphs:
         group_op_list = []
         for npu_op_id in sub_graph:  # 子图为一个组，重复op排除
@@ -29,6 +28,7 @@ def _gen_npu_op_group(net: GraphIR):
                 npu_op = net.get_npu_op(npu_op_id)
                 group_op_list.append(npu_op)
                 fmo_size_record.append(npu_op.NpuOpFmoSize)
+
                 # TODO 为什么输出特征图size大于后端最大尺寸反而跳过了，这块不懂
                 if npu_op.NpuOpFmoSize > backend.fmo_max_size:
                     continue
@@ -75,6 +75,7 @@ def _gen_npu_op_group(net: GraphIR):
 
                         try:
                             blk_split_mode = block_split_mode(h_slice, w_slice, c_slice)
+                            # npu_op_group会赋值n_k_n给OutputShape.c
                             npu_op_group_ins = npu_op_group(group_op_list,
                                                             blk_split_mode,
                                                             npu_op_group_id,

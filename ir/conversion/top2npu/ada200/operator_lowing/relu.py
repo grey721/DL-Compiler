@@ -23,7 +23,7 @@ def _lowering(net, mode):
 def _lowering_int8(op, net):
     npu_activation = NpuActivation()
     npu_activation.__dict__.update(op.__dict__)
-    npu_activation.Name = "NpuActivation_Relu"
+    # npu_activation.Name = "NpuActivation_Relu"
 
     return npu_activation
 

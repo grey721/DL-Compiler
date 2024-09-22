@@ -19,12 +19,12 @@ def _lowering(net, mode):
 def _lowering_int8(op):
     npu_mean = NpuMean()
     npu_mean.__dict__.update(op.__dict__)
-    npu_mean.Name = "NpuMean"
+    # npu_mean.Name = "NpuMean"
     return npu_mean
 
 
 def _lowering_fp32(op):
     npu_mean = NpuMean()
     npu_mean.__dict__.update(op.__dict__)
-    npu_mean.Name = "NpuMean"
+    # npu_mean.Name = "NpuMean"
     return npu_mean

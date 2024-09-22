@@ -1,9 +1,20 @@
 from ir.graph.Graph_IR import *
 from ir.dialect.npu.IR_operator import *
-from ir.conversion.optimization.ir_transform import _register_ir_transformation_rule
+from ir.conversion.ir_transform import _register_ir_transformation_rule
 import multiprocessing
 from enum import Enum
 import math
+
+
+class TransformRule(Enum):
+    NOPE = 1
+
+    WEIGHT_PADDING = 2  # 填充至符合芯片size的shape
+    WEIGHT_MAPPING = 3
+    WEIGHT_MAPPING_MULTI_PROCESS = 4
+    EASY_WEIGHT_MAPPING = 5  # TODO 临时的简易输出
+    EASY_WEIGHT_PADDING = 6
+
 
 
 def make_list_array(shape):  # 创建相应shape的矩阵列表
@@ -115,16 +126,6 @@ def tensor2hex_tensor(weight, sparsity_tensor):
         for j in range(sparsity_tensor.shape[1]):
             number = int2bin(sparsity_tensor[i][j], 3, feature=True)
             sparsity_string += number
-        # n = 0
-        # string = ''
-        # for st in sparsity_string:
-        #     string += st
-        #     n += 1
-        #     if n == 64:
-        #         number = bin2hex(string, 64)
-        #         tensor_tem.append(number)
-        #         n = 0
-        #         string = ''
 
         sparsity_tem = []
         for k in range(3):
@@ -158,7 +159,9 @@ def cluster_format(weight, cluster_psum, cim_psum, split_c, frist_layer):
     weight_c = weight.shape[3]
     # assert(weight_c%16==0)
 
+    # 分割C轴
     weight = weight.reshape([weight_n, weight_h, weight_w, split_c, -1])
+    # 将第一个维度用于索引分割的块
     weight = np.transpose(weight, (3, 0, 1, 2, 4))
     weight_c = weight.shape[-1]
     cim_nums = cluster_psum * cim_psum * int(weight_n / 16)
@@ -201,13 +204,15 @@ def cluster_format(weight, cluster_psum, cim_psum, split_c, frist_layer):
 
 def sparsity_class(weight):
     shape = weight.shape
-    weight = weight.reshape(-1, shape[-2], shape[-1])  # NHWC
+    weight = weight.reshape(-1, shape[-2], shape[-1])
     sparsity_tensor = []
     for i in range(weight.shape[0]):
+        # TODO 为什么[256, 16]
         cim_tem = np.zeros([256, 16]).astype(np.int8)
         cim_tem[:shape[-2], :] = weight[i]
         cim_tem = tensor2bin_tensor(cim_tem).reshape([4, 64, 128])
         # cim_tem = np.transpose(cim_tem,(0,2,1))
+        # 稀疏性等级？
         for ii in range(4):
             for jj in range(128):
                 nn = 0
@@ -300,8 +305,8 @@ def add_bais_shift_quatization(shape, res, r_max, r_min, output_offset,
     return shape, new_res
 
 
-manager = multiprocessing.Manager()
-weight_dict = manager.dict()
+# manager = multiprocessing.Manager()
+# weight_dict = manager.dict()
 
 
 def wm(op: block_param):
@@ -333,14 +338,6 @@ def wm(op: block_param):
     weight_dict[op.npu_op_id] = [weight_format, res]  # 更新多线程字典
     # print(op.npu_op_id)
     return 1
-
-
-class TransformRule(Enum):
-    NOPE = 1
-
-    WEIGHT_PADDING = 2  # 填充至符合芯片size的shape
-    WEIGHT_MAPPING = 3
-    WEIGHT_MAPPING_MULTI_PROCESS = 4
 
 
 @_register_ir_transformation_rule(TransformRule.WEIGHT_PADDING)  # 填充至符合芯片size的shape
@@ -459,10 +456,66 @@ def _weight_mapping_multi_process(net: GraphIR):
             net.add_weight_format(weight_format)
 
 
+# TODO easy weight
+@_register_ir_transformation_rule(TransformRule.EASY_WEIGHT_PADDING)  # 填充至符合芯片size的shape
+def _weight_padding(net: GraphIR):
+    for op_id, npu_op in enumerate(net.AllOps):
+        if isinstance(npu_op, NpuOp) and npu_op.NpuOpConv:
+            # weight_split
+            npu_conv_op = npu_op.NpuOpConvOp
+            if npu_conv_op is None:
+                continue
+            weight = npu_conv_op.WeightValue
+            bais = npu_conv_op.BiasValue
+            k_n, k_h, k_w, k_c = weight.shape
+
+            if k_n % 16 != 0:
+                # TODO 选择
+                n_k_n = math.ceil(k_n / 32) * 32
+                # if k_n < 32:
+                #     n_k_n = 32
+                # elif k_n < 64:
+                #     n_k_n = 64
+                # elif k_n < 128:
+                #     n_k_n = 128
+                # elif k_n < 256:
+                #     n_k_n = 256
+                # else:
+                #     n_k_n = math.ceil(k_n / 16) * 16
+                weight_ = np.zeros([n_k_n, k_h, k_w, k_c]).astype(np.int8)
+                weight_[0:k_n, :, :, :] = weight
+                npu_conv_op.WeightValue = weight_  # 给原weight填充0
+
+                bais_ = np.zeros([n_k_n]).astype(np.int32)
+                bais_[0:k_n] = bais
+                npu_conv_op.BiasValue = bais_
+
+                # TODO Q:?什么时候更新的C  A：在layer_group
+                # assert npu_conv_op.OutputShape[0].C == n_k_n
+                npu_conv_op.OutputShape[0].C = n_k_n
+
+
+@_register_ir_transformation_rule(TransformRule.EASY_WEIGHT_MAPPING)
+def _weight_mapping(net: GraphIR):
+    for op_id, npu_op in enumerate(net.AllOps):
+        if isinstance(npu_op, NpuOp):
+            npu_conv_op = npu_op.NpuOpConvOp
+            if npu_conv_op is None:
+                continue
+            npu_op_id = npu_op.NpuOpId
+            k_n = npu_conv_op.WeightValue.shape[0]
+            weight = {
+                "weight": npu_conv_op.WeightValue.reshape(k_n, -1).transpose(1, 0).tolist(),
+
+                "bias":  npu_conv_op.BiasValue.tolist()
+            }
+            net.add_weight_tensor(npu_op_id, weight)
+
+
 # weight_mapping_pass
-weight_mapping_transform = [TransformRule.WEIGHT_PADDING,
+weight_mapping_transform = [TransformRule.EASY_WEIGHT_PADDING,
+                            TransformRule.EASY_WEIGHT_MAPPING,
                             # TransformRule.WEIGHT_MAPPING
-                            TransformRule.WEIGHT_MAPPING_MULTI_PROCESS
+                            # TransformRule.WEIGHT_MAPPING_MULTI_PROCESS
                             ]
-# if __name__ == "__main__":
-#     sparsity_class()
+

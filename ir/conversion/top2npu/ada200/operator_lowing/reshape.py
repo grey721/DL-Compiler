@@ -8,8 +8,8 @@ def _lowering(net, mode):
         if isinstance(op, Reshape):
             if mode == "int8":
                 NpuOp = _lowering_int8(op)
-            if mode == "fp32":
-                NpuOp = _lowering_fp32(op)
+            else:
+                NpuOp = _lowering_none(op)
 
             op_id = net.get_op_idx(op)
             net.delete_op(op_id)
@@ -19,12 +19,19 @@ def _lowering(net, mode):
 def _lowering_int8(op):
     npu_reshape = NpuReshape()
     npu_reshape.__dict__.update(op.__dict__)
-    npu_reshape.Name = "NpuReshape"
+    # npu_reshape.Name = "NpuReshape"
     return npu_reshape
 
 
 def _lowering_fp32(op):
     npu_reshape = NpuReshape()
     npu_reshape.__dict__.update(op.__dict__)
-    npu_reshape.Name = "NpuReshape"
+    # npu_reshape.Name = "NpuReshape"
+    return npu_reshape
+
+
+def _lowering_none(op):
+    npu_reshape = NpuReshape()
+    npu_reshape.__dict__.update(op.__dict__)
+    # npu_reshape.Name = "NpuReshape"
     return npu_reshape

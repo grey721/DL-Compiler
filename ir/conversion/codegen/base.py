@@ -1,7 +1,7 @@
 import numpy as np
-import zipfile
-import os
-import shutil
+
+from tool.utils import *
+
 
 share_mem_dict = {0: [81920, 98304, 114688, 131072], 1: [147456, 163840, 180224, 196608],
                   2: [212992, 229376, 245760, 262144]}
@@ -114,36 +114,30 @@ def vpu_writeTxt(res_txt, path):
 
 
 def intToBin(number, index, feature=True):
-    # index is the bit width of the data and number is the data to be converted. 
-    # If feature is True, decimal to binary (complement code) is performed; 
-    # if feature is False, binary to decimal is performed. 
-    assert (isinstance(number, int) \
-            or isinstance(number, np.int32) \
-            or isinstance(number, np.int64) \
+    # index is the bit width of the data and number is the data to be converted.
+    # If feature is True, decimal to binary (complement code) is performed;
+    # if feature is False, binary to decimal is performed.
+    assert (isinstance(number, int)
+            or isinstance(number, np.int32)
+            or isinstance(number, np.int64)
             or isinstance(number, np.int8)), 'the type of number must be int'
-    if (feature == True):
-        if (number >= 0):
-            b = bin(number)
-            b = '0' * (index + 2 - len(b)) + b
+    if feature:
+        # Decimal to binary (signed, using two's complement)
+        if number >= 0:
+            binary = bin(number)[2:].zfill(index)
         else:
-            b = 2 ** (index) + number
-            b = bin(b)
-            b = '1' * (index + 2 - len(b)) + b
-        b = b.replace("0b", '')
-        b = b.replace('-', '')
-        assert (len(b) == index), "out of bitnums"
-        return b
-    elif (feature == False):
+            # Calculate two's complement
+            mask = (1 << index) - 1
+            mask = np.uint8(mask)
+            binary = bin(~number & mask)[2:].zfill(index)
+        return binary
+    elif feature is False:
         i = int(str(number), 2)
-        if (i >= 2 ** (index - 1)):
+        if i >= 2 ** (index - 1):
             i = -(2 ** index - i)
             return i
         else:
             return i
-
-
-def n_zeros_str(zeros_nums):
-    return '0' * zeros_nums
 
 
 def bin_listTobin(bin_list):
@@ -164,100 +158,23 @@ def binTohex(binNums, bit_nums):
 
 
 def get_list(nums=22, val=0):
-    l = []
-    for _ in range(nums):
-        l.append(val)
+    l = [val] * nums
     return l
 
 
-def getZipDir(dirpath, outFullName):
-    """
-    压缩指定文件夹
-    :param dirpath: 目标文件夹路径
-    :param outFullName: 压缩文件保存路径+xxxx.zip
-    :return: 无
-    """
-    zip = zipfile.ZipFile(outFullName, "w", zipfile.ZIP_DEFLATED)
-    for path, dirnames, filenames in os.walk(dirpath):
-        # 去掉目标跟路径，只对目标文件夹下边的文件及文件夹进行压缩
-        fpath = path.replace(dirpath, '')
-
-        for filename in filenames:
-            zip.write(os.path.join(path, filename), os.path.join(fpath, filename))
-    zip.close()
-    print('zip ok!!!!!!!!!!!!!!!!!!!!!!')
+def read_file(path, file_list):
+    with open(path, 'r') as f:
+        line = f.readline()
+        file_list.append(line)
+        while line:
+            line = f.readline()
+            if line != '':
+                file_list.append(line)
 
 
-def get_op_tile_info(flag, NpuOpFlow, NpuOp, tp: type):
-    if flag:
-        n = 1
-    else:
-        n = len(NpuOpFlow)
-    for i in range(n):
-        if isinstance(NpuOpFlow[i], tp):
-            return NpuOp[i]
-
-
-def add_lut_dict(vpu_dict, lut_dict):
-    lut_dict = lut_dict.reshape(-1)
-    n = 0
-    string = ''
-    for i in range(256):
-        number = intToBin(lut_dict[i], 8, feature=True)
-        number = binTohex(number, 8)
-        string = number + string
-        n += 1
-        if n == 4:
-            vpu_dict.append(string)
-            n = 0
-            string = ''
-    return vpu_dict
-
-
-def weight_writeTxt(weight, weight_path):
-    string = ''
-    for i in weight:
-        string += i + '\n'
-    f = open(weight_path, 'w')
-    f.write(string)
-    f.close()
-
-
-def del_dir(dir_path):
-    if os.path.isdir(dir_path):
-        shutil.rmtree(dir_path)
-
-
-def del_file(dir_path):
-    if not os.path.exists(dir_path):
-        return
-    if os.path.isfile(dir_path):
-        try:
-            os.remove(dir_path)
-            print('remove ok!!!!!!!!!!!!!!!!!!!!!!')
-        except BaseException as e:
-            print(e)
-
-
-# def check_all_tensor(npuop):
-#     if npuop.shm_write_param_dict['tensor_info']['block_address_list'][-1]==16 and npuop.shm_write_param_dict['tensor_info']['block_address_list'][3]%2==1:
-#         npuop.shm_write_param_dict['tensor_info']['block_address_list'][3]+=1
-
-#     if npuop.shm_write_param_dict['tensor_info']['origin_shape'][-1]==16 and npuop.shm_write_param_dict['tensor_info']['origin_shape'][1]%2==1:
-#         npuop.shm_write_param_dict['tensor_info']['origin_shape'][1]+=1
-#     pass
-
-def tile_address_add_block_address(sub_block_shape, tile_address_list):
-    shape = tile_address_list.shape
-    for i in range(shape[0]):
-        for j in range(shape[1]):
-            for k in range(shape[2]):
-                tile_address_list[i][j][k][0] += sub_block_shape[0]
-                tile_address_list[i][j][k][2] += sub_block_shape[2]
-                tile_address_list[i][j][k][4] += sub_block_shape[4]
-    return tile_address_list
-
-
-if __name__ == "__main__":
-    a = intToBin(256, 8, feature=True)
-    print(a)
+def read_files(path):
+    file_list = []
+    read_file(f'{path}/pre_param', file_list)
+    read_file(f'{path}/cim_cluster_param', file_list)
+    read_file(f'{path}/vpu_param', file_list)
+    return file_list

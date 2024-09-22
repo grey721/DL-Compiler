@@ -8,8 +8,8 @@ def _lowering(net, mode):
         if isinstance(op, Transpose):
             if mode == "int8":
                 NpuOp = _lowering_int8(op)
-            if mode == "fp32":
-                NpuOp = _lowering_fp32(op)
+            else:
+                NpuOp = _lowering_none(op)
 
             op_id = net.get_op_idx(op)
             net.delete_op(op_id)
@@ -19,12 +19,19 @@ def _lowering(net, mode):
 def _lowering_int8(op):
     npu_transpose = NpuTranspose()
     npu_transpose.__dict__.update(op.__dict__)
-    npu_transpose.Name = "NpuTranspose"
+    # npu_transpose.Name = "NpuTranspose"
     return npu_transpose
 
 
 def _lowering_fp32(op):
     npu_transpose = NpuTranspose()
     npu_transpose.__dict__.update(op.__dict__)
-    npu_transpose.Name = "NpuTranspose"
+    # npu_transpose.Name = "NpuTranspose"
+    return npu_transpose
+
+
+def _lowering_none(op):
+    npu_transpose = NpuTranspose()
+    npu_transpose.__dict__.update(op.__dict__)
+    # npu_transpose.Name = "NpuTranspose"
     return npu_transpose

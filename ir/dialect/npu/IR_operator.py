@@ -5,7 +5,7 @@ from ir.dialect.npu.IR_tensor import *
 from ir.dialect.top.IR_operator import *
 
 
-class NpuConv2d(ConvBase):
+class NpuConv2d(Conv2d):
     fmi_size = None
     fmo_size = None
     weight_size = None
@@ -25,8 +25,7 @@ class NpuConv2d(ConvBase):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuConv2d"
-        self.conv_type = 0
+        self.conv_type = 0    # deconv:1 conv:0
 
     def block_shape_reverse_infrence(self, block_address_list):
 
@@ -179,7 +178,6 @@ class NpuActivation(Activation):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuActivation"
 
     def shape_reverse_infrence(self, address_list):
         return address_list
@@ -209,8 +207,7 @@ class NpuLeakyRelu(NpuActivation):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuLeakyRelu"
-        self.lut_dict = None
+        # self.lut_dict = None
 
 
 class NpuLogistic(NpuActivation):
@@ -224,8 +221,7 @@ class NpuLogistic(NpuActivation):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuLogistic"
-        self.lut_dict = None
+        # self.lut_dict = None
 
 
 class NpuPool(Pool):
@@ -236,7 +232,6 @@ class NpuPool(Pool):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuPool"
 
     def block_shape_reverse_infrence(self, block_address_list):
 
@@ -357,7 +352,6 @@ class NpuResize(Resize):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuResize"
 
     def block_shape_reverse_infrence(self, block_address_list):
 
@@ -459,7 +453,6 @@ class NpuConcat(Concat):
 
     def __init__(self):
         super().__init__()
-        self.Type = "NpuConcat"
         self.main_input_tensor_id = None
 
     def block_shape_reverse_infrence(self, block_address_list):
@@ -512,7 +505,6 @@ class NpuSplit(Split):
 
     def __init__(self):
         super().__init__()
-        self.Type = "NpuSplit"
         # TODO
 
 
@@ -532,7 +524,6 @@ class NpuElemWise(ElemWise):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuElemwise"
 
     def shape_reverse_infrence(self, address_list):
         return address_list
@@ -558,7 +549,6 @@ class NpuReshape(Reshape):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuReshape"
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
@@ -570,7 +560,6 @@ class NpuTranspose(Transpose):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuTranspose"
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
@@ -582,26 +571,24 @@ class NpuSoftmax(NpuActivation):
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuSoftmax"
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
 
 
 class NpuMean(Mean):
+    Type = "NpuMean"
     Device = "cpu"
     TimeStep = None
 
     def __init__(self):
         super().__init__()
-        self.Name = "NpuMean"
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
 
 
 class NpuPad(Pad):
-    Type = "NpuPad"
     Device = "npu"
     TimeStep = None
 
@@ -695,7 +682,6 @@ class NpuPad(Pad):
 
 
 class NpuFullConnected(FullConnected):
-    Type = "NpuFullConnected"
     fmi_size = None
     fmo_size = None
     weight_size = None
@@ -713,7 +699,6 @@ class NpuFullConnected(FullConnected):
 
 
 class NpuOp(OpBase):
-    Type = "NpuOp"
     # NPU OP MODE
     NpuOpMode = None
     NpuShortCutMode = None
@@ -723,7 +708,7 @@ class NpuOp(OpBase):
     NpuOpPadOp = None
 
     # CONV OP
-    NpuOpConv = True
+    NpuOpConv = False
     NpuOpConvOp = None
 
     NpuOpFc = False
@@ -746,6 +731,9 @@ class NpuOp(OpBase):
     NpuOpReshape = False
     NpuOpReshapeOp = None
 
+    NpuOpTranspose = False
+    NpuOpTransposeOp = None
+
     # POST OP OUT
     NpuOpActiOut = False
     NpuOpPoolOut = False
@@ -766,6 +754,7 @@ class NpuOp(OpBase):
 
     def __init__(self):
         super().__init__()
+        self.Type = "NpuOp"
         self.Name = "NpuOp"
         self.NpuOpFlow = []
         self.fmi_tensor = []
@@ -774,10 +763,76 @@ class NpuOp(OpBase):
         self.concat_input_tensor = []
         self.short_cut_out_tensor = []  # 允许网络中的某些层直接跳过一些层与后续层相连?
         self.elemwise_input_tensor = []
-        self.output_tensor_for_cancat = []
+        self.output_tensor_for_concat = []
         self.concat_output = False
         self.concat_output_shape = None
         self.fmi_from_global_memory = False
+
+    def __repr__(self):
+        return f"""
+    ######################## NpuOp.{self.NpuOpId} #############################
+    Device: {self.Device}
+    NpuOpMode: {self.NpuOpMode}
+    NpuShortCutMode: {self.NpuShortCutMode}
+    NpuOpPad: {self.NpuOpPad}
+    NpuOpConv: {self.NpuOpConv}
+    NpuOpFc: {self.NpuOpFc}
+    NpuOpActivate: {self.NpuOpActivate}
+    NpuOpElemWise: {self.NpuOpElemWise}
+    NpuOpPool: {self.NpuOpPool}
+    NpuOpResize: {self.NpuOpResize}
+    NpuOpConcat: {self.NpuOpConcat}
+    NpuOpReshape: {self.NpuOpReshape}
+    NpuOpTranspose:{self.NpuOpTranspose}
+
+    NpuOpActiOut: {self.NpuOpActiOut}
+    NpuOpPoolOut: {self.NpuOpPoolOut}
+    NpuOpResizeOut: {self.NpuOpResizeOut}
+    NpuOpElwOut: {self.NpuOpElwOut}
+    NpuOpShortCutOut: {self.NpuOpShortCutOut}
+    ######################## NpuOp.{self.NpuOpId} #############################
+    """
+
+    def fuse_ops(self, ops):
+        try:
+            for op in ops:
+                if isinstance(op, NpuConv2d):
+                    if self.NpuOpConv:
+                        return False
+                elif isinstance(op, NpuConcat):
+                    if self.NpuOpConcat:
+                        return False
+                elif isinstance(op, NpuElemWise):
+                    if self.NpuOpElemWise:
+                        return False
+                elif isinstance(op, NpuActivation):
+                    if self.NpuOpActivate:
+                        return False
+                elif isinstance(op, NpuPool):
+                    if self.NpuOpPool:
+                        return False
+                elif isinstance(op, NpuResize):
+                    if self.NpuOpResize:
+                        return False
+                elif isinstance(op, NpuTranspose):
+                    if self.NpuOpTranspose:
+                        return False
+                elif isinstance(op, NpuReshape):
+                    if self.NpuOpReshape:
+                        return False
+                elif isinstance(op, NpuPad):
+                    if self.NpuOpPad:
+                        return False
+
+                else:
+                    raise NotImplementedError(op.Type)
+
+            self.NpuOpFlow.extend(ops)
+            self.init_all()
+            return True
+
+        except TypeError:
+            return self.fuse_ops([ops])
 
     def add_fmi_tensor(self, ir_tensor_id):
         self.fmi_tensor.append(ir_tensor_id)
@@ -789,16 +844,41 @@ class NpuOp(OpBase):
         self.weight_tensor.append(ir_tensor_id)
 
     def add_concat_input_tensor(self, ir_tensor_id):
-        self.concat_input_tensor.append(ir_tensor_id)
+        if ir_tensor_id not in self.concat_input_tensor:
+            self.concat_input_tensor.append(ir_tensor_id)
 
     def add_short_cut_out_tensor(self, ir_tensor_id):
-        self.short_cut_out_tensor.append(ir_tensor_id)
+        if ir_tensor_id not in self.short_cut_out_tensor:
+            self.short_cut_out_tensor.append(ir_tensor_id)
 
     def add_elemwise_input_tensor(self, ir_tensor_id):
-        self.elemwise_input_tensor.append(ir_tensor_id)
+        if ir_tensor_id not in self.elemwise_input_tensor:
+            self.elemwise_input_tensor.append(ir_tensor_id)
 
     def add_output_tensor_for_cancat(self, ir_tensor_id):
-        self.output_tensor_for_cancat.append(ir_tensor_id)
+        if ir_tensor_id not in self.output_tensor_for_concat:
+            self.output_tensor_for_concat.append(ir_tensor_id)
+
+    def set_fmi_tensors(self, ir_tensor_ids):
+        self.fmi_tensor = ir_tensor_ids[0:1]
+
+    def set_fmo_tensors(self, ir_tensor_ids):
+        self.fmo_tensor = ir_tensor_ids[0:1]
+
+    def set_weight_tensors(self, ir_tensor_ids):
+        self.weight_tensor = ir_tensor_ids
+
+    def set_concat_input_tensors(self, ir_tensor_ids):
+        self.concat_input_tensor = ir_tensor_ids
+
+    def set_short_cut_out_tensors(self, ir_tensor_ids):
+        self.short_cut_out_tensor = ir_tensor_ids
+
+    def set_elemwise_input_tensors(self, ir_tensor_ids):
+        self.elemwise_input_tensor = ir_tensor_ids
+
+    def set_output_tensors_for_cancat(self, ir_tensor_ids):
+        self.output_tensor_for_concat = ir_tensor_ids
 
     def set_time_step(self, time_step):
         self.TimeStep = time_step
@@ -815,11 +895,21 @@ class NpuOp(OpBase):
 
     def init_tensor(self):
 
-        self.add_fmi_tensor(self.NpuOpFlow[0].InTensors[0])
-        self.add_fmo_tensor(self.NpuOpFlow[-1].OutTensors[0])
+        self.InTensors = self.NpuOpFlow[0].InTensors
+        self.InputShape = self.NpuOpFlow[0].InputShape
 
-        for idx in self.NpuOpFlow[0].InTensors[1:3]:
-            self.add_weight_tensor(idx)
+        self.OutTensors = self.NpuOpFlow[-1].OutTensors
+        self.OutputShape = self.NpuOpFlow[-1].OutputShape
+
+        self.set_fmi_tensors(self.NpuOpFlow[0].InTensors)
+        self.set_fmo_tensors(self.NpuOpFlow[-1].OutTensors)
+
+        self.set_fmi_size()
+        self.set_fmo_size()
+        self.set_fmo1_size()
+
+        if self.NpuOpConv:
+            self.set_weight_tensors(self.NpuOpConvOp.InTensors[1:3])
 
         if self.NpuOpShortCutOut:
             self.add_short_cut_out_tensor(self.NpuOpShortCutOp.OutTensors[0])
@@ -868,27 +958,59 @@ class NpuOp(OpBase):
                         vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.ACTIVATION_SHORT_CUT_OUTPUT
 
-                    if isinstance(p, NpuConv2d):
+                    elif isinstance(p, NpuConv2d):
                         vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.INPUT_SHORT_CUT_OUTPUT
 
-                    if isinstance(p, NpuPool):
+                    elif isinstance(p, NpuPool):
                         vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.POOL_SHORT_CUT_OUTPUT
 
-                    if isinstance(p, NpuResize):
+                    elif isinstance(p, NpuResize):
                         vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.RESIZE_SHORT_CUT_OUTPUT
 
-                    if isinstance(p, NpuElemWise):
+                    elif isinstance(p, NpuElemWise):
                         vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.ELEW_SHORT_CUT_OUTPUT
 
+    def gen_info_with_flow(self):
+        for op in self.NpuOpFlow:
+            if isinstance(op, NpuConv2d):
+                self.NpuOpConv = True
+                self.NpuOpConvOp = op
+            elif isinstance(op, NpuConcat):
+                self.NpuOpConcat = True
+                self.NpuOpConcatOp = op
+            elif isinstance(op, NpuElemWise):
+                self.NpuOpElemWise = True
+                self.NpuOpElemWiseOp = op
+            elif isinstance(op, NpuActivation):
+                self.NpuOpActivate = True
+                self.NpuOpActivateOp = op
+            elif isinstance(op, NpuPool):
+                self.NpuOpPool = True
+                self.NpuOpPoolOp = op
+            elif isinstance(op, NpuResize):
+                self.NpuOpResize = True
+                self.NpuOpResizeOp = op
+            elif isinstance(op, NpuTranspose):
+                self.NpuOpTranspose = True
+                self.NpuOpTransposeOp = op
+            elif isinstance(op, NpuReshape):
+                self.NpuOpReshape = True
+                self.NpuOpReshapeOp = op
+            elif isinstance(op, NpuPad):
+                self.NpuOpPad = True
+                self.NpuOpPadOp = op
+
+            else:
+                print(self.NpuOpFlow)
+                raise NotImplementedError(op.Type)
+
     def init_all(self):
+        self.gen_info_with_flow()
         self.set_short_cut_op()
-        self.set_fmi_size()
-        self.set_fmo_size()
-        self.set_fmo1_size()
         self.init_tensor()
 
 
@@ -1049,8 +1171,8 @@ class block_param(object):
         h, w, c = npu_op.OutputShape[0].H, npu_op.OutputShape[0].W, npu_op.OutputShape[0].C
         short_cut_out_tensor_info['origin_shape'] = [h, w, c]
         block_tensor_size = h * w * c
-        if len(self.NpuOp.output_tensor_for_cancat) == 1:
-            if short_cut_out_tensor_info['tensor_id'] == self.NpuOp.output_tensor_for_cancat[0]:
+        if len(self.NpuOp.output_tensor_for_concat) == 1:
+            if short_cut_out_tensor_info['tensor_id'] == self.NpuOp.output_tensor_for_concat[0]:
                 concat_in_tensor_list = self.NpuOp.concat_in_tensor_list
                 assert len(concat_in_tensor_list) == 2
                 tensor_id = short_cut_out_tensor_info['tensor_id']

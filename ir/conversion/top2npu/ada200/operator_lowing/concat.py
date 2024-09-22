@@ -8,8 +8,8 @@ def _lowering(net, mode):
         if isinstance(op, Concat):
             if mode == "int8":
                 NpuOp = _lowering_int8(op)
-            if mode == "fp32":
-                NpuOp = _lowering_fp32(op)
+            else:
+                NpuOp = _lowering_none(op)
 
             op_id = net.get_op_idx(op)
             net.delete_op(op_id)
@@ -19,9 +19,16 @@ def _lowering(net, mode):
 def _lowering_int8(op):
     npu_concat = NpuConcat()
     npu_concat.__dict__.update(op.__dict__)
-    npu_concat.Name = "NpuConcat"
+    # npu_concat.Name = "NpuConcat"
     return npu_concat
 
 
 def _lowering_fp32(op):
     raise NotImplementedError
+
+
+def _lowering_none(op):
+    npu_concat = NpuConcat()
+    npu_concat.__dict__.update(op.__dict__)
+    # npu_concat.Name = "NpuConcat"
+    return npu_concat

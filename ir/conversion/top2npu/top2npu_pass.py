@@ -3,13 +3,11 @@ from ir.conversion.top2npu.ada200.lowing_ada200 import lowing_ada200_list, ADA20
 
 class Top2Npu:
     Chip = "ada200"
-    Mode = "int8"
 
     def __init__(self, chip=None, mode=None):
         if chip is not None:
             self.Chip = chip
-        if mode is not None:
-            self.Mode = mode
+        self.Mode = mode
 
     def transform(self, ir_graph):
         # parse
