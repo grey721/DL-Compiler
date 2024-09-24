@@ -60,6 +60,9 @@ class ONNX2TopIR:
             self.fused_ops.append(op)
         print("Operators_len:", len(self.fused_ops))
 
+        self.load_all_tensor()
+        self.parse_operator()
+
     def _get_op_code(self, op):  # 获取算子类型的id
         if op.op_type not in ONNXType2OperatorType:
             raise NotImplementedError(f"Unconverted op type: {op.op_type}")
@@ -326,6 +329,7 @@ class ONNX2TopIR:
         assert c == output_c, f'op {op.name}中,weight Id:{weight_tensor_id}, OutTensor Id:{out_tensor_id}'
         conv_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
 
+        conv_op.KerM = conv_op.InputShape[1].N
         conv_op.kerM_16 = True if conv_op.OutputShape[0].C % 16 == 0 else False
 
         # 偏置项
@@ -1352,39 +1356,6 @@ class ONNX2TopIR:
 
         if unsupported:
             raise NotImplementedError(f"\nUnsupported operator:{unsupported}\n总计: {len(unsupported)}种")
-
-        # self.CompleteDAG()
-
-    def CompleteDAG(self):
-        dag = {}
-        for tensor in self.graph.AllTensors:
-            if (tensor.Type == TensorType.Intermediate or
-                    tensor.Type == TensorType.Input or
-                    tensor.Type == TensorType.Output or
-                    tensor.Type == TensorType.Const or
-                    tensor.Type == TensorType.Parameter):
-
-                if tensor.Name not in dag:
-                    dag[tensor.Name] = [None, []]
-                if tensor.OwnerOp is not None:
-                    dag[tensor.Name][0] = tensor.OwnerOp
-                if tensor.ConsumerOp is not None:
-                    dag[tensor.Name][1].append(tensor.ConsumerOp)
-
-        def list_all_op(name):
-            if dag[name][1]:
-                for op_idx in dag[name][1]:
-                    if (dag[name][0] is not None) and (op_idx not in self.graph.AllOps[dag[name][0]].PostTopOpId):
-                        self.graph.AllOps[dag[name][0]].PostTopOpId.append(op_idx)
-                    if dag[name][0] not in self.graph.AllOps[op_idx].PreTopOpId:
-                        self.graph.AllOps[op_idx].PreTopOpId.append(dag[name][0])
-
-                    for t_idx in self.graph.AllOps[op_idx].OutTensors:
-                        next_name = self.graph.AllTensors[t_idx].Name
-                        list_all_op(next_name)
-
-        for in_idx in self.graph.NetInTensors:
-            list_all_op(self.graph.AllTensors[in_idx].Name)
 
 
 if __name__ == "__main__":

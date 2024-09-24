@@ -145,7 +145,6 @@ class OpBase:  # 算子基类
     InputShape: list[Shape]
     # Skip = False
     TopOpId = None  # 标记该算子在TopIR中的哈希值
-    memory = False
 
     def __init__(self) -> None:
         self.Name = None
@@ -157,6 +156,11 @@ class OpBase:  # 算子基类
         self.OutputShape = []
         self.PreOpId = []  # 上一个op id
         self.PostOpId = []  # 下一个op id
+
+        self.write = False
+        self.write_list = []
+        self.read = False
+        self.read_list = []
 
     def load_input_id(self, ir_tensor_id):
         self.InTensors.append(ir_tensor_id)
