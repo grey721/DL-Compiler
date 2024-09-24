@@ -33,11 +33,11 @@ def _register_ir_transformation_rule(transform_rule):
 def _find_pre_op(net, op):
     pre_op_id = []
     inputs = op.InTensors
-    for tensor in net.AllTensorIds:
-        if tensor in inputs:
-            op_id = net.get_tensor(tensor).OwnerOp
-            if op_id is not None:
-                pre_op_id.append(op_id)
+    for pre_op in net.AllOps:
+        outputs = pre_op.OutTensors
+        for t_name in outputs:
+            if t_name in inputs:
+                pre_op_id.append(net.get_op_idx(pre_op))
 
     return pre_op_id
 

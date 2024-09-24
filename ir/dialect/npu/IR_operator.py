@@ -949,6 +949,8 @@ class NpuOp(OpBase):
 
     def set_short_cut_op(self):
         flow_len = len(self.NpuOpFlow)
+        self.write_list = []
+        self.read_list = []
         for i, p in enumerate(self.NpuOpFlow):
             if i < flow_len - 1:
                 if len(p.PostTopOpId) > 1:  # 之后有多个op，存在捷径
@@ -973,6 +975,42 @@ class NpuOp(OpBase):
                     elif isinstance(p, NpuElemWise):
                         vpu_add_out_mode = VpuAdditionOutputSelection()
                         self.NpuShortCutMode = vpu_add_out_mode.ELEW_SHORT_CUT_OUTPUT
+
+                    self.write = True
+                    p.write = True
+                    n_list = []
+                    if len(p.OutTensors) == 1:
+                        t = p.OutTensors[0]
+                        n_list.append(t)
+                    else:
+                        flag = True
+                        for t in p.OutTensors:
+                            if flag and t in self.NpuOpFlow[i + 1].InTensors:
+                                flag = False
+                                continue
+                            n_list.append(t)
+
+                    p.write_list = n_list
+                    self.write_list.extend(n_list)
+
+            if 1 < i < flow_len:
+                if len(p.InTensors) > 1:
+                    self.read = True
+                    p.read = True
+                    flag = True
+                    n_list = []
+                    if len(self.NpuOpFlow[i - 1].OutTensors) == 1:
+                        n_list.append(self.NpuOpFlow[i - 1].OutTensors[0])
+                    else:
+                        for t in self.NpuOpFlow[i - 1].OutTensors:
+                            if flag and t in p.InTensors:
+                                flag = False
+                                continue
+                            if t not in p.read_list:
+                                n_list.append(t)
+
+                    p.read_list = n_list
+                    self.read_list.extend(n_list)
 
     def gen_info_with_flow(self):
         for op in self.NpuOpFlow:

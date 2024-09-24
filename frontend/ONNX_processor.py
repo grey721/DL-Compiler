@@ -329,6 +329,7 @@ class ONNX2TopIR:
         assert c == output_c, f'op {op.name}中,weight Id:{weight_tensor_id}, OutTensor Id:{out_tensor_id}'
         conv_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
 
+        conv_op.KerM = conv_op.InputShape[1].N
         conv_op.kerM_16 = True if conv_op.OutputShape[0].C % 16 == 0 else False
 
         # 偏置项

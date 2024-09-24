@@ -98,20 +98,29 @@ def _order_top_ops(net: GraphIR):  # 排序Top
         post_op_id = _find_post_op(net, op)
         op.PreTopOpId = pre_op_id
         op.PostTopOpId = post_op_id
-        if len(op.PostTopOpId) > 1:
-            op.memory = True
         print(net.get_op_idx(op), pre_op_id, post_op_id)
 
 
 @_register_ir_transformation_rule(TransformRule.ORDER_NPU_OPS)
 def _order_npu_ops(net: GraphIR):  # 排序NPU
     print("----start TransformRule.ORDER_NPU_OPS---")
+    lens = len(net.AllOps)
     for op_idx, op in enumerate(net.AllOps):
         op.NpuOpId = op_idx
         pre_op_id = _order_pre_op(net, op)
         post_op_id = _order_post_op(net, op)
         op.PreOpId = pre_op_id
         op.PostOpId = post_op_id
+
+        # 确保AllOps列表里的NpuOp的输入特征图是上一个Op的输出特征图
+        if op_idx < lens - 1:
+            next_op = net.AllOps[op_idx + 1]
+            if len(next_op.InTensors) > 1 and isinstance(next_op, NpuOp):
+                for t in next_op.InTensors:
+                    if t in next_op.fmo_tensor:
+                        net.AllOps[op_idx + 1].fmi_tensor = [t]
+                        break
+
         print(op.NpuOpId, op.Type, pre_op_id, post_op_id)
 
 
@@ -278,6 +287,7 @@ def _post_fuse_conv_activation_elw(net: GraphIR):
             if flag:
                 op_id = net.get_op_idx(op)
                 npu_op = NpuOp()
+                npu_op.Type = "CSM"
                 npu_op.fuse_ops([op, acti_ops[0], elw_ops[0]])
                 assert (op_id + 1) == post_conv_ids[0]
                 assert (op_id + 2) == elw_op_ids[0]
