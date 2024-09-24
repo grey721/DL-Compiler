@@ -183,7 +183,7 @@ def easy_info(npu_graph: GraphIR):
 
         # Op输出
         if isinstance(op, NpuOp):
-            op_dict = {"type": "NpuOp",
+            op_dict = {"type": op.Type,
                        "provider": op.PreOpId,
                        "consumer": op.PostOpId,
                        "input_dim": [shape.list for shape in op.InputShape],

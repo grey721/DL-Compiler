@@ -378,6 +378,6 @@ op_fuse_transform = [
     TransformRule.NPU_PAD,
     TransformRule.NPU_SISO_OP,
     TransformRule.SHORTCUT_CONV_ACTIVATION_ELW,
-    TransformRule.NPU_CONCAT,
+    # TransformRule.NPU_CONCAT,
     TransformRule.ORDER_NPU_OPS
 ]
