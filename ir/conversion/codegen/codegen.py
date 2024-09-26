@@ -147,9 +147,7 @@ def Array2Txt_hwc_hex_bank(x, in_bit=8, out_bit=64, path_="", bank_start=0):
 
 @_register_ir_transformation_rule(TransformRule.EASY_OUTPUT)
 def easy_info(npu_graph: GraphIR):
-    path_base = npu_graph.codegen_path
-
-    path = f'{path_base}/{npu_graph.name}'
+    path = f'{npu_graph.codegen_path}/{npu_graph.name}'
     if os.path.exists(path):
         _tail = 1
         _path = path + f"_{_tail}"
@@ -157,6 +155,7 @@ def easy_info(npu_graph: GraphIR):
             _tail += 1
             _path = path + f"_{_tail}"
         path = _path
+        npu_graph.name += f"_{_tail}"
     os.makedirs(path)
 
     make_image_to_memory(path, image_size=[128, 128, 3], image_path='')  # 保存图片二进制数据

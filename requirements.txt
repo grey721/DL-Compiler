@@ -1,5 +1,6 @@
-opencv-python
-onnx
-pandas
-matplotlib
-numpy
+opencv-python~=4.10.0.84
+onnx~=1.16.2
+pandas~=2.2.2
+matplotlib~=3.9.2
+numpy~=2.0.1
+onnxruntime~=1.19.2
