@@ -8,7 +8,7 @@ import json
 
 
 class ONNXRUNER:
-    def __init__(self, net, model_path, input_path, result_path):
+    def __init__(self, model_path, input_path, result_path):
         # 准备输入数据（这里以单张图片为例，且需要调整为模型所需的输入尺寸）
         # 假设你的输入图片已经加载到变量img中，并且已经调整到了正确的尺寸
         # 你还需要将图片数据转换为模型所需的格式（通常是NCHW，即[batch_size, channels, height, width]）
@@ -43,7 +43,7 @@ class ONNXRUNER:
         self.outputs = [x.name for x in self.session.get_outputs()]
         self.results = self.session.run(None, {input_name: input_data})
 
-        self.verification(net, result_path)
+        self.verification(result_path)
 
     def print_all_result(self):
         # 打印每个算子的输出
@@ -51,9 +51,8 @@ class ONNXRUNER:
             print(f"Output {output}:")
             print(np.array(result).shape)
 
-    def get_output_tensor(self, tensor_name):
-        idx = self.outputs.index(tensor_name)
-        return self.results[idx]
+    def get_output_tensors(self, tensor_names):
+        return [self.results[self.outputs.index(tensor_name)] for tensor_name in tensor_names]
 
     def get_op_outputs_with_tensor_ids(self, net: GraphIR, out_tensors):
         output = [net.AllTensors[t_idx].Name for t_idx in out_tensors]
@@ -70,7 +69,7 @@ class ONNXRUNER:
         output = [self.results[self.outputs.index(t_name)] for t_name in output if t_name in self.outputs]
         return output
 
-    def verification(self, net, path):
+    def verification(self, path):
         print("verificate：", path)
         dir_list = os.listdir(path)
         ver_res = {}
@@ -85,7 +84,7 @@ class ONNXRUNER:
                     op_info = info["flow"][-1]
 
                     temp = {}
-                    temp["output"] = self.get_op_outputs_with_tensor_ids(net, op_info["OutTensors"])
+                    temp["output"] = self.get_output_tensors(op_info["OutTensors"])
                     temp["output_shape"] = [t.shape for t in temp["output"]]
                     temp["output_dims"] = [len(shape) for shape in temp["output_shape"]]
                     temp["output"] = [t.tolist() for t in temp["output"]]
@@ -100,6 +99,7 @@ class ONNXRUNER:
 if __name__ == "__main__":
     run = ONNXRUNER(
         model_path='assets/yolov5s.onnx',
-        input_path='verification/input/xiaoxin.jpg'
+        input_path='verification/input/xiaoxin.jpg',
+        result_path='output/yolov5s'
     )
 

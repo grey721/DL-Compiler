@@ -62,7 +62,6 @@ if __name__ == '__main__':
         if model_type == "onnx":
             from verification.onnx_runtime import *
             run = ONNXRUNER(
-                net=npu_graph,
                 model_path='assets/yolov5s.onnx',
                 input_path='verification/input/xiaoxin.jpg',
                 result_path=f'{npu_graph.codegen_path}/{npu_graph.name}'
