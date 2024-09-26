@@ -1,6 +1,4 @@
-import numpy as np
-
-from tool.utils import *
+from ir.tool.utils import *
 
 
 share_mem_dict = {0: [81920, 98304, 114688, 131072], 1: [147456, 163840, 180224, 196608],
