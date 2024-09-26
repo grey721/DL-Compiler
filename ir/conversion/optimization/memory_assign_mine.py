@@ -23,7 +23,7 @@ def _memory_assign(net: GraphIR):
 
         if len(post_npu_ops) > 1 or npu_op.write:
             addition = []
-            if len(npu_op.OutTensors) == 1:
+            if len(npu_op.OutTensors) == 1 and len(post_npu_ops) > 1:
                 t = npu_op.OutTensors[0]
                 if t not in npu_op.write_list:
                     addition.append(t)
@@ -37,11 +37,10 @@ def _memory_assign(net: GraphIR):
                     if t not in npu_op.write_list:
                         addition.append(t)
 
-            if isinstance(npu_op, NpuOp):
+            if isinstance(npu_op, NpuOp) and addition:
                 npu_op.NpuOpFlow[-1].write = True
-                for t in addition:
-                    npu_op.NpuOpFlow[-1].write_list.append(t)
-                    npu_op.write_list.append(t)
+                npu_op.NpuOpFlow[-1].write_list.extend(addition)
+                npu_op.write_list.extend(addition)
             else:
                 npu_op.write = True
                 for t in addition:
@@ -52,27 +51,29 @@ def _memory_assign(net: GraphIR):
 
             print("     Write", npu_op.write_list)
 
-        if len(npu_op.InTensors) > 1 or npu_op.read:
-
+        pre_npu_ops = npu_op.PreOpId
+        if len(pre_npu_ops) > 1 or npu_op.read:
+            fmi = [t for t in npu_op.InTensors if net.AllTensors[t].Type == TensorType.Intermediate]
             addition = []
-            flag = True
-            for t in net.AllOps[idx - 1].OutTensors:
-                if flag and t in npu_op.InTensors:
-                    flag = False
-                    continue
-                if t not in npu_op.read_list:
-                    addition.append(t)
+            if len(fmi) > 1:
+                flag = True
+                for t in fmi:
+                    if flag and t in net.AllOps[idx - 1].OutTensors:
+                        flag = False
+                        continue
+                    if t not in npu_op.read_list:
+                        addition.append(t)
 
-            if isinstance(npu_op, NpuOp):
+            if isinstance(npu_op, NpuOp) and addition:
                 npu_op.NpuOpFlow[0].read = True
                 npu_op.NpuOpFlow[0].read_list.extend(addition)
+                for t in addition:
+                    if t not in npu_op.read_list:
+                        npu_op.read_list.append(t)
             else:
                 npu_op.read = True
                 npu_op.read_list.extend(addition)
-
-            print("     Read", )
-
-    print(addr_dict)
+            print("     Read", npu_op.read_list)
 
 
 # memory_assign_pass

@@ -16,7 +16,7 @@ if __name__ == '__main__':
     model_path = 'assets/yolov5s.onnx'
     config_path = None  # 'assets/yolov3.json'
     quantization_mode = "int8"  # mode="int8"
-    verification = True
+    verification = False
 
     if config_path is None:
         quantization_mode = None
@@ -52,11 +52,11 @@ if __name__ == '__main__':
     ir_transformer.add_transform_option(weight_mapping_transform)
     ir_transformer.transform(npu_graph)
 
-    # ir_transformer.add_transform_option(memory_assign_transform)
-    # ir_transformer.transform(npu_graph)
-
-    ir_transformer.add_transform_option(codegen_transform)
+    ir_transformer.add_transform_option(memory_assign_transform)
     ir_transformer.transform(npu_graph)
+
+    # ir_transformer.add_transform_option(codegen_transform)
+    # ir_transformer.transform(npu_graph)
 
     if verification:
         if model_type == "onnx":
@@ -66,3 +66,5 @@ if __name__ == '__main__':
                 input_path='verification/input/xiaoxin.jpg',
                 result_path=f'{npu_graph.codegen_path}/{npu_graph.name}'
             )
+        else:
+            raise NotImplementedError

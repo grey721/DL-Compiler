@@ -999,15 +999,13 @@ class NpuOp(OpBase):
                     p.read = True
                     flag = True
                     n_list = []
-                    if len(self.NpuOpFlow[i - 1].OutTensors) == 1:
-                        n_list.append(self.NpuOpFlow[i - 1].OutTensors[0])
-                    else:
-                        for t in self.NpuOpFlow[i - 1].OutTensors:
-                            if flag and t in p.InTensors:
-                                flag = False
-                                continue
-                            if t not in p.read_list:
-                                n_list.append(t)
+
+                    for t in p.InTensors:
+                        if flag and t in self.NpuOpFlow[i - 1].OutTensors:
+                            flag = False
+                            continue
+                        if t not in p.read_list:
+                            n_list.append(t)
 
                     p.read_list = n_list
                     self.read_list.extend(n_list)
