@@ -16,6 +16,7 @@ if __name__ == '__main__':
     model_path = 'assets/yolov5s.onnx'
     config_path = None  # 'assets/yolov3.json'
     quantization_mode = "int8"  # mode="int8"
+    verification = True
 
     if config_path is None:
         quantization_mode = None
@@ -56,3 +57,12 @@ if __name__ == '__main__':
 
     ir_transformer.add_transform_option(codegen_transform)
     ir_transformer.transform(npu_graph)
+
+    if verification:
+        if model_type == "onnx":
+            from verification.onnx_runtime import *
+            run = ONNXRUNER(
+                model_path='assets/yolov5s.onnx',
+                input_path='verification/input/xiaoxin.jpg',
+                result_path=f'{npu_graph.codegen_path}/{npu_graph.name}'
+            )

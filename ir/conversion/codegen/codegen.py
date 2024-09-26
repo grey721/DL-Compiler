@@ -145,11 +145,13 @@ def Array2Txt_hwc_hex_bank(x, in_bit=8, out_bit=64, path_="", bank_start=0):
         f.close()
 
 
+def tensors_ids2names(npu_graph: GraphIR, ids):
+    return [npu_graph.AllTensors[idx].Name for idx in ids]
+
+
 @_register_ir_transformation_rule(TransformRule.EASY_OUTPUT)
 def easy_info(npu_graph: GraphIR):
-    path_base = npu_graph.codegen_path
-
-    path = f'{path_base}/{npu_graph.name}'
+    path = f'{npu_graph.codegen_path}/{npu_graph.name}'
     if os.path.exists(path):
         _tail = 1
         _path = path + f"_{_tail}"
@@ -157,9 +159,10 @@ def easy_info(npu_graph: GraphIR):
             _tail += 1
             _path = path + f"_{_tail}"
         path = _path
+        npu_graph.name += f"_{_tail}"
     os.makedirs(path)
 
-    make_image_to_memory(path, image_size=[128, 128, 3], image_path='')  # 保存图片二进制数据
+    # make_image_to_memory(path, image_size=[128, 128, 3], image_path='')  # 保存图片二进制数据
     net_input_shapes = [npu_graph.AllTensors[idx].Shape.list for idx in npu_graph.NetInTensors]
     net_output_shapes = [npu_graph.AllTensors[idx].Shape.list for idx in npu_graph.NetOutTensors]
     top_info = {
@@ -193,11 +196,16 @@ def easy_info(npu_graph: GraphIR):
                        "flow": []
                        }
             for p in op.NpuOpFlow:
-                p_dict = p.to_param_dict()
-                op_dict["flow"].append(p_dict)
+                param_dict = p.to_param_dict()
+                param_dict["InTensors"] = tensors_ids2names(npu_graph, param_dict["InTensors"])
+                param_dict["OutTensors"] = tensors_ids2names(npu_graph, param_dict["OutTensors"])
+                op_dict["flow"].append(param_dict)
 
         else:
             param_dict = op.to_param_dict()
+            param_dict["InTensors"] = tensors_ids2names(npu_graph, param_dict["InTensors"])
+            param_dict["OutTensors"] = tensors_ids2names(npu_graph, param_dict["OutTensors"])
+
             op_dict = {"type": op.Type,
                        "provider": op.PreOpId,
                        "consumer": op.PostOpId,
