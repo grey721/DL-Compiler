@@ -55,8 +55,8 @@ if __name__ == '__main__':
     ir_transformer.add_transform_option(memory_assign_transform)
     ir_transformer.transform(npu_graph)
 
-    # ir_transformer.add_transform_option(codegen_transform)
-    # ir_transformer.transform(npu_graph)
+    ir_transformer.add_transform_option(codegen_transform)
+    ir_transformer.transform(npu_graph)
 
     if verification:
         if model_type == "onnx":

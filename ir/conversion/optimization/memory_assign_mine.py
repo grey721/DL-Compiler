@@ -6,17 +6,17 @@ from ir.graph.Graph_IR import *
 
 class TransformRule(Enum):
     NOPE = 1
-    EASY_MEMORY = 2
+    EASY_MEMORY_ANALYSIS = 2
+    EASY_MEMORY_ASSIGN = 3
 
 
-def addr_gener():
+def addr_generator():
     yield
 
 
-@_register_ir_transformation_rule(TransformRule.EASY_MEMORY)
-def _memory_assign(net: GraphIR):
-    addr = 0
-    addr_dict = {}
+@_register_ir_transformation_rule(TransformRule.EASY_MEMORY_ANALYSIS)
+def _memory_analysis(net: GraphIR):
+    print("----start TransformRule EASY_MEMORY_ANALYSIS-----")
     for idx, npu_op in enumerate(net.AllOps):
         print(f"iter:{idx}, {npu_op.Type}")
         post_npu_ops = npu_op.PostOpId
@@ -46,9 +46,6 @@ def _memory_assign(net: GraphIR):
                 for t in addition:
                     npu_op.write_list.append(t)
 
-            for t in npu_op.write_list:
-                addr_dict[t] = addr
-
             print("     Write", npu_op.write_list)
 
         pre_npu_ops = npu_op.PreOpId
@@ -73,10 +70,62 @@ def _memory_assign(net: GraphIR):
             else:
                 npu_op.read = True
                 npu_op.read_list.extend(addition)
+
             print("     Read", npu_op.read_list)
+
+
+@_register_ir_transformation_rule(TransformRule.EASY_MEMORY_ASSIGN)
+def _memory_assign(net: GraphIR):
+    print("----start TransformRule EASY_MEMORY_ASSIGN-----")
+    life_cycle = {}
+    for npu_op in net.AllOps:
+        if isinstance(npu_op, NpuOp):
+            for op in npu_op.NpuOpFlow:
+                if op.read:
+                    for t in op.read_list:
+                        if t in life_cycle:
+                            life_cycle[t] += 1
+                        else:
+                            life_cycle[t] = 1
+        else:
+            if npu_op.read:
+                for t in npu_op.read_list:
+                    if t in life_cycle:
+                        life_cycle[t] += 1
+                    else:
+                        life_cycle[t] = 1
+    print(life_cycle)
+
+    for npu_op in net.AllOps:
+        if isinstance(npu_op, NpuOp):
+            for op in npu_op.NpuOpFlow:
+                if op.write:
+                    for t in op.write_list:
+                        # TODO 分配地址  {addr: tensor_id, addr: None} tensor_id代表该地址存储的张量，None表示暂空
+                        pass
+
+                if op.read:
+                    for t in op.read_list:
+                        life_cycle[t] -= 1
+                        if life_cycle[t] == 0:
+                            # TODO 释放该地址，使 {addr: t} -> {addr: None}
+                            pass
+        else:
+            if npu_op.write:
+                for t in npu_op.write_list:
+                    # TODO 分配地址  {addr: tensor_id, addr: None} tensor_id代表该地址存储的张量，None表示暂空
+                    pass
+
+            if npu_op.read:
+                for t in npu_op.read_list:
+                    life_cycle[t] -= 1
+                    if life_cycle[t] == 0:
+                        # TODO 释放该地址，使 {addr: t} -> {addr: None}
+                        pass
 
 
 # memory_assign_pass
 memory_assign_transform = [
-    TransformRule.EASY_MEMORY
+    TransformRule.EASY_MEMORY_ANALYSIS,
+    TransformRule.EASY_MEMORY_ASSIGN
 ]
