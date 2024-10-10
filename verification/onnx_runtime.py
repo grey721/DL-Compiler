@@ -72,7 +72,6 @@ class ONNXRUNER:
     def verification(self, path):
         print("verificate：", path)
         dir_list = os.listdir(path)
-        ver_res = {}
         if 'top_info.json' in dir_list:
             with open(f'{path}/top_info.json', 'r', encoding='utf-8') as f:
                 top_info = json.load(f)  # 从文件对象中加载 JSON 数据
@@ -81,17 +80,20 @@ class ONNXRUNER:
                 json_path = f"layer_{i}"
                 with open(f'{path}/{json_path}/operator.json', 'r', encoding='utf-8') as j:
                     info = json.load(j)
-                    op_info = info["flow"][-1]
+                    ops_info = info["flow"]
 
-                    temp = {}
-                    temp["output"] = self.get_output_tensors(op_info["OutTensors"])
-                    temp["output_shape"] = [t.shape for t in temp["output"]]
-                    temp["output_dims"] = [len(shape) for shape in temp["output_shape"]]
-                    temp["output"] = [t.tolist() for t in temp["output"]]
-                    ver_res[json_path] = temp
+                    for op_info in ops_info:
+                        temp = {}
+                        temp["output"] = self.get_output_tensors(op_info["OutTensors"])
+                        temp["output_shape"] = [t.shape for t in temp["output"]]
+                        temp["output_dims"] = [len(shape) for shape in temp["output_shape"]]
+                        temp["output"] = [t.tolist() for t in temp["output"]]
 
-            with open(f'{path}/verification.json', 'w') as f:
-                json.dump(ver_res, f, indent=4)  # , indent=4
+                        verification_path = f'{path}/{json_path}/verification'
+                        if not os.path.exists(verification_path):
+                            os.makedirs(verification_path)
+                        with open(f"{verification_path}/{op_info["Type"]}.json", 'w') as f:
+                            json.dump(temp, f, indent=4)  # , indent=4
         else:
             raise FileNotFoundError(f'Can not find top_info.json in "{path}"')
 
