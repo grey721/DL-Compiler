@@ -83,17 +83,24 @@ class ONNXRUNER:
                     ops_info = info["flow"]
 
                     for op_info in ops_info:
-                        temp = {}
-                        temp["output"] = self.get_output_tensors(op_info["OutTensors"])
-                        temp["output_shape"] = [t.shape for t in temp["output"]]
-                        temp["output_dims"] = [len(shape) for shape in temp["output_shape"]]
-                        temp["output"] = [t.tolist() for t in temp["output"]]
+                        # temp = {}
+                        # temp["output"] = self.get_output_tensors(op_info["OutTensors"])
+                        # temp["output_shape"] = [t.shape for t in temp["output"]]
+                        # temp["output_dims"] = [len(shape) for shape in temp["output_shape"]]
+                        # temp["output"] = [t.tolist() for t in temp["output"]]
+                        #
+                        # verification_path = f'{path}/{json_path}/verification'
+                        # if not os.path.exists(verification_path):
+                        #     os.makedirs(verification_path)
+                        # with open(f"{verification_path}/{op_info["Type"]}.json", 'w') as f:
+                        #     json.dump(temp, f, indent=4)  # , indent=4
 
                         verification_path = f'{path}/{json_path}/verification'
                         if not os.path.exists(verification_path):
                             os.makedirs(verification_path)
-                        with open(f"{verification_path}/{op_info["Type"]}.json", 'w') as f:
-                            json.dump(temp, f, indent=4)  # , indent=4
+                        with open(f"{verification_path}/{op_info["Type"]}.txt", 'w') as f:
+                            tensor = self.get_output_tensors(op_info["OutTensors"])[0]
+                            np.savetxt(f, tensor.reshape(1, -1), delimiter=' ', fmt='%.18f')  # 保留位数：
         else:
             raise FileNotFoundError(f'Can not find top_info.json in "{path}"')
 

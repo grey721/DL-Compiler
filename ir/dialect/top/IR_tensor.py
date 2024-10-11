@@ -105,7 +105,7 @@ class TensorType(object):
 class IRTensor:  # IR中，表示张量的class
     Name = "top_ir_tensor"
     Id = None
-    Format = Format.NHWC
+    Format = Format.NCHW
     Type = TensorType.Intermediate
     DataType = DataType.INT8
     ZeroPoint = None

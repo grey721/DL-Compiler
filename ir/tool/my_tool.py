@@ -91,7 +91,17 @@ class ONNXToolkit:
 
 
 if __name__ == '__main__':
-    toolkit1 = ONNXToolkit('assets/yolov5s.onnx')
+    # toolkit1 = ONNXToolkit('assets/yolov5s.onnx')
     # for_seek(toolkit1.model.graph.node, 'op_type', 'Split',1,1)
     # print(sys.getsizeof(my_list))\
     # 创建一个空的切片元组，用于最终的切片操作
+
+    # 原始 float64 数字
+    original_float64 = np.array([-3.5698349988088012])
+    print(f"{original_float64[0]:.19f}")  # 使用格式化字符串来打印 float64 的完整精度
+    # 转换为 float32
+    converted_float32 = original_float64.astype(np.float32)
+    print(f"{converted_float32[0]:.19f}")  # float32 大约有 6-7 位有效数字，所以打印这么多位
+    print(-3.5698349475860596)
+
+
