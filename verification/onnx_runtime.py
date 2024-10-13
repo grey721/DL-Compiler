@@ -101,12 +101,12 @@ class ONNXRUNER:
                         with open(f"{verification_path}/{op_info["Type"]}.txt", 'w') as f:
                             tensors = self.get_output_tensors(op_info["OutTensors"])
                             tensor = tensors[0]
-                            np.savetxt(f, tensor.reshape(1, -1), delimiter=' ', fmt='%.5f')  # 保留位数：
+                            np.savetxt(f, tensor.reshape(1, -1), delimiter=' ', fmt='%.16f')  # 保留位数：
                         if len(tensors) > 1:
                             _t = 1
                             for tensor in tensors[1:]:
                                 with open(f"{verification_path}/{op_info["Type"]}_{_t}.txt", 'w') as f:
-                                    np.savetxt(f, tensor.reshape(1, -1), delimiter=' ', fmt='%.5f')  # 保留位数：
+                                    np.savetxt(f, tensor.reshape(1, -1), delimiter=' ', fmt='%.16f')  # 保留位数：
                                 _t += 1
 
         else:

@@ -95,13 +95,10 @@ if __name__ == '__main__':
     # for_seek(toolkit1.model.graph.node, 'op_type', 'Split',1,1)
     # print(sys.getsizeof(my_list))\
     # 创建一个空的切片元组，用于最终的切片操作
+    simu_out = 0.9882352941176471
+    compile_out = 0.9882352948188782
 
-    # 原始 float64 数字
-    original_float64 = np.array([-3.5698349988088012])
-    print(f"{original_float64[0]:.19f}")  # 使用格式化字符串来打印 float64 的完整精度
-    # 转换为 float32
-    converted_float32 = original_float64.astype(np.float32)
-    print(f"{converted_float32[0]:.19f}")  # float32 大约有 6-7 位有效数字，所以打印这么多位
-    print(-3.5698349475860596)
-
-
+    print(f"模拟器输出：{simu_out:.16f}")
+    print(f"将模拟器输出转化为FP64:{np.float64(simu_out):.16f}")
+    print(f"将模拟器输出转化为FP32:{np.float32(simu_out):.16f}")
+    print(f"      编译器推理输出值:{compile_out:.16f}")
