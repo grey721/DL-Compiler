@@ -18,10 +18,8 @@ if __name__ == '__main__':
     quantization_mode = "int8"  # mode="int8"
 
     verification = True
-    input_path = 'verification/input/xiaoxin.jpg'
-
-    if config_path is None:
-        quantization_mode = None
+    # 默认input_path = 'verification/input'
+    input_name = "xiaoxin.jpg"
 
     # 解析
     model_type = model_path.split(".")[-1]
@@ -36,6 +34,8 @@ if __name__ == '__main__':
     top_graph = model_processor.graph
 
     # lowing
+    if config_path is None:
+        quantization_mode = None
     t2n = Top2Npu(mode=quantization_mode)
     npu_graph = t2n.transform(top_graph)
 
@@ -65,7 +65,7 @@ if __name__ == '__main__':
             from verification.onnx_runtime import *
             run = ONNXRUNER(
                 model_path=model_path,
-                input_path=input_path,
+                input_name=input_name,
                 result_path=f'{npu_graph.codegen_path}/{npu_graph.name}'
             )
         else:

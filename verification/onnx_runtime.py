@@ -8,12 +8,13 @@ import json
 
 
 class ONNXRUNER:
-    def __init__(self, model_path, input_path, result_path):
+    def __init__(self, model_path, input_name, result_path, input_path='verification/input'):
         # 准备输入数据（这里以单张图片为例，且需要调整为模型所需的输入尺寸）
         # 假设你的输入图片已经加载到变量img中，并且已经调整到了正确的尺寸
         # 你还需要将图片数据转换为模型所需的格式（通常是NCHW，即[batch_size, channels, height, width]）
         # 这里仅作为示例，没有展示图片加载和预处理的具体代码
-        img = cv2.imread(input_path)
+        fp = input_path + "/" + input_name
+        img = cv2.imread(fp)
         img = cv2.resize(img, (640, 640))  # 假设模型输入尺寸为640x640
         img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR到RGB，HWC到CHW
         img = np.expand_dims(img, axis=0).astype(np.float32)
@@ -37,11 +38,12 @@ class ONNXRUNER:
 
         # 准备输入数据
         input_name = self.session.get_inputs()[0].name
-        input_data = img
+        with open(f'{input_path}/{input_name}.json', 'w', encoding='utf-8') as f:
+            json.dump(img.tolist(), f, indent=4)  # , indent=4
 
         # 执行模型推理
         self.outputs = [x.name for x in self.session.get_outputs()]
-        self.results = self.session.run(None, {input_name: input_data})
+        self.results = self.session.run(None, {input_name: img})
 
         self.verification(result_path)
 
