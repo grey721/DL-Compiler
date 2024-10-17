@@ -2,18 +2,17 @@ import cv2
 import os
 import onnx
 import onnxruntime as ort
-import numpy as np
 from ir.graph.Graph_IR import *
 import json
 
 
 class ONNXRUNER:
-    def __init__(self, model_path, input_name, result_path, input_path='verification/input'):
+    def __init__(self, model_path, file_name, result_path, input_path='verification/input'):
         # 准备输入数据（这里以单张图片为例，且需要调整为模型所需的输入尺寸）
         # 假设你的输入图片已经加载到变量img中，并且已经调整到了正确的尺寸
         # 你还需要将图片数据转换为模型所需的格式（通常是NCHW，即[batch_size, channels, height, width]）
         # 这里仅作为示例，没有展示图片加载和预处理的具体代码
-        fp = input_path + "/" + input_name
+        fp = input_path + "/" + file_name
         img = cv2.imread(fp)
         img = cv2.resize(img, (640, 640))  # 假设模型输入尺寸为640x640
         img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR到RGB，HWC到CHW
@@ -36,10 +35,11 @@ class ONNXRUNER:
         # 使用ONNX Runtime加载模型
         self.session = ort.InferenceSession(model_serialized)
 
+        file_name = file_name.split(".")[0]
+        with open(f'{input_path}/{file_name}.json', 'w', encoding='utf-8') as f:
+            json.dump(img.tolist(), f, indent=4)  # , indent=4
         # 准备输入数据
         input_name = self.session.get_inputs()[0].name
-        with open(f'{input_path}/{input_name}.json', 'w', encoding='utf-8') as f:
-            json.dump(img.tolist(), f, indent=4)  # , indent=4
 
         # 执行模型推理
         self.outputs = [x.name for x in self.session.get_outputs()]
@@ -85,18 +85,6 @@ class ONNXRUNER:
                     ops_info = info["flow"]
 
                     for op_info in ops_info:
-                        # temp = {}
-                        # temp["output"] = self.get_output_tensors(op_info["OutTensors"])
-                        # temp["output_shape"] = [t.shape for t in temp["output"]]
-                        # temp["output_dims"] = [len(shape) for shape in temp["output_shape"]]
-                        # temp["output"] = [t.tolist() for t in temp["output"]]
-                        #
-                        # verification_path = f'{path}/{json_path}/verification'
-                        # if not os.path.exists(verification_path):
-                        #     os.makedirs(verification_path)
-                        # with open(f"{verification_path}/{op_info["Type"]}.json", 'w') as f:
-                        #     json.dump(temp, f, indent=4)  # , indent=4
-
                         verification_path = f'{path}/{json_path}/verification'
                         if not os.path.exists(verification_path):
                             os.makedirs(verification_path)

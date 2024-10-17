@@ -54,8 +54,8 @@ if __name__ == '__main__':
     ir_transformer.add_transform_option(weight_mapping_transform)
     ir_transformer.transform(npu_graph)
 
-    ir_transformer.add_transform_option(memory_assign_transform)
-    ir_transformer.transform(npu_graph)
+    # ir_transformer.add_transform_option(memory_assign_transform)
+    # ir_transformer.transform(npu_graph)
 
     ir_transformer.add_transform_option(codegen_transform)
     ir_transformer.transform(npu_graph)
@@ -65,7 +65,7 @@ if __name__ == '__main__':
             from verification.onnx_runtime import *
             run = ONNXRUNER(
                 model_path=model_path,
-                input_name=input_name,
+                file_name=input_name,
                 result_path=f'{npu_graph.codegen_path}/{npu_graph.name}'
             )
         else:

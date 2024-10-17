@@ -1,4 +1,4 @@
-from .IR_tensor import *
+from ir.dialect.top.IR_tensor import *
 
 
 class OperatorType(object):

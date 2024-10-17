@@ -1,9 +1,10 @@
-from ir.graph.Graph_IR import *
-from ir.dialect.npu.IR_operator import *
-from ir.conversion.ir_transform import _register_ir_transformation_rule
+import math
 import multiprocessing
 from enum import Enum
-import math
+
+from ir.conversion.ir_transform import _register_ir_transformation_rule
+from ir.dialect.npu.IR_operator import *
+from ir.graph.Graph_IR import *
 
 
 class TransformRule(Enum):
@@ -14,7 +15,6 @@ class TransformRule(Enum):
     WEIGHT_MAPPING_MULTI_PROCESS = 4
     EASY_WEIGHT_MAPPING = 5  # TODO 临时的简易输出
     EASY_WEIGHT_PADDING = 6
-
 
 
 def make_list_array(shape):  # 创建相应shape的矩阵列表
@@ -81,7 +81,7 @@ def str2int(nums) -> list:
 
 def bin2hex(binNums, bit_nums):  # bit_nums是bin的位数
     nums = bit_nums / 4
-    res = hex(int(binNums, 2))   # 这里的 2 表示 binNums 是按照二进制表示的
+    res = hex(int(binNums, 2))  # 这里的 2 表示 binNums 是按照二进制表示的
     res = res.split("0x")[-1]
     if len(res) != nums:
         res = "0" * int(nums - len(res)) + res  # 补零
@@ -482,11 +482,11 @@ def _weight_padding(net: GraphIR):
                 #     n_k_n = 256
                 # else:
                 #     n_k_n = math.ceil(k_n / 16) * 16
-                weight_ = np.zeros([n_k_n, k_h, k_w, k_c]).astype(np.int8)
+                weight_ = np.zeros([n_k_n, k_h, k_w, k_c])  # .astype(np.int8)
                 weight_[0:k_n, :, :, :] = weight
                 npu_conv_op.WeightValue = weight_  # 给原weight填充0
 
-                bais_ = np.zeros([n_k_n]).astype(np.int32)
+                bais_ = np.zeros([n_k_n])  # .astype(np.int32)
                 bais_[0:k_n] = bais
                 npu_conv_op.BiasValue = bais_
 
@@ -507,15 +507,15 @@ def _weight_mapping(net: GraphIR):
             weight = {
                 "weight": npu_conv_op.WeightValue.reshape(k_n, -1).transpose(1, 0).tolist(),
 
-                "bias":  npu_conv_op.BiasValue.tolist()
+                "bias": npu_conv_op.BiasValue.tolist()
             }
             net.add_weight_tensor(npu_op_id, weight)
 
 
 # weight_mapping_pass
-weight_mapping_transform = [TransformRule.EASY_WEIGHT_PADDING,
-                            TransformRule.EASY_WEIGHT_MAPPING,
-                            # TransformRule.WEIGHT_MAPPING
-                            # TransformRule.WEIGHT_MAPPING_MULTI_PROCESS
-                            ]
-
+weight_mapping_transform = [
+    # TransformRule.EASY_WEIGHT_PADDING,
+    TransformRule.EASY_WEIGHT_MAPPING,
+    # TransformRule.WEIGHT_MAPPING
+    # TransformRule.WEIGHT_MAPPING_MULTI_PROCESS
+]
