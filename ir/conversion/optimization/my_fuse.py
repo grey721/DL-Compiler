@@ -12,7 +12,7 @@ from ir.graph.Graph_IR import *
 class TransformRule(Enum):
     ORDER_TOP_OPS = 1
     ORDER_NPU_OPS = 2
-    DELETE_FUSE_CONST = 3
+    CONST_FOLDING = 3
     NPU_PAD = 4
     NPU_SISO_OP = 5
 
@@ -191,7 +191,7 @@ def _fuse_single_output(net: GraphIR):
             print(f'iter:{op_id}', npu_op.Type)
 
 
-@_register_ir_transformation_rule(TransformRule.DELETE_FUSE_CONST)
+@_register_ir_transformation_rule(TransformRule.CONST_FOLDING)
 def _delete_fuse_constant(net: GraphIR):
     print("----start TransformRule DELETE_FUSE_CONST-----")
     value_class_operator = (Floor, Cast)
@@ -287,8 +287,8 @@ def _post_fuse_conv_activation_elw(net: GraphIR):
             if flag:
                 op_id = net.get_op_idx(op)
                 npu_op = NpuOp()
-                npu_op.Type = "CSM"
                 npu_op.fuse_ops([op, acti_ops[0], elw_ops[0]])
+                npu_op.Type = "CSM"
                 assert (op_id + 1) == post_conv_ids[0]
                 assert (op_id + 2) == elw_op_ids[0]
                 net.delete_op(op_id)  # delete conv
@@ -374,7 +374,7 @@ def _fuse_concat(net: GraphIR):
 
 op_fuse_transform = [
     TransformRule.ORDER_TOP_OPS,
-    TransformRule.DELETE_FUSE_CONST,
+    TransformRule.CONST_FOLDING,
     TransformRule.NPU_PAD,
     TransformRule.NPU_SISO_OP,
     TransformRule.SHORTCUT_CONV_ACTIVATION_ELW,

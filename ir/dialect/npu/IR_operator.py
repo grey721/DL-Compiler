@@ -1049,6 +1049,10 @@ class NpuOp(OpBase):
         self.set_short_cut_op()
         self.init_tensor()
 
+        self.Type = ""
+        for op in self.NpuOpFlow:
+            self.Type += op.Type[0]
+
 
 class VpuPostOpSetMode(object):
     NONE = 0

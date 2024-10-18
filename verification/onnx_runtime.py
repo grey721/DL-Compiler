@@ -104,9 +104,17 @@ class ONNXRUNER:
 
 
 if __name__ == "__main__":
+    # config
+    model_path = 'assets/yolov5s.onnx'
+    config_path = None  # 'assets/yolov3.json'
+    quantization_mode = "int8"  # mode="int8"
+
+    verification = False
+    # 默认input_path = 'verification/input'
+    input_name = "xiaoxin.jpg"
     run = ONNXRUNER(
-        model_path='assets/yolov5s.onnx',
-        input_path='verification/input/xiaoxin.jpg',
-        result_path='output/yolov5s'
+        model_path=model_path,
+        file_name=input_name,
+        result_path=f'{'output'}/{'yolov5s'}'
     )
 

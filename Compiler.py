@@ -17,7 +17,7 @@ if __name__ == '__main__':
     config_path = None  # 'assets/yolov3.json'
     quantization_mode = "int8"  # mode="int8"
 
-    verification = True
+    verification = False
     # 默认input_path = 'verification/input'
     input_name = "xiaoxin.jpg"
 
@@ -54,8 +54,8 @@ if __name__ == '__main__':
     ir_transformer.add_transform_option(weight_mapping_transform)
     ir_transformer.transform(npu_graph)
 
-    # ir_transformer.add_transform_option(memory_assign_transform)
-    # ir_transformer.transform(npu_graph)
+    ir_transformer.add_transform_option(memory_assign_transform)
+    ir_transformer.transform(npu_graph)
 
     ir_transformer.add_transform_option(codegen_transform)
     ir_transformer.transform(npu_graph)

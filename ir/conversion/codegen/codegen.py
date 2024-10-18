@@ -184,6 +184,8 @@ def easy_info(npu_graph: GraphIR):
         if not os.path.exists(layer_path):
             os.makedirs(layer_path)
 
+        ElemWiseOp = None
+
         # Op输出
         if isinstance(op, NpuOp):
             op_dict = {"type": op.Type,
@@ -201,6 +203,9 @@ def easy_info(npu_graph: GraphIR):
                 param_dict["OutTensors"] = tensors_ids2names(npu_graph, param_dict["OutTensors"])
                 op_dict["flow"].append(param_dict)
 
+            if op.NpuOpElemWise:
+                ElemWiseOp = op.NpuOpElemWiseOp
+
         else:
             param_dict = op.to_param_dict()
             param_dict["InTensors"] = tensors_ids2names(npu_graph, param_dict["InTensors"])
@@ -215,6 +220,10 @@ def easy_info(npu_graph: GraphIR):
                        "output_dim_num": [len(t) for t in param_dict["OutputShape"]],
                        "flow": [param_dict]
                        }
+
+            if isinstance(op, NpuElemWise):
+                ElemWiseOp = op
+
         try:
             with open(f'{layer_path}/operator.json', 'w') as f:
                 json.dump(op_dict, f, indent=4)  # , indent=4
@@ -225,6 +234,12 @@ def easy_info(npu_graph: GraphIR):
                 print(op_dict[key])
             raise ValueError
         op_id = op.NpuOpId
+
+        if ElemWiseOp is not None:
+            if ElemWiseOp.Mode < 0 and ElemWiseOp.B == 0:
+                with open(f'{layer_path}/B.json', 'w') as f:
+                    tensorB = npu_graph.AllTensors[ElemWiseOp.InTensors[1]]
+                    json.dump({"B": tensorB.Data.tolist()}, f, indent=4)  # , indent=4
 
         # Weight 输出
         if op_id in npu_graph.WeightTensorIds:

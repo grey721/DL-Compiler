@@ -206,6 +206,7 @@ class ONNX2TopIR:
         elem_op = ElemWise()  # 元张量操作
         elem_op.Name = op.name
         elem_op.Mode = mode
+        # elem_op.Type = ElementWiseMode.map[mode]
         elem_op.TopOpId = op_idx
 
         tensor_num = 0
@@ -225,6 +226,8 @@ class ONNX2TopIR:
                 tensor_num += 1
         if tensor_num != len(in_tensors_name):
             elem_op.Mode = 0 - elem_op.Mode
+            if len(in_tensors_name) == 2 and self.graph.AllTensors[in_tensor_id].Data.ndim == 0:
+                elem_op.B = self.graph.AllTensors[in_tensor_id].Data.item()
 
         # 输出
         out_tensors_name = op.output
@@ -600,14 +603,18 @@ class ONNX2TopIR:
         assert act_op.InputShape[0].H == act_op.OutputShape[0].H
 
         if op_code == OperatorType.LEAKY_RELU:
+            # act_op.Type = "Leaky ReLU"
             act_op.Mode = ActivationMode.LEAKY_RELU
             act_op.Alpha = op.attribute[0].f
         elif op_code == OperatorType.PRELU:
+            # act_op.Type = "PReLU"
             act_op.Mode = ActivationMode.PRELU
             act_op.Alpha = op.attribute[0].f
         elif op_code == OperatorType.LOGISTIC:
+            # act_op.Type = "Sigmoid"
             act_op.Mode = ActivationMode.SIGMOID
         elif op_code == OperatorType.RELU:
+            # act_op.Type = "ReLU"
             act_op.Mode = ActivationMode.RELU
 
         self.graph.insert_op(act_op, op_idx)

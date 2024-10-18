@@ -231,21 +231,31 @@ class Constant(OpBase):
 
 # ########################### ElemWise ########################
 class ElementWiseMode(object):  # 元操作代码
-    ELW_ADD = 0
-    ELW_SUB = 1
-    ELW_MUL = 2
-    ELW_DIV = 3
-    ELW_POW = 4
+    ELW_ADD = 1
+    ELW_SUB = 2
+    ELW_MUL = 3
+    ELW_DIV = 4
+    ELW_POW = 5
+
+    # map = {
+    #     1: "Add",
+    #     2: "Sub",
+    #     3: "Mul",
+    #     4: "Div",
+    #     5: "Pow",
+    # }
 
 
 class ElemWise(OpBase):
     Type = "ElemWise"
     Mode = None
+
     # do_relu = False
     # FusedActFunc = 0
 
     def __init__(self):
         super().__init__()  # 用于在子类实例中初始化父类中的__init__，必须先调用，子类才能有父类的初始化
+        self.B = 0
 
     def __repr__(self):
         return (
@@ -297,6 +307,7 @@ class ConvBase(OpBase):
     # 是否是首层
     FirstLayer = False
     KerM_16 = False
+
     # 激活函数
     # do_relu = False
 
@@ -540,6 +551,7 @@ class Pool(OpBase):
     Padding = None
     PadH = None
     PadW = None
+
     # do_relu = False
 
     def __init__(self):
@@ -586,6 +598,7 @@ class Activation(OpBase):
     Type = "Act"
     Mode = None
     Alpha = 0
+
     # MaxLimit = None
 
     def __init__(self):
@@ -669,6 +682,7 @@ class Concat(OpBase):
     Type = "Concat"
     # 链接的轴
     Axis = None
+
     # FusedActFunc = False
 
     # TODO 什么参数？
