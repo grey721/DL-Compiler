@@ -237,13 +237,13 @@ class ElementWiseMode(object):  # 元操作代码
     ELW_DIV = 4
     ELW_POW = 5
 
-    # map = {
-    #     1: "Add",
-    #     2: "Sub",
-    #     3: "Mul",
-    #     4: "Div",
-    #     5: "Pow",
-    # }
+    map = {
+        1: "Add",
+        2: "Sub",
+        3: "Mul",
+        4: "Div",
+        5: "Pow",
+    }
 
 
 class ElemWise(OpBase):

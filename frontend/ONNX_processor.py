@@ -206,7 +206,7 @@ class ONNX2TopIR:
         elem_op = ElemWise()  # 元张量操作
         elem_op.Name = op.name
         elem_op.Mode = mode
-        # elem_op.Type = ElementWiseMode.map[mode]
+        elem_op.Type = ElementWiseMode.map[mode]
         elem_op.TopOpId = op_idx
 
         tensor_num = 0
@@ -603,18 +603,18 @@ class ONNX2TopIR:
         assert act_op.InputShape[0].H == act_op.OutputShape[0].H
 
         if op_code == OperatorType.LEAKY_RELU:
-            # act_op.Type = "Leaky ReLU"
+            act_op.Type = "LeakyReLU"
             act_op.Mode = ActivationMode.LEAKY_RELU
             act_op.Alpha = op.attribute[0].f
         elif op_code == OperatorType.PRELU:
-            # act_op.Type = "PReLU"
+            act_op.Type = "PReLU"
             act_op.Mode = ActivationMode.PRELU
             act_op.Alpha = op.attribute[0].f
         elif op_code == OperatorType.LOGISTIC:
-            # act_op.Type = "Sigmoid"
+            act_op.Type = "Sigmoid"
             act_op.Mode = ActivationMode.SIGMOID
         elif op_code == OperatorType.RELU:
-            # act_op.Type = "ReLU"
+            act_op.Type = "ReLU"
             act_op.Mode = ActivationMode.RELU
 
         self.graph.insert_op(act_op, op_idx)
@@ -880,10 +880,10 @@ class ONNX2TopIR:
             if a.name == "mode":
                 resize_model = a.s.decode()  # decode() 方法主要用于将字节串（byte string，即 bytes 类型）解码成字符串。
                 if resize_model == "nearest":
-                    resize_op.Type = "resize_nearest"
+                    resize_op.Type = "ResizeNearest"
                     resize_op.Mode = ResizeMode.RESIZE_NEAREST
                 elif resize_model == "linear":
-                    resize_op.Type = "resize_bilinear"
+                    resize_op.Type = "ResizeBilinear"
                     resize_op.Mode = ResizeMode.RESIZE_BILINEAR
                 else:
                     raise NotImplementedError('无法识别的Resize模式')
