@@ -301,7 +301,6 @@ def _post_fuse_conv_activation_elw(net: GraphIR):
                 op_id = net.get_op_idx(op)
                 npu_op = NpuOp()
                 npu_op.fuse_ops([op, acti_ops[0], elw_ops[0]])
-                npu_op.Type = "CSM"
                 assert (op_id + 1) == post_conv_ids[0]
                 assert (op_id + 2) == elw_op_ids[0]
                 net.delete_op(op_id)  # delete conv
