@@ -237,13 +237,13 @@ class ElementWiseMode(object):  # 元操作代码
     ELW_DIV = 4
     ELW_POW = 5
 
-    # map = {
-    #     1: "Add",
-    #     2: "Sub",
-    #     3: "Mul",
-    #     4: "Div",
-    #     5: "Pow",
-    # }
+    map = {
+        1: "Add",
+        2: "Sub",
+        3: "Mul",
+        4: "Div",
+        5: "Pow",
+    }
 
 
 class ElemWise(OpBase):
@@ -735,7 +735,7 @@ class Concat(OpBase):
         return graph.AllTensors[self.OutTensors[0]].ZeroPoint
 
     def shape_inference(self):
-        n_shape = self.InputShape[0].list
+        n_shape = self.InputShape[0].list[:]
 
         dims = len(n_shape)
         for shape in self.InputShape:

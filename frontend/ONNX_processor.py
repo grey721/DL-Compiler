@@ -603,7 +603,7 @@ class ONNX2TopIR:
         assert act_op.InputShape[0].H == act_op.OutputShape[0].H
 
         if op_code == OperatorType.LEAKY_RELU:
-            # act_op.Type = "Leaky ReLU"
+            # act_op.Type = "LeakyReLU"
             act_op.Mode = ActivationMode.LEAKY_RELU
             act_op.Alpha = op.attribute[0].f
         elif op_code == OperatorType.PRELU:
@@ -721,6 +721,8 @@ class ONNX2TopIR:
         # 输入
         in_tensors_name = op.input
         data = None
+        if op_idx == 247:
+            print("here")
         for name in in_tensors_name:
             if self.quantization_config is None:
                 input_name = name
@@ -880,10 +882,10 @@ class ONNX2TopIR:
             if a.name == "mode":
                 resize_model = a.s.decode()  # decode() 方法主要用于将字节串（byte string，即 bytes 类型）解码成字符串。
                 if resize_model == "nearest":
-                    resize_op.Type = "resize_nearest"
+                    resize_op.Type = "ResizeNearest"
                     resize_op.Mode = ResizeMode.RESIZE_NEAREST
                 elif resize_model == "linear":
-                    resize_op.Type = "resize_bilinear"
+                    resize_op.Type = "ResizeBilinear"
                     resize_op.Mode = ResizeMode.RESIZE_BILINEAR
                 else:
                     raise NotImplementedError('无法识别的Resize模式')
@@ -1276,6 +1278,7 @@ class ONNX2TopIR:
         for op_idx, op in enumerate(self.fused_ops):
             op_code = self._get_op_code(op)
             # print("op_code: ", op_code)
+
             if op_code not in SUPPORTED_OPs:
                 print(f"Unsupported operator code:{op_code}")
                 if op.op_type not in unsupported:

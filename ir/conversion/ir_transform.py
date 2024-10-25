@@ -163,4 +163,5 @@ def _order_pre_op(net, op):
                     op_id = net.get_op_idx(pre_op)
                     if op_id is not None:
                         pre_op_id.append(op_id)
+
     return pre_op_id

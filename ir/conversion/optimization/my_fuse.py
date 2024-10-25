@@ -59,7 +59,7 @@ def _check_concat_mode(concat_ops, tensor_record):
             mode = 1
         else:
             mode = 0
-    print("mode: ", mode)
+    print("     mode: ", mode)
     return mode
 
 
@@ -120,6 +120,19 @@ def _order_npu_ops(net: GraphIR):  # 排序NPU
                     if t in next_op.fmo_tensor:
                         net.AllOps[op_idx + 1].fmi_tensor = [t]
                         break
+
+            if isinstance(op, NpuConcat):
+                # 确保Concat的PreOp顺序
+                n_pre_op = []
+                for t in op.InTensors:
+                    for pre_op_idx in op.PreOpId:
+                        pre_t = net.AllOps[pre_op_idx].OutTensors
+                        if t in pre_t:
+                            n_pre_op.append(pre_op_idx)
+                            continue
+                if len(n_pre_op) == len(op.PreOpId):
+                    net.AllOps[op_idx].PreOpId = n_pre_op
+                    print("Sort Done")
 
         print(op.NpuOpId, op.Type, pre_op_id, post_op_id)
 
@@ -280,10 +293,10 @@ def _post_fuse_conv_activation_elw(net: GraphIR):
                         post_acti_elw_num += 1
                         flag = True
 
-            print("Post Conv:", post_conv_ids)
-            print("post Anti:", post_acti_op_ids)
+            print("     Post Conv:", post_conv_ids)
+            print("     post Anti:", post_acti_op_ids)
 
-            print("flag: ", flag)
+            print("     flag: ", flag)
             if flag:
                 op_id = net.get_op_idx(op)
                 npu_op = NpuOp()
@@ -296,63 +309,65 @@ def _post_fuse_conv_activation_elw(net: GraphIR):
                 net.delete_op(op_id)  # delete elw
 
                 net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
+                # print("op_id:", op.TopOpId)
 
 
 @_register_ir_transformation_rule(TransformRule.NPU_CONCAT)
 def _fuse_concat(net: GraphIR):
     print("----start TransformRule NPU_CONCAT-----")
-    tensor_record = []
-    n_ops = [net.AllOps[0]]
-    op_record = [0]
-    temp_ids = []
-    i = -1
-    # TODO 仅单输入网络可用，且第一个必须是网络输入op
-    while True:
-        i += 1
-        current_op = n_ops[-1]
-        _update_tensor_record(tensor_record, current_op)
-        post_op_ids = _order_post_op(net, current_op)
-        print(f"iter:{i}", n_ops[-1].Name)
+    # # 排序，确保concat的输入均已出现
+    # tensor_record = []
+    # n_ops = [net.AllOps[0]]
+    # op_record = [0]
+    # temp_ids = []
+    # i = -1
+    # # TODO 仅单输入网络可用，且第一个必须是网络输入op
+    # while True:
+    #     i += 1
+    #     current_op = n_ops[-1]
+    #     _update_tensor_record(tensor_record, current_op)
+    #     post_op_ids = _order_post_op(net, current_op)
+    #     print(f"iter:{i}", n_ops[-1].Name)
+    #
+    #     if len(post_op_ids) > 1:
+    #         for _id in post_op_ids[1:]:
+    #             if _id not in temp_ids and _id not in op_record:
+    #                 temp_ids.append(_id)
+    #         temp_ids = quick_sort(temp_ids)
+    #     elif len(post_op_ids) == 0 and len(temp_ids) == 0:
+    #         # name_list = [x.Name for x in n_ops]
+    #         # for op in net.AllOps:
+    #         #     if op.Name not in name_list:
+    #         #         print(op.Name)
+    #         assert len(n_ops) == len(net.AllOps), f"n_ops:{len(n_ops)}, AllOps:{len(net.AllOps)}"
+    #         break
+    #
+    #     post_op_id = post_op_ids[0]
+    #     post_op = net.get_op(post_op_id)
+    #     print("      Post Ops:", post_op_ids, post_op.Name)
+    #     print("      Temp Ops:", temp_ids)
+    #
+    #     if isinstance(post_op, (NpuElemWise, NpuConcat, NpuOp)):
+    #         temp_ids = [x for x in temp_ids if x not in op_record]
+    #         if _check_op_state(net, post_op, tensor_record):
+    #             print("      Post Op Ready")
+    #             n_ops.append(post_op)
+    #         elif temp_ids:
+    #             print("      Load Temp Op")
+    #             post_op_id = temp_ids.pop(-1)
+    #             post_op = net.get_op(post_op_id)
+    #             n_ops.append(post_op)
+    #     else:
+    #         n_ops.append(post_op)
+    #     op_record.append(post_op_id)
+    # net.AllOps = n_ops
 
-        if len(post_op_ids) > 1:
-            for _id in post_op_ids[1:]:
-                if _id not in temp_ids and _id not in op_record:
-                    temp_ids.append(_id)
-            temp_ids = quick_sort(temp_ids)
-        elif len(post_op_ids) == 0 and len(temp_ids) == 0:
-            # name_list = [x.Name for x in n_ops]
-            # for op in net.AllOps:
-            #     if op.Name not in name_list:
-            #         print(op.Name)
-            assert len(n_ops) == len(net.AllOps), f"n_ops:{len(n_ops)}, AllOps:{len(net.AllOps)}"
-            break
-
-        post_op_id = post_op_ids[0]
-        post_op = net.get_op(post_op_id)
-        print("      Post Ops:", post_op_ids, post_op.Name)
-        print("      Temp Ops:", temp_ids)
-
-        if isinstance(post_op, (NpuElemWise, NpuConcat, NpuOp)):
-            temp_ids = [x for x in temp_ids if x not in op_record]
-            if _check_op_state(net, post_op, tensor_record):
-                print("      Post Op Ready")
-                n_ops.append(post_op)
-            elif temp_ids:
-                print("      Load Temp Op")
-                post_op_id = temp_ids.pop(-1)
-                post_op = net.get_op(post_op_id)
-                n_ops.append(post_op)
-        else:
-            n_ops.append(post_op)
-        op_record.append(post_op_id)
-
-    net.AllOps = n_ops
-
+    # 具体处理Concat
     for op in net.AllOps:
         if isinstance(op, NpuConcat):
             idx = net.get_op_idx(op)
-            pre_op = net.AllOps[idx-1]
+            # 将concat融入前一个NpuOp
+            pre_op = net.AllOps[idx - 1]
             if isinstance(pre_op, NpuOp):
                 pre_op.fuse_ops(op)
 
@@ -378,6 +393,6 @@ op_fuse_transform = [
     TransformRule.NPU_PAD,
     TransformRule.NPU_SISO_OP,
     TransformRule.SHORTCUT_CONV_ACTIVATION_ELW,
-    # TransformRule.NPU_CONCAT,
+    TransformRule.NPU_CONCAT,
     TransformRule.ORDER_NPU_OPS
 ]

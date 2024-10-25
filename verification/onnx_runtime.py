@@ -88,14 +88,14 @@ class ONNXRUNER:
                         verification_path = f'{path}/{json_path}/verification'
                         if not os.path.exists(verification_path):
                             os.makedirs(verification_path)
-                        with open(f"{verification_path}/{op_info["Type"]}.txt", 'w') as f:
+                        with open(f"{verification_path}/{op_info['Type']}.txt", 'w') as f:
                             tensors = self.get_output_tensors(op_info["OutTensors"])
                             tensor = tensors[0]
                             np.savetxt(f, tensor.reshape(1, -1), delimiter=' ', fmt='%.16f')  # 保留位数：
                         if len(tensors) > 1:
                             _t = 1
                             for tensor in tensors[1:]:
-                                with open(f"{verification_path}/{op_info["Type"]}_{_t}.txt", 'w') as f:
+                                with open(f"{verification_path}/{op_info['Type']}_{_t}.txt", 'w') as f:
                                     np.savetxt(f, tensor.reshape(1, -1), delimiter=' ', fmt='%.16f')  # 保留位数：
                                 _t += 1
 
@@ -115,6 +115,6 @@ if __name__ == "__main__":
     run = ONNXRUNER(
         model_path=model_path,
         file_name=input_name,
-        result_path=f'{'output'}/{'yolov5s'}'
+        result_path=f'output/yolov5s'
     )
 

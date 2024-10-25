@@ -1,5 +1,5 @@
 opencv-python~=4.10.0.84
-onnx~=1.16.2
+onnx~=1.16.1
 pandas~=2.2.2
 matplotlib~=3.9.2
 numpy~=2.0.1

@@ -16,7 +16,11 @@
 
 | 算子名       | 状态 |
 |-----------|:--:|
-| ElemWise  | √  |
+| Mul       | √  |
+| Add       | √  |
+| Sub       | √  |
+| Div       | √  |
+| Pow       | √  |
 | Conv      | √  |
 | Pool      | √  |
 | Constant  | √  |
@@ -32,6 +36,7 @@
 | Floor     | √  |
 | Slice     | √  |
 | Unsqueeze | √  |
+
 
 ## 后端
 
