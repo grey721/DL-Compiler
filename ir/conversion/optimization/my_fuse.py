@@ -121,18 +121,18 @@ def _order_npu_ops(net: GraphIR):  # 排序NPU
                         net.AllOps[op_idx + 1].fmi_tensor = [t]
                         break
 
-            if isinstance(op, NpuConcat):
-                # 确保Concat的PreOp顺序
-                n_pre_op = []
-                for t in op.InTensors:
-                    for pre_op_idx in op.PreOpId:
-                        pre_t = net.AllOps[pre_op_idx].OutTensors
-                        if t in pre_t:
-                            n_pre_op.append(pre_op_idx)
-                            continue
-                if len(n_pre_op) == len(op.PreOpId):
-                    net.AllOps[op_idx].PreOpId = n_pre_op
-                    print("Sort Done")
+        # 给Concat的PreOpId排序
+        if isinstance(op, NpuConcat):
+            n_pre_op = []
+            for t in op.InTensors:
+                for pre_op_idx in op.PreOpId:
+                    pre_t = net.AllOps[pre_op_idx].OutTensors
+                    if t in pre_t:
+                        n_pre_op.append(pre_op_idx)
+                        continue
+            if len(n_pre_op) == len(op.PreOpId):
+                net.AllOps[op_idx].PreOpId = n_pre_op
+                print("Sort Done")
 
         print(op.NpuOpId, op.Type, pre_op_id, post_op_id)
 
