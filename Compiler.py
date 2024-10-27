@@ -14,16 +14,16 @@ from ir.conversion.codegen.codegen import *
 if __name__ == '__main__':
     # config
     model_path = 'assets/yolov5s.onnx'
+    # 量化
     config_path = None  # 'assets/yolov3.json'
     quantization_mode = "int8"  # mode="int8"
-
-    verification = False
+    # 推理结果输出
+    verification = True
     # 默认input_path = 'verification/input'
     input_name = "xiaoxin.jpg"
 
     # 解析
     model_type = model_path.split(".")[-1]
-
     if model_type == "onnx":
         model_processor = ONNX2TopIR(model_path=model_path,
                                      config_path=config_path,
@@ -70,3 +70,5 @@ if __name__ == '__main__':
             )
         else:
             raise NotImplementedError
+
+        run.verify(json_output=False)

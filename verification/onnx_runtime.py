@@ -8,6 +8,7 @@ import json
 
 class ONNXRUNER:
     def __init__(self, model_path, file_name, result_path, input_path='verification/input'):
+        self.result_path = result_path
         # 准备输入数据（这里以单张图片为例，且需要调整为模型所需的输入尺寸）
         # 假设你的输入图片已经加载到变量img中，并且已经调整到了正确的尺寸
         # 你还需要将图片数据转换为模型所需的格式（通常是NCHW，即[batch_size, channels, height, width]）
@@ -45,8 +46,6 @@ class ONNXRUNER:
         self.outputs = [x.name for x in self.session.get_outputs()]
         self.results = self.session.run(None, {input_name: img})
 
-        self.verification(result_path)
-
     def print_all_result(self):
         # 打印每个算子的输出
         for output, result in zip(self.outputs, self.results):
@@ -71,8 +70,9 @@ class ONNXRUNER:
         output = [self.results[self.outputs.index(t_name)] for t_name in output if t_name in self.outputs]
         return output
 
-    def verification(self, path):
-        print("verificate：", path)
+    def verify(self, json_output=False):
+        path = self.result_path
+        print("verify：", path)
         dir_list = os.listdir(path)
         if 'top_info.json' in dir_list:
             with open(f'{path}/top_info.json', 'r', encoding='utf-8') as f:
@@ -84,20 +84,31 @@ class ONNXRUNER:
                     info = json.load(j)
                     ops_info = info["flow"]
 
-                    for op_info in ops_info:
-                        verification_path = f'{path}/{json_path}/verification'
-                        if not os.path.exists(verification_path):
-                            os.makedirs(verification_path)
-                        with open(f"{verification_path}/{op_info['Type']}.txt", 'w') as f:
-                            tensors = self.get_output_tensors(op_info["OutTensors"])
-                            tensor = tensors[0]
-                            np.savetxt(f, tensor.reshape(1, -1), delimiter=' ', fmt='%.16f')  # 保留位数：
-                        if len(tensors) > 1:
-                            _t = 1
-                            for tensor in tensors[1:]:
-                                with open(f"{verification_path}/{op_info['Type']}_{_t}.txt", 'w') as f:
-                                    np.savetxt(f, tensor.reshape(1, -1), delimiter=' ', fmt='%.16f')  # 保留位数：
-                                _t += 1
+                for op_info in ops_info:
+                    verification_path = f'{path}/{json_path}/verification'
+                    if not os.path.exists(verification_path):
+                        os.makedirs(verification_path)
+                    with open(f"{verification_path}/{op_info['Type']}.txt", 'w') as f:
+                        tensors = self.get_output_tensors(op_info["OutTensors"])
+                        tensor = tensors[0]
+                        np.savetxt(f, tensor.reshape(1, -1), delimiter=' ', fmt='%.16f')  # 保留位数：
+
+                    if len(tensors) > 1:
+                        _t = 1
+                        for tensor in tensors[1:]:
+                            with open(f"{verification_path}/{op_info['Type']}_{_t}.txt", 'w') as f:
+                                np.savetxt(f, tensor.reshape(1, -1), delimiter=' ', fmt='%.16f')  # 保留位数：
+                            _t += 1
+
+                    if json_output:
+                        temp = {}
+                        temp["output"] = self.get_output_tensors(op_info["OutTensors"])
+                        temp["output_shape"] = [t.shape for t in temp["output"]]
+                        temp["output_dims"] = [len(shape) for shape in temp["output_shape"]]
+                        temp["output"] = [t.tolist() for t in temp["output"]]
+
+                        with open(f"{verification_path}/{op_info["Type"]}.json", 'w') as f:
+                            json.dump(temp, f, indent=4)  # , indent=4
 
         else:
             raise FileNotFoundError(f'Can not find top_info.json in "{path}"')
