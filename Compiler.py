@@ -18,7 +18,7 @@ if __name__ == '__main__':
     config_path = None  # 'assets/yolov3.json'
     quantization_mode = "int8"  # mode="int8"
     # 推理结果输出
-    verification = True
+    verification = False
     # 默认input_path = 'verification/input'
     input_name = "xiaoxin.jpg"
 

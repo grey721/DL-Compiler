@@ -720,7 +720,7 @@ class ONNX2TopIR:
 
         # 输入
         in_tensors_name = op.input
-        data = None
+        data = []
         if op_idx == 247:
             print("here")
         for name in in_tensors_name:
@@ -735,10 +735,7 @@ class ONNX2TopIR:
             self.graph.AllTensors[in_tensor_id].ConsumerOp = op_idx
 
             if self.graph.AllTensors[in_tensor_id].Data is not None:
-                if data is None:
-                    data = self.graph.AllTensors[in_tensor_id].Data
-                else:
-                    data = np.concatenate((data, self.graph.AllTensors[in_tensor_id].Data), axis=concat_op.Axis)
+                data.append(self.graph.AllTensors[in_tensor_id].Data)
 
         # 输出
         out_tensors_name = op.output
@@ -756,7 +753,8 @@ class ONNX2TopIR:
 
         # assert concat_op.FusedActFunc == 0
 
-        if data is not None:
+        if data:
+            data = np.concatenate(data, axis=concat_op.Axis)
             self.graph.AllTensors[out_tensor_id].Data = data
             self.graph.AllTensors[out_tensor_id].Shape = Shape(list(data.shape))
 

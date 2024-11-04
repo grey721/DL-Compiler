@@ -190,7 +190,7 @@ class OpBase:  # 算子基类
         for attr_name in dir(self):
             attr = getattr(self, attr_name)
             if not callable(attr) and not attr_name.startswith('_'):
-                skip_name_list = ("Value", "offset", "multiplier", "shift", "quantized", "size", "Id")
+                skip_name_list = ("Value", "offset", "multiplier", "shift", "quantized", "ratio", "size", "Id")
                 flag = False
                 for name in skip_name_list:
                     if name in attr_name:
