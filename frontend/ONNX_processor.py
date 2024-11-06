@@ -543,7 +543,6 @@ class ONNX2TopIR:
                         not self.graph.AllTensors[out_tensor_id].Data):  # 是张量
                     np_data, dtype = get_np_data_from_attribute(op.attribute[0].t)
                     self.graph.AllTensors[out_tensor_id].load_data(np_data)
-                    self.graph.AllTensors[out_tensor_id].Shape = Shape(list(np_data.shape))
 
                 else:
                     raise NotImplementedError("有非张量类型常数")
@@ -721,8 +720,7 @@ class ONNX2TopIR:
         # 输入
         in_tensors_name = op.input
         data = []
-        if op_idx == 247:
-            print("here")
+
         for name in in_tensors_name:
             if self.quantization_config is None:
                 input_name = name
@@ -753,10 +751,9 @@ class ONNX2TopIR:
 
         # assert concat_op.FusedActFunc == 0
 
-        if data:
+        if data and len(data) == len(in_tensors_name):
             data = np.concatenate(data, axis=concat_op.Axis)
-            self.graph.AllTensors[out_tensor_id].Data = data
-            self.graph.AllTensors[out_tensor_id].Shape = Shape(list(data.shape))
+            self.graph.AllTensors[out_tensor_id].load_data(data)
 
         self.graph.insert_op(concat_op, op_idx)
 
@@ -1071,8 +1068,7 @@ class ONNX2TopIR:
         shape_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
 
         if shape_op.InputShape[0]:
-            self.graph.AllTensors[out_tensor_id].Data = shape_op.InputShape[0].get_shape_as_np()
-            self.graph.AllTensors[out_tensor_id].Shape = Shape(list(self.graph.AllTensors[out_tensor_id].Data.shape))
+            self.graph.AllTensors[out_tensor_id].load_data(shape_op.InputShape[0].get_shape_as_np())
 
         self.graph.insert_op(shape_op, op_idx)
 
@@ -1107,7 +1103,7 @@ class ONNX2TopIR:
         floor_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
 
         if self.graph.AllTensors[in_tensor_id].Data is not None:
-            self.graph.AllTensors[out_tensor_id].Data = np.floor(self.graph.AllTensors[in_tensor_id].Data)
+            self.graph.AllTensors[out_tensor_id].load_data(np.floor(self.graph.AllTensors[in_tensor_id].Data))
 
         self.graph.insert_op(floor_op, op_idx)
 
@@ -1145,8 +1141,8 @@ class ONNX2TopIR:
         cast_op.Target = op.attribute[0].i
 
         if self.graph.AllTensors[in_tensor_id].Data is not None:
-            self.graph.AllTensors[out_tensor_id].Data = \
-                self.graph.AllTensors[in_tensor_id].Data.astype(onnx2np_dtype_mapping[cast_op.Target])
+            self.graph.AllTensors[out_tensor_id].load_data(
+                self.graph.AllTensors[in_tensor_id].Data.astype(onnx2np_dtype_mapping[cast_op.Target]))
 
         self.graph.insert_op(cast_op, op_idx)
 
@@ -1216,7 +1212,7 @@ class ONNX2TopIR:
             # 替换切片元组中指定轴上的切片对象
             for axis, start, end in zip(axes, starts, ends):
                 slicing[axis] = slice(start, end)
-            self.graph.AllTensors[out_tensor_id].Data = data[tuple(slicing)]
+            self.graph.AllTensors[out_tensor_id].load_data(data[tuple(slicing)])
 
         self.graph.insert_op(slice_op, op_idx)
 
@@ -1266,8 +1262,8 @@ class ONNX2TopIR:
         unsqueeze_op.Axis = self.graph.AllTensors[unsqueeze_id].Data.tolist()
 
         if self.graph.AllTensors[in_tensor_id].Data is not None:
-            self.graph.AllTensors[out_tensor_id].Data = \
-                np.expand_dims(self.graph.AllTensors[in_tensor_id].Data, axis=unsqueeze_op.Axis[0])
+            self.graph.AllTensors[out_tensor_id].load_data(
+                np.expand_dims(self.graph.AllTensors[in_tensor_id].Data, axis=unsqueeze_op.Axis[0]))
 
         self.graph.insert_op(unsqueeze_op, op_idx)
 

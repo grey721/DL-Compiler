@@ -60,17 +60,19 @@ class Shape:  # 专门用于表示张量形状的class
         # 维度i,j,f,k,v含义：第 i 张图，第 j 个锚框， 锚框的信息f，第 k 行单元格，第 v 列单元格
         # 网格尺度有三种，小、中、大三个尺度检测目标对象
 
-        else:
-            pass
-
     def __bool__(self):
         return bool(self.list)
 
-    def get_shape(self):
-        return self
+    def __eq__(self, other):
+        if isinstance(other, Shape) and len(self.list) == len(other.list):
+            return all(i == j for i, j in zip(self.list, other.list))
+        return False
 
     def __repr__(self):
         return f"{self.list}"
+
+    def get_shape(self):
+        return self
 
     def get_shape_as_np(self):
         return np.array(self.list)
@@ -146,6 +148,8 @@ class IRTensor:  # IR中，表示张量的class
 
     def load_data(self, np_data):
         self.Data = np_data.copy()
+        if not self.Shape:
+            self.Shape = Shape(list(self.Data.shape))
 
     def load_value(self, value):
         self.Data = value
