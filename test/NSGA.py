@@ -38,7 +38,7 @@ class Individual:
 
 
 class FuncsType(Enum):
-    obj = 0
+    Obj = 0
     mutate = 1
     crossover = 2
     p_init = 3
@@ -58,15 +58,14 @@ class NSGA2:
         self.p_mutation = p_mutation
 
         self.funcs = {
-            FuncsType.obj: [],
+            FuncsType.Obj: [],
             FuncsType.mutate: [],
         }
 
         self.pop = self.initialize_population()
 
     def non_dominated_sorting(self):
-        n_pop = len(self.pop)
-        rank = [[]]
+        current_rank = []
         for idx in range(len(self.pop)):
             dominated_count = 0
             for jdx in range(len(self.pop)):
@@ -80,24 +79,23 @@ class NSGA2:
 
             if dominated_count == 0:
                 self.pop[idx].Rank = 1
-                rank[0].append(idx)
+                current_rank.append(idx)
 
-        n_ready = len(rank[0])
-        n_rank = 0
-        while n_ready < n_pop:
-            temp = []
-            for n_idx in rank[n_rank]:
+        rank = []
+        pre_rank_idx = 0
+        while current_rank:
+            rank.append(current_rank)
+            current_rank = []
+            for n_idx in rank[pre_rank_idx]:
                 for dot in self.pop[n_idx].DominationSet:
                     self.pop[dot].Rank += 1
                     if self.pop[dot].Rank == self.pop[dot].DominatedCount:
-                        self.pop[dot].Rank = n_rank + 2
-                        temp.append(dot)
+                        self.pop[dot].Rank = pre_rank_idx + 2
+                        current_rank.append(dot)
                     elif self.pop[dot].Rank >= self.pop[dot].DominatedCount:
                         raise ValueError
-            if temp:
-                rank.append(temp)
-                n_ready += len(temp)
-                n_rank += 1
+
+            pre_rank_idx += 1
 
         return rank
 
@@ -105,8 +103,8 @@ class NSGA2:
         pass
 
     def evolve(self):
-        if len(self.funcs[FuncsType.obj]) == 0:
-            print("There no objective function")
+        if len(self.funcs[FuncsType.Obj]) == 0:
+            print("No objective function")
             return
 
         self.evaluate_population()
@@ -132,7 +130,7 @@ class NSGA2:
 
     def evaluate_population(self):
         for idx in range(len(self.pop)):
-            self.pop[idx].evaluate(self.funcs[FuncsType.obj])
+            self.pop[idx].evaluate(self.funcs[FuncsType.Obj])
 
     def plot_2d_rank(self, rank):
         colors = ['red', 'blue', 'green', 'purple', 'orange', 'magenta', 'cyan', 'black', 'lime', 'brown', 'pink',
@@ -160,12 +158,12 @@ class NSGA2:
 if __name__ == "__main__":
     al = NSGA2()
 
-    @al.register_funcs(FuncsType.obj)
+    @al.register_funcs(FuncsType.Obj)
     def z1(x):
         n = len(x)
         return 1 - np.exp(-sum((x-1/np.sqrt(n))**2))
 
-    @al.register_funcs(FuncsType.obj)
+    @al.register_funcs(FuncsType.Obj)
     def z2(x):
         n = len(x)
         return 1 - np.exp(-sum((x+1/np.sqrt(n))**2))
