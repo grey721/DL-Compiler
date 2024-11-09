@@ -201,19 +201,4 @@ onnx2np_dtype_mapping = {
     onnx.TensorProto.UINT16: np.uint16,
 }
 
-# parameter_input = {
-#     OperatorType.PAD,
-#     OperatorType.PADV2,
-#     OperatorType.RESHAPE,
-#     OperatorType.RESIZE_NEAREST_NEIGHBOR,
-#     OperatorType.RESIZE_BILINEAR,
-#     OperatorType.SPLIT
-# }
 
-# NCHW -> NHWC
-axis_map = {
-    0: 0,
-    1: 3,
-    2: 1,
-    3: 2
-}

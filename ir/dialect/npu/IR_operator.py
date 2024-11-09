@@ -1,5 +1,4 @@
 import math
-from copy import deepcopy
 
 from ir.dialect.npu.IR_tensor import *
 from ir.dialect.top.IR_operator import *

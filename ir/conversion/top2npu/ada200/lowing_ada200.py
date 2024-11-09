@@ -29,9 +29,5 @@ lowing_ada200_list = [
     OpTransformRule.ELEMWISE_LOWERING,
     OpTransformRule.LOGISTIC_LOWERING,
     OpTransformRule.SPLIT_LOWERING,
-    # TODO 以后实现
     OpTransformRule.LEAKYRELU_LOWERING,
-    # OpTransformRule.FULLCONNECT_LOWERING,
-    # OpTransformRule.SOFTMAX_LOWERING,
-    # OpTransformRule.RELU_LOWERING
 ]

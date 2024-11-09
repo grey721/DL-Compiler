@@ -1,6 +1,7 @@
 # Parse Model
 from frontend.ONNX_processor import *
 # IR
+from ir.constant.type_mapping import *
 from ir.conversion.top2npu.top2npu_pass import *
 from ir.conversion.ir_transform import *
 from ir.conversion.optimization.op_fuse import *
@@ -14,7 +15,7 @@ if __name__ == '__main__':
     model_path = 'assets/yolov5s.onnx'
     # 量化
     config_path = None  # 'assets/yolov3.json'
-    quantization_mode = "int8"  # mode="int8"
+    quantization_mode = DataType.INT8
     # 推理结果输出
     verification = False
     # 默认input_path = 'verification/input'

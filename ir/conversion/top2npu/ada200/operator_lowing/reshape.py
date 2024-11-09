@@ -6,10 +6,17 @@ from ir.dialect.npu.IR_operator import *
 def _lowering(net, mode):
     for op in net.AllOps:
         if isinstance(op, Reshape):
-            if mode == "int8":
-                NpuOp = _lowering_int8(op)
-            else:
+            if mode is None:
                 NpuOp = _lowering_none(op)
+
+            elif mode == DataType.INT8:
+                NpuOp = _lowering_int8(op)
+
+            elif mode == DataType.FLOAT32:
+                NpuOp = _lowering_fp32(op)
+
+            else:
+                raise NotImplementedError('Unsupported lowing mode')
 
             op_id = net.get_op_idx(op)
             net.delete_op(op_id)

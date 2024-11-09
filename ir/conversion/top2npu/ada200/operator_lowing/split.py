@@ -8,10 +8,13 @@ def _lowering(net, mode):
         if isinstance(op, Split):
             if mode is None:
                 NpuOp = _lowering_none(op)
-            elif mode == "int8":
+
+            elif mode == DataType.INT8:
                 NpuOp = _lowering_int8(op)
-            elif mode == "fp32":
+
+            elif mode == DataType.FLOAT32:
                 NpuOp = _lowering_fp32(op)
+
             else:
                 raise NotImplementedError('Unsupported lowing mode')
 

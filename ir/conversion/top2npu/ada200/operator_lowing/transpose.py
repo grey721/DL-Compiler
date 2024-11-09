@@ -6,7 +6,7 @@ from ir.dialect.npu.IR_operator import *
 def _lowering(net, mode):
     for op in net.AllOps:
         if isinstance(op, Transpose):
-            if mode == "int8":
+            if mode == DataType.INT8:
                 NpuOp = _lowering_int8(op)
             else:
                 NpuOp = _lowering_none(op)

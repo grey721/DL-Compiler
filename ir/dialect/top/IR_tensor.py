@@ -1,4 +1,5 @@
 import numpy as np
+from ir.constant.type_mapping import *
 
 
 # H高度，w宽度，C通道数，M卷积核数量，也是输出的深度
@@ -6,28 +7,6 @@ import numpy as np
 # reshape函数用于改变张量的形状，即在不改变张量数据内容的情况下，重新排列张量的维度。
 # resize函数用于改变张量的形状，并且在必要时可以增减张量中的数据。
 # https://www.bilibili.com/video/BV16N411y7cV/?spm_id_from=333.337.search-card.all.click&vd_source=81863602d1b31de5a4149c4065401902
-
-
-class Format(object):  # 高维张量的展开模式
-    NCHW = 0
-    NHWC = 1
-
-
-class DataType(object):  # 数据类型ID
-    FLOAT32 = 0
-    FLOAT16 = 1
-    INT32 = 2
-    UINT8 = 3
-    INT64 = 4
-    STRING = 5
-    BOOL = 6
-    INT16 = 7
-    COMPLEX64 = 8
-    INT8 = 9
-    FLOAT64 = 10
-    COMPLEX128 = 11
-    BFLOAT16 = 12
-    BFLOAT32 = 13
 
 
 class Shape:  # 专门用于表示张量形状的class
@@ -77,10 +56,10 @@ class Shape:  # 专门用于表示张量形状的class
     def get_shape_as_np(self):
         return np.array(self.list)
 
-    def get_n_shape(self, tensor_format=Format.NCHW):
+    def get_n_shape(self, tensor_format=Layout.NCHW):
         """tensor_format = 0:NCHW, 1: NHWC"""
         if len(self.list) < 5:
-            if tensor_format == Format.NCHW:
+            if tensor_format == Layout.NCHW:
                 return [self.N, self.H, self.W, self.C]
             else:
                 return [self.N, self.C, self.H, self.W]
@@ -94,20 +73,10 @@ class Shape:  # 专门用于表示张量形状的class
         return res
 
 
-class TensorType(object):
-    Intermediate = 0
-    Weight = 1
-    Bias = 2
-    Parameter = 3
-    Const = 4
-    Input = 5
-    Output = 6
-
-
 class IRTensor:  # IR中，表示张量的class
     Name = "top_ir_tensor"
     Id = None
-    Format = Format.NCHW
+    Layout = Layout.NCHW
     Type = TensorType.Intermediate
     DataType = DataType.INT8
     ZeroPoint = None
@@ -115,9 +84,6 @@ class IRTensor:  # IR中，表示张量的class
     Q_min = None
     Q_max = None
     Data = None
-    # 输出该张量的 算子的 在AllTensors中的 索引
-    # NumpyData = None
-    # Tensor_id = None
     idx = None
 
     def __init__(self):
@@ -141,7 +107,7 @@ class IRTensor:  # IR中，表示张量的class
             f"Type:{mapping[self.Type]}\n"
             f'{self.OwnerOp} -> {self.ConsumerOp}\n'
             f"Shape:{self.Shape}\n"
-            f"Format:{self.Format}\n"
+            f"Format:{self.Layout}\n"
             # f"Data:{self.Data}\n"
             f'############## Tensor.{self.idx} ##############\n'
         )

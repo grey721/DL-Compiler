@@ -7,9 +7,9 @@ from ir.dialect.npu.IR_operator import *
 def _lowering(net, mode):
     for op in net.AllOps:
         if isinstance(op, FullConnected):
-            if mode == "int8":
+            if mode == DataType.INT8:
                 NpuOp = _lowering_int8(op, net)
-            if mode == "fp32":
+            elif mode == DataType.FLOAT32:
                 NpuOp = _lowering_fp32(op, net)
 
             op_id = net.get_op_idx(op)
