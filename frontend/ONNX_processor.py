@@ -1,6 +1,6 @@
 import json
 
-from frontend.tool.constant_ONNX import *
+from frontend.framework_params.constant_ONNX import *
 from ir.graph.Graph_IR import *
 
 

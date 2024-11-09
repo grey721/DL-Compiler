@@ -38,7 +38,7 @@ class Individual:
 
 
 class FuncsType(Enum):
-    Obj = 0
+    OBJ = 0
     mutate = 1
     crossover = 2
     p_init = 3
@@ -58,7 +58,7 @@ class NSGA2:
         self.p_mutation = p_mutation
 
         self.funcs = {
-            FuncsType.Obj: [],
+            FuncsType.OBJ: [],
             FuncsType.mutate: [],
         }
 
@@ -103,7 +103,7 @@ class NSGA2:
         pass
 
     def evolve(self):
-        if len(self.funcs[FuncsType.Obj]) == 0:
+        if len(self.funcs[FuncsType.OBJ]) == 0:
             print("No objective function")
             return
 
@@ -130,7 +130,7 @@ class NSGA2:
 
     def evaluate_population(self):
         for idx in range(len(self.pop)):
-            self.pop[idx].evaluate(self.funcs[FuncsType.Obj])
+            self.pop[idx].evaluate(self.funcs[FuncsType.OBJ])
 
     def plot_2d_rank(self, rank):
         colors = ['red', 'blue', 'green', 'purple', 'orange', 'magenta', 'cyan', 'black', 'lime', 'brown', 'pink',
@@ -158,12 +158,12 @@ class NSGA2:
 if __name__ == "__main__":
     al = NSGA2()
 
-    @al.register_funcs(FuncsType.Obj)
+    @al.register_funcs(FuncsType.OBJ)
     def z1(x):
         n = len(x)
         return 1 - np.exp(-sum((x-1/np.sqrt(n))**2))
 
-    @al.register_funcs(FuncsType.Obj)
+    @al.register_funcs(FuncsType.OBJ)
     def z2(x):
         n = len(x)
         return 1 - np.exp(-sum((x+1/np.sqrt(n))**2))

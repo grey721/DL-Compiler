@@ -3,10 +3,8 @@ from frontend.ONNX_processor import *
 # IR
 from ir.conversion.top2npu.top2npu_pass import *
 from ir.conversion.ir_transform import *
-from ir.conversion.optimization.my_fuse import *
-# from ir.conversion.optimization.subnet import *
-# from ir.conversion.optimization.layer_group import *
-from ir.conversion.optimization.memory_assign_mine import *
+from ir.conversion.optimization.op_fuse import *
+from ir.conversion.optimization.memory_assign import *
 from ir.conversion.optimization.weight_reorder import *
 from ir.conversion.codegen.codegen import *
 

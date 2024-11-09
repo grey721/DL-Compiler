@@ -1,107 +1,47 @@
-from ir.graph.Graph_IR import *
-from ir.dialect.npu.IR_operator import *
+from enum import Enum
+
 from ir.conversion.ir_transform import _find_post_op, _find_pre_op, \
     _register_ir_transformation_rule, \
     _copy_opbase_input_info, \
     _copy_opbase_output_info, \
-    _find_pre_npu_op, \
-    _find_post_npu_op, \
     _order_pre_op, \
     _order_post_op
-from enum import Enum
+from ir.graph.Graph_IR import *
 
 
 class TransformRule(Enum):
-    NOPE = 1  #
+    ORDER_TOP_OPS = 1
+    ORDER_NPU_OPS = 2
+    CONST_FOLDING = 3
+    NPU_PAD = 4
+    NPU_SISO_OP = 5
 
-    # reoder ops
-    ORDER_TOP_OPS = 2  # 排序
-    ORDER_NPU_OPS = 5  # 排序
-    # fuse ops
-    FUSE_CONV_BN = 7  #
-    FUSE_CONV_RELU = 3  #
-    PADDING_FOR_CONV_AND_POOLING = 4  #
-    # remove reshape
-    REMOVE_RESHAPE_INPUT = 10  #
-    REMOVE_RESHAPE_REALTED = 11  #
-    REMOVE_DROPOUT = 12  #
-    REMOVE_IDENTITY = 13  #
-    REMOVE_PADDING = 14  #
-
-    DELETE_FUSE_CONST = 15  # 消除常数算子
-
-    # TODO NEW
-    NPU_CONV_ACTIVATION_ELW_shortcut = 51
-
-    DEPTHWISE_CONV_RESHAPE_WEIGHT = 106  #
-
-    # vpu post layer fuse all set
-    NPU_CONV = 107   # conv + [[conv, None, reshape, transpose], [concat, elw] + [conv, None, reshape, transpose]]
-    NPU_FC = 108    # FullConnect + [Conv / FullConnect / NPU / Pad], [Reshape / Transpose / Softmax]
-
-    # A41
-    NPU_CONV_ACTIVATION = 250
-    NPU_CONV_RESIZE = 251
-    NPU_CONV_POOL = 252
-    NPU_CONV_ELW = 253
-
-    # A42
-    NPU_CONV_ACTIVATION_ELW = 201
-    NPU_CONV_ACTIVATION_RESIZE = 202
-    NPU_CONV_ACTIVATION_POOL = 203
-    NPU_CONV_POOL_ELW = 204
-    NPU_CONV_POOL_ACTIVATION = 205
-    NPU_CONV_RESIZE_ELW = 206
-    NPU_CONV_RESIZE_ACTIVATION = 207
-    NPU_CONV_ELW_RESIZE = 208
-    NPU_CONV_ELW_POOL = 209
-    NPU_CONV_ELW_ACTIVATION = 200
-
-    # A43
-    NPU_CONV_ACTIVATION_ELW_POOL = 221
-    NPU_CONV_ACTIVATION_ELW_RESIZE = 222
-    NPU_CONV_ACTIVATION_POOL_ELW = 223
-    NPU_CONV_ACTIVATION_RESIZE_ELW = 224
-    NPU_CONV_ELW_ACTIVATION_POOL = 225
-    NPU_CONV_ELW_ACTIVATION_RESIZE = 226
-    NPU_CONV_ELW_POOL_ACTIVATION = 227
-    NPU_CONV_ELW_RESIZE_ACTIVATION = 228
-    NPU_CONV_POOL_ELW_ACTIVATION = 229
-    NPU_CONV_POOL_ACTIVATION_ELW = 230
-    NPU_CONV_RESIZE_ACTIVATION_ELW = 231
-    NPU_CONV_RESIZE_ELW_ACTIVATION = 232
-
-    NPU_PAD = 300
-    NPU_PAD_CONV = 301  # 融合Pad和Conv
-    NPU_PAD_POOL = 302
-
-    NPU_RESHAPE_FC = 303  # 将单输入且输出为1*1的Reshape与相连的FullConnect融合
-    NPU_RESHAPE_CONV = 304  # 将单输入且输出为1*1的Reshape与相连的Conv融合
+    SHORTCUT_CONV_ACTIVATION_ELW = 6
+    NPU_CONCAT = 7
 
 
-def _check_post_op_only_conv_or_out(net, op):
-    """post op is all: Conv2d / FullConnected / NpuOp / NpuPad"""
-    flag = True
-    post_op_ids = _find_post_op(net, op)
-    for post_op_ids_idx in post_op_ids:
-        post_op = net.get_op(post_op_ids_idx)
-        if not (isinstance(post_op, NpuConv2d)
-                or isinstance(post_op, NpuFullConnected)
-                or isinstance(post_op, NpuOp)
-                or isinstance(post_op, NpuPad)):
-            flag = False
-    return flag
+# TOOL
+class OpType(Enum):
+    pre = 0
+    tpu = 1
+    vpu = 2
 
 
-def _check_post_op_out(net, op):
-    """Next ops is all:  NpuReshape, NpuTranspose"""
-    flag = True
-    post_op_ids = _find_post_op(net, op)
-    for post_op_ids_idx in post_op_ids:
-        post_op = net.get_op(post_op_ids_idx)
-        if not (isinstance(post_op, NpuReshape) or isinstance(post_op, NpuTranspose)):
-            flag = False
-    return flag
+op_type_mapping = {
+    OpType.pre: (NpuPad,),
+    OpType.tpu: (NpuConv2d,),
+    OpType.vpu: (NpuActivation, NpuElemWise, NpuResize, NpuPool, NpuTranspose, NpuReshape)
+}
+
+
+def quick_sort(arr):
+    if len(arr) <= 1:
+        return arr
+    pivot = arr[len(arr) // 2]
+    left = [x for x in arr if x > pivot]  # 大于枢轴的元素
+    middle = [x for x in arr if x == pivot]  # 等于枢轴的元素
+    right = [x for x in arr if x < pivot]  # 小于枢轴的元素
+    return quick_sort(left) + middle + quick_sort(right)
 
 
 def _check_concat_mode(concat_ops, tensor_record):
@@ -119,20 +59,23 @@ def _check_concat_mode(concat_ops, tensor_record):
             mode = 1
         else:
             mode = 0
-    print("mode: ", mode)
+    print("     mode: ", mode)
     return mode
 
 
-def _check_post_op_only_cpu_op(net, op):
-    """only one post op and its device is cpu: Reshape / Transpose / Softmax"""
+def _check_op_state(net, op, tensor_record):
+    """ op的输入怎么以及完备 """
     flag = False
-    post_op_ids = _find_post_op(net, op)
-    if len(post_op_ids) == 1:
-        post_op = net.get_op(post_op_ids[0])
-        if (isinstance(post_op, NpuReshape)
-                or isinstance(post_op, NpuTranspose)
-                or isinstance(post_op, NpuSoftmax)):
-            flag = True
+    flag_list = []
+    op_in_tensors = [t for t in op.InTensors if net.AllTensors[t].Type == TensorType.Intermediate]
+    if isinstance(op, NpuOp):
+        op_in_tensors.extend(op.elemwise_input_tensor)
+        op_in_tensors.extend(op.concat_input_tensor)
+    for tensor_id in op_in_tensors:
+        if tensor_id in tensor_record:
+            flag_list.append(1)
+    if len(flag_list) == len(op_in_tensors):
+        flag = True
     return flag
 
 
@@ -146,7 +89,7 @@ def _update_tensor_record(tensor_record, op):
         tensor_record.extend(op.OutTensors)
 
 
-# run first
+# MAIN
 @_register_ir_transformation_rule(TransformRule.ORDER_TOP_OPS)
 def _order_top_ops(net: GraphIR):  # 排序Top
     print("----start TransformRule.ORDER_TOP_OPS---")
@@ -161,1869 +104,111 @@ def _order_top_ops(net: GraphIR):  # 排序Top
 @_register_ir_transformation_rule(TransformRule.ORDER_NPU_OPS)
 def _order_npu_ops(net: GraphIR):  # 排序NPU
     print("----start TransformRule.ORDER_NPU_OPS---")
+    lens = len(net.AllOps)
     for op_idx, op in enumerate(net.AllOps):
         op.NpuOpId = op_idx
         pre_op_id = _order_pre_op(net, op)
         post_op_id = _order_post_op(net, op)
-        op.PreTopOpId = pre_op_id
-        op.PostTopOpId = post_op_id
+        op.PreOpId = pre_op_id
+        op.PostOpId = post_op_id
+
+        # 确保AllOps列表里的NpuOp的输入特征图是上一个Op的输出特征图
+        if op_idx < lens - 1:
+            next_op = net.AllOps[op_idx + 1]
+            if len(next_op.InTensors) > 1 and isinstance(next_op, NpuOp):
+                for t in next_op.InTensors:
+                    if t in next_op.fmo_tensor:
+                        net.AllOps[op_idx + 1].fmi_tensor = [t]
+                        break
+
+        # 给Concat的PreOpId排序
+        if isinstance(op, NpuConcat):
+            n_pre_op = []
+            for t in op.InTensors:
+                for pre_op_idx in op.PreOpId:
+                    pre_t = net.AllOps[pre_op_idx].OutTensors
+                    if t in pre_t:
+                        n_pre_op.append(pre_op_idx)
+                        continue
+            if len(n_pre_op) == len(op.PreOpId):
+                net.AllOps[op_idx].PreOpId = n_pre_op
+
         print(op.NpuOpId, op.Type, pre_op_id, post_op_id)
-    # old
-    # print("----start TransformRule.ORDER_NPU_OPS---")
-    # for op_idx, op in enumerate(net.AllOps):
-    #     print(f"iter:{op_idx}, {op.Type}")
-    #     op.NpuOpId = op_idx
-    #
-    # for op_idx, op in enumerate(net.AllOps):
-    #     if isinstance(op, NpuOp):
-    #         pre_op_id = _find_pre_npu_op(net, op)
-    #         post_op_id = _find_post_npu_op(net, op)
-    #         op.PreTopOpId = pre_op_id
-    #         op.PostTopOpId = post_op_id
-    #         print(op.NpuOpId, pre_op_id, post_op_id)
 
 
-@_register_ir_transformation_rule(TransformRule.NPU_RESHAPE_CONV)
-def _post_fuse_reshape_conv(net: GraphIR):  # reshape与下一个卷积
-    print("-----TransformRule NPU_RESHAPE_CONV-----")
-    for _op_id, op in enumerate(net.AllOps):
-        if isinstance(op, NpuReshape):
-            if op.OutputShape[0].H == op.OutputShape[0].W == 1:  # 1 x 1 卷积？
-                conv_op_ids = []
-                conv_ops = []
-                post_op_ids = _find_post_op(net, op)
-                op_id = net.get_op_idx(op)
-
-                for post_op_ids_idx in post_op_ids:
-                    post_op = net.get_op(post_op_ids_idx)
-                    if isinstance(post_op, NpuConv2d):
-                        conv_ops.append(post_op)
-                        conv_op_ids.append(post_op_ids_idx)
-
-                if len(conv_ops) == 1:
-                    flag = True
-                else:
-                    flag = False
-
-                print(flag)
-                if flag:
-                    conv_op = conv_ops[0]
-                    # _copy_opbase_input_info(fc_op, op)
-                    replace_tensor_index = conv_op.InTensors.index(op.OutTensors[0])
-                    assert len(op.InTensors) == 1  # Reshape的输入只有1个
-                    conv_op.InTensors[replace_tensor_index] = op.InTensors[0]  # 卷积的输入换成Reshape的输入
-                    net.delete_op(op_id)  # 删除Reshape
-
-
-# USE "is" LOGIC
-@_register_ir_transformation_rule(TransformRule.NPU_PAD_CONV)
-def _post_fuse_conv_single(net: GraphIR):  # 融合Pad和Conv
-    print("-----TransformRule NPU_PAD_CONV-----")
+@_register_ir_transformation_rule(TransformRule.NPU_PAD)
+def _post_fuse_pad(net: GraphIR):  # 融合Pad和Conv、Pool
+    print("----start TransformRule NPU_PAD-----")
     for _op_id, op in enumerate(net.AllOps):
         if isinstance(op, NpuPad):
-            conv_op_ids = []
-            conv_ops = []
-            post_op_ids = _find_post_op(net, op)
-            op_id = net.get_op_idx(op)
+            print(f"iter:{_op_id}", op.Type)
+            post_op_ids = _order_post_op(net, op)
+            flag = True
+            for post_op_idx in post_op_ids:
+                post_op = net.get_op(post_op_idx)
+                if not isinstance(post_op, (NpuConv2d, NpuPool)):
+                    flag = False
+            print(flag)
+            if flag:
+                for post_op_idx in post_op_ids:
+                    post_op = net.get_op(post_op_idx)
+                    if post_op.pad_top < 0 or post_op.pad_bottom < 0 or \
+                            post_op.pad_left < 0 or post_op.pad_right < 0:
+                        print("Pool Pad < 0")
+                    post_op.pad_top += op.pad_top
+                    post_op.pad_bottom += op.pad_bottom
+                    post_op.pad_left += op.pad_left
+                    post_op.pad_right += op.pad_right
+                net.delete_op(_op_id)
 
-            for post_op_ids_idx in post_op_ids:
-                post_op = net.get_op(post_op_ids_idx)
-                if isinstance(post_op, NpuConv2d):
-                    conv_ops.append(post_op)
-                    conv_op_ids.append(post_op_ids_idx)
 
-            if len(conv_ops) == 1:
-                flag = True
+@_register_ir_transformation_rule(TransformRule.NPU_SISO_OP)
+def _fuse_single_output(net: GraphIR):
+    print("----start TransformRule.COMMON---")
+
+    def fuse_op(op_idx, fuse_list):
+        op = net.get_op(op_idx)
+        if isinstance(op, op_type_mapping[OpType.tpu]):
+            if fuse_list:
+                return
             else:
-                flag = False
+                fuse_list.append(op)
+        elif isinstance(op, op_type_mapping[OpType.vpu]):
+            if fuse_list:
+                net.delete_op(op_idx)
+                fuse_list.append(op)
+        else:
+            # print("stop:", op.Type)
+            return
 
-            print(flag)
-            if flag:
-                conv_op = conv_ops[0]
-                conv_op.InputH = op.InputShape[0].H
-                conv_op.InputW = op.InputShape[0].W
+        post_op_idx = _order_post_op(net, op)
+        if len(post_op_idx) == 1:
+            fuse_op(post_op_idx[0], fuse_list)
 
-                conv_op.pad_top += op.pad_top
-                conv_op.pad_bottom += op.pad_bottom
-                conv_op.pad_left += op.pad_left
-                conv_op.pad_right += op.pad_right
-
-                if op.TopOpId == 0:
-                    conv_op.FirstLayer = True
-
-                _copy_opbase_input_info(conv_op, op)
-                replace_tensor_index = conv_op.InTensors.index(op.OutTensors[0])
-                assert len(op.InTensors) == 1
-                conv_op.InTensors[replace_tensor_index] = op.InTensors[0]
+    for op_id, npu_op in enumerate(net.AllOps):
+        if isinstance(npu_op, op_type_mapping[OpType.tpu]):
+            op_list = []
+            fuse_op(op_id, op_list)
+            if len(op_list) > 1:
                 net.delete_op(op_id)
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_PAD_POOL)
-def _post_fuse_pool_single(net: GraphIR):
-    print("------TransformRule NPU_PAD_POOL-----")
-    i = 0
-    tensor_record = []
-    for _op_id, op in enumerate(net.AllOps):
-        _update_tensor_record(tensor_record, op)
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuPad):
-            flag = False
-            mode = -1
-            pool_op_ids = _find_post_op(net, op)
-            pool_ops = []
-            concat_op_ids = []
-            concat_ops = []
-            pad_op_ids = []
-            pad_ops = []
-            other_ops = []
-            if len(pool_op_ids) == 1:
-                pool_op = net.get_op(pool_op_ids[0])
-                if isinstance(pool_op, NpuPool):
-                    _update_tensor_record(tensor_record, pool_op)
-                    pool_ops.append(pool_op)
-                    post_pool_op_id = _find_post_op(net, pool_op)
-                    print(len(post_pool_op_id))
-                    for post_pool_op_id_idx in post_pool_op_id:
-                        post_pool_op = net.get_op(post_pool_op_id_idx)  # Pool的下一个
-                        if isinstance(post_pool_op, NpuConv2d) or isinstance(post_pool_op, NpuOp):  # 下一个是卷积或者是NPU
-                            pad_ops.append(post_pool_op)
-                            pad_op_ids.append(post_pool_op_id_idx)
-                            continue
-                        elif isinstance(post_pool_op, NpuConcat):
-                            concat_flag = True
-                            post_concat_op_ids = _find_post_op(net, post_pool_op)
-                            for post_concat_op_ids_idx in post_concat_op_ids:
-                                post_concat_op = net.get_op(post_concat_op_ids_idx)
-                                if not isinstance(post_concat_op, NpuConv2d):  # 下一个是Concat，并且串联的下一个,每个都是卷积
-                                    concat_flag = False
-                            if concat_flag:
-                                concat_ops.append(post_pool_op)
-                                concat_op_ids.append(post_pool_op_id_idx)
-                            continue
-                        else:  # Pool的下一个，非预期之内
-                            other_ops.append(post_pool_op)
-
-                    print(len(concat_ops), len(pad_ops), len(other_ops))
-                    if ((len(concat_ops) > 0) or (len(pad_ops) > 0)) and (len(other_ops) == 0):
-                        flag = True
-            print(flag)
-            if flag:
-                mode = _check_concat_mode(concat_ops, tensor_record)  # concat的张量是否完全由已经记录的张量组成
 
                 npu_op = NpuOp()
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-                if mode == 0:
-                    npu_op.OutTensors = pool_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, pool_ops[0])
-                if mode == 1:
-                    npu_op.OutTensors = concat_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, concat_ops[0])
-
-                pad_bottom = pool_ops[0].pad_bottom
-                pad_left = pool_ops[0].pad_left
-                pad_right = pool_ops[0].pad_right
-                pad_top = pool_ops[0].pad_top
-                # TODO ？？还会小于零？
-                if pad_bottom < 0:
-                    op.pad_bottom += pad_bottom
-                    assert op.pad_bottom >= 0
-                    pool_ops[0].pad_bottom = 0
-
-                if pad_left < 0:
-                    op.pad_left += pad_left
-                    assert op.pad_left >= 0
-                    pool_ops[0].pad_left = 0
-
-                if pad_right < 0:
-                    op.pad_right += pad_right
-                    assert op.pad_right >= 0
-                    pool_ops[0].pad_right = 0
-
-                if pad_top < 0:
-                    op.pad_top += pad_top
-                    assert op.pad_top >= 0
-                    pool_ops[0].pad_top = 0
-
-                npu_op.NpuOpMode = VpuPostOpSetMode.POOL
-                npu_op.NpuOpConv = False
-                npu_op.NpuOpPad = True
-                npu_op.NpuOpPadOp = op
-                npu_op.NpuOpPool = True
-                npu_op.NpuOpPoolOp = pool_ops[0]
-                npu_op.NpuOpFlow.append(npu_op.NpuOpPadOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpPoolOp)
-
-                if mode == 1:
-                    npu_op.NpuOpConcat = True
-                    npu_op.NpuOpConcatOp = concat_ops[0]
-                    npu_op.NpuOpConcatOp.main_input_tensor_id = npu_op.NpuOpFlow[-1].OutTensors
-                    npu_op.NpuOpFlow.append(npu_op.NpuOpConcatOp)
-
-                op_id = net.get_op_idx(op)
-                assert (op_id + 1) == pool_op_ids[0]
-                net.delete_op(op_id)
-                net.delete_op(op_id)
-                if mode == 1:
-                    assert (op_id + 2) == concat_op_ids[0]
-                    net.delete_op(op_id)
-                npu_op.init_all()
+                npu_op.fuse_ops(op_list)
                 net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
-                npu_op.NpuOpId = op.TopOpId
 
-
-# run first
-# conv + [[conv, None, reshape, transpose], [concat, elw] + [conv, None, reshape, transpose]]
-@_register_ir_transformation_rule(TransformRule.NPU_CONV)
-def _post_fuse_concat_single(net: GraphIR):
-    print("------TransformRule NPU_CONV-----")
-    i = 0
-    tensor_record = []
-    for _op_id, op in enumerate(net.AllOps):
-        _update_tensor_record(tensor_record, op)
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuConv2d):  # conv
-            flag = False
-            mode = -1
-
-            if _check_post_op_out(net, op):  #
-                flag = True
-            concat_op_ids = []
-            concat_ops = []
-            post_op_ids = _find_post_op(net, op)  # conv下一个
-            for post_op_ids_idx in post_op_ids:
-                post_op = net.get_op(post_op_ids_idx)
-                if isinstance(post_op, NpuConcat):  # 下一个op中是Concat的
-                    if _check_post_op_only_conv_or_out(net, post_op):  # Concat下一个仍然都是卷积类的
-                        flag = True
-                        concat_ops.append(post_op)
-                        concat_op_ids.append(post_op_ids_idx)
-
-            for post_op_ids_idx in post_op_ids:
-                post_op = net.get_op(post_op_ids_idx)
-                if not isinstance(post_op, NpuConcat):  # 下一个op中不全是Concat
-                    flag = False
-
-            if _check_post_op_only_conv_or_out(net, op):  # Conv + Conv
-                flag = True
-
-            if _check_post_op_only_cpu_op(net, op):  # Conv + Reshape \ Transpose \ Softmax
-                flag = True
-
-            print(flag)
-            if flag:
-                mode = _check_concat_mode(concat_ops, tensor_record)
-
-                npu_op = NpuOp()
-                npu_op.NpuOpConvOp = op
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpConvOp)
-
-                if mode == 0:
-                    npu_op.OutTensors = op.OutTensors
-                    _copy_opbase_output_info(npu_op, op)
-                if mode == 1:
-                    npu_op.OutTensors = concat_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, concat_ops[0])
-
-                npu_op.NpuOpMode = VpuPostOpSetMode.NONE
-                if mode == 1:  # Concat信息已全
-                    npu_op.NpuOpConcat = True
-                    npu_op.NpuOpConcatOp = concat_ops[0]
-                    npu_op.NpuOpConcatOp.main_input_tensor_id = npu_op.NpuOpFlow[-1].OutTensors
-                    npu_op.NpuOpFlow.append(npu_op.NpuOpConcatOp)
-                npu_op.init_all()
-
-                op_id = net.get_op_idx(op)
-                net.delete_op(op_id)
-
-                if mode == 1:  # Concat信息已全，Concat也融合进去
-                    assert op_id + 1 == concat_op_ids[0]
-                    net.delete_op(op_id)
-                net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
-                npu_op.NpuOpId = op.TopOpId
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_ELW)
-def _post_fuse_elw_single(net: GraphIR):
-    print("------TransformRule NPU_CONV_ELW-----")
-    i = 0
-    tensor_record = []
-    for _op_id, op in enumerate(net.AllOps):
-        _update_tensor_record(tensor_record, op)
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuConv2d):  # 第一个卷积
-            flag = False
-            mode = -1
-            op_id = net.get_op_idx(op)
-            elw_op_ids = _find_post_op(net, op)
-            elw_ops = []
-            concat_op_ids = []
-            concat_ops = []
-            conv_op_ids = []
-            conv_ops = []
-            other_ops = []
-            if len(elw_op_ids) == 1:
-                elw_op = net.get_op(elw_op_ids[0])
-                if isinstance(elw_op, NpuElemWise):  # Conv + ElemWise
-                    _update_tensor_record(tensor_record, elw_op)
-                    elw_ops.append(elw_op)
-                    post_elw_op_id = _find_post_op(net, elw_op)
-                    print(len(post_elw_op_id))
-                    for post_elw_op_id_idx in post_elw_op_id:
-                        post_elw_op = net.get_op(post_elw_op_id_idx)
-                        # Conv + ElemWise + Conv \ Npu \ ElemWise \ Mean
-                        if isinstance(post_elw_op, NpuConv2d)   \
-                                or isinstance(post_elw_op, NpuOp) \
-                                or isinstance(post_elw_op, NpuElemWise) \
-                                or isinstance(post_elw_op, NpuMean):
-                            conv_ops.append(post_elw_op)
-                            conv_op_ids.append(post_elw_op_id_idx)
-                        # Conv + ElemWise + Concat
-                        elif isinstance(post_elw_op, NpuConcat):
-                            concat_flag = True
-                            post_concat_op_ids = _find_post_op(net, post_elw_op)
-                            for post_concat_op_ids_idx in post_concat_op_ids:
-                                post_concat_op = net.get_op(post_concat_op_ids_idx)
-                                if not isinstance(post_concat_op, NpuConv2d):
-                                    concat_flag = False
-                            if concat_flag:
-                                concat_ops.append(post_elw_op)
-                                concat_op_ids.append(post_elw_op_id_idx)
-                        else:
-                            other_ops.append(post_elw_op)
-
-                    print(len(concat_ops), len(conv_ops), len(other_ops))
-                    if ((len(concat_ops) > 0) or (len(conv_ops) > 0)) \
-                            and (len(other_ops) == 0) \
-                            and (op_id + 1) == elw_op_ids[0]:
-                        flag = True
-            print(flag)
-            if flag:
-                mode = _check_concat_mode(concat_ops, tensor_record)
-
-                npu_op = NpuOp()
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-                if mode == 0:
-                    npu_op.OutTensors = elw_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, elw_ops[0])
-                if mode == 1:
-                    npu_op.OutTensors = concat_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, concat_ops[0])
-
-                npu_op.NpuOpMode = VpuPostOpSetMode.ELW
-                npu_op.NpuOpConvOp = op
-                npu_op.NpuOpElemWise = True
-                npu_op.NpuOpElemWiseOp = elw_ops[0]
-                npu_op.NpuOpFlow.append(npu_op.NpuOpConvOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpElemWiseOp)
-
-                if mode == 1:
-                    npu_op.NpuOpConcat = True
-                    npu_op.NpuOpConcatOp = concat_ops[0]
-                    npu_op.NpuOpConcatOp.main_input_tensor_id = npu_op.NpuOpFlow[-1].OutTensors
-                    npu_op.NpuOpFlow.append(npu_op.NpuOpConcatOp)
-
-                assert (op_id + 1) == elw_op_ids[0]
-                net.delete_op(op_id)
-                net.delete_op(op_id)
-                if mode == 1:
-                    assert (op_id + 2) == concat_op_ids[0]
-                    net.delete_op(op_id)
-                npu_op.init_all()
-                net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
-                npu_op.NpuOpId = op.TopOpId
-
-
-# conv + act + [conv, concat + conv]
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_ACTIVATION)
-def _post_fuse_activation_single(net: GraphIR):
-    print("-----TransformRule NPU_CONV_ACTIVATION-----")
-    i = 0
-    tensor_record = []
-    for _op_id, op in enumerate(net.AllOps):
-        _update_tensor_record(tensor_record, op)
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuConv2d):
-            flag = False
-            mode = -1
-            acti_op_ids = _find_post_op(net, op)
-            acti_ops = []
-            concat_op_ids = []
-            concat_ops = []
-            conv_op_ids = []
-            conv_ops = []
-            other_ops = []
-            if len(acti_op_ids) == 1:
-                acti_op = net.get_op(acti_op_ids[0])
-                if isinstance(acti_op, NpuActivation):
-                    _update_tensor_record(tensor_record, acti_op)
-                    acti_ops.append(acti_op)
-                    post_acti_op_id = _find_post_op(net, acti_op)
-                    print(len(post_acti_op_id))
-                    for post_acti_op_id_idx in post_acti_op_id:
-                        post_acti_op = net.get_op(post_acti_op_id_idx)
-                        if isinstance(post_acti_op, NpuConv2d) or isinstance(post_acti_op, NpuOp):
-                            conv_ops.append(post_acti_op)
-                            conv_op_ids.append(post_acti_op_id_idx)
-                            continue
-                        else:
-                            if isinstance(post_acti_op, NpuConcat):
-                                concat_flag = True
-                                post_concat_op_ids = _find_post_op(net, post_acti_op)
-                                for post_concat_op_ids_idx in post_concat_op_ids:
-                                    post_concat_op = net.get_op(post_concat_op_ids_idx)
-                                    if not isinstance(post_concat_op, NpuConv2d):
-                                        concat_flag = False
-                                if concat_flag:
-                                    concat_ops.append(post_acti_op)
-                                    concat_op_ids.append(post_acti_op_id_idx)
-                                continue
-                            else:
-                                other_ops.append(post_acti_op)
-
-                    print(len(concat_ops), len(conv_ops), len(other_ops))
-                    if ((len(concat_ops) > 0) or (len(conv_ops) > 0)) and (len(other_ops) == 0):
-                        flag = True
-            print(flag)
-            if flag:
-                mode = _check_concat_mode(concat_ops, tensor_record)
-
-                npu_op = NpuOp()
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-                if mode == 0:
-                    npu_op.OutTensors = acti_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, acti_ops[0])
-                if mode == 1:
-                    npu_op.OutTensors = concat_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, concat_ops[0])
-
-                npu_op.NpuOpMode = VpuPostOpSetMode.ACTIVATION
-                npu_op.NpuOpConvOp = op
-                npu_op.NpuOpActivate = True
-                npu_op.NpuOpActivateOp = acti_ops[0]
-                npu_op.NpuOpFlow.append(npu_op.NpuOpConvOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpActivateOp)
-
-                if mode == 1:
-                    npu_op.NpuOpConcat = True
-                    npu_op.NpuOpConcatOp = concat_ops[0]
-                    npu_op.NpuOpConcatOp.main_input_tensor_id = npu_op.NpuOpFlow[-1].OutTensors
-                    npu_op.NpuOpFlow.append(npu_op.NpuOpConcatOp)
-
-                op_id = net.get_op_idx(op)
-                assert (op_id + 1) == acti_op_ids[0]
-                net.delete_op(op_id)
-                net.delete_op(op_id)
-                if mode == 1:
-                    assert (op_id + 2) == concat_op_ids[0]
-                    net.delete_op(op_id)
-                npu_op.init_all()
-                net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
-                npu_op.NpuOpId = op.TopOpId
-
-
-# conv + acti + ['concat + conv, elw + conv,' pool + 'concat' + conv, pool + conv]
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_ACTIVATION_POOL)
-def _post_fuse_activation_pool(net: GraphIR):
-    print("-----TransformRule NPU_CONV_ACTIVATION_POOL-----")
-    i = 0
-    tensor_record = []
-    for op in net.AllOps:
-        _update_tensor_record(tensor_record, op)
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuConv2d):
-            flag = False
-            mode = -1
-            acti_op_ids = _find_post_op(net, op)
-            acti_ops = []
-            pool_ops = []
-            pool_op_ids = []
-            post_pool_ops = []
-            post_pool_op_ids = []
-            post_acti_pool_num = 0
-            post_acti_concat_num = 0
-            post_acti_elw_num = 0
-            post_acti_conv_num = 0
-            post_acti_other_num = 0
-            post_pool_conv_num = 0
-            post_pool_concat_num = 0
-            post_pool_other_num = 0
-
-            if len(acti_op_ids) == 1:
-                acti_op = net.get_op(acti_op_ids[0])
-                if isinstance(acti_op, NpuActivation):
-                    _update_tensor_record(tensor_record, acti_op)
-                    acti_ops.append(acti_op)
-                    post_acti_op_id = _find_post_op(net, acti_op)
-                    print(len(post_acti_op_id))
-                    for post_acti_op_id_idx in post_acti_op_id:
-                        post_acti_op = net.get_op(post_acti_op_id_idx)
-                        _update_tensor_record(tensor_record, post_acti_op)
-                        pool_ops.append(post_acti_op)
-                        pool_op_ids.append(post_acti_op_id_idx)
-                        post_pool_op_id = _find_post_op(net, post_acti_op)
-                        for post_pool_op_id_idx in post_pool_op_id:
-                            post_pool_op = net.get_op(post_pool_op_id_idx)
-                            post_pool_ops.append(post_pool_op)
-                            post_pool_op_ids.append(post_pool_op_id_idx)
-
-                    for op_post_acti in pool_ops:
-                        if isinstance(op_post_acti, NpuPool):
-                            post_acti_pool_num += 1
-                        elif isinstance(op_post_acti, NpuConcat):
-                            if _check_post_op_only_conv_or_out(net, op_post_acti):
-                                post_acti_concat_num += 1
-                        elif isinstance(op_post_acti, NpuElemWise):
-                            if _check_post_op_only_conv_or_out(net, op_post_acti):
-                                post_acti_elw_num += 1
-                        elif isinstance(op_post_acti, NpuConv2d) \
-                                or isinstance(op_post_acti, NpuOp):
-                            post_acti_conv_num += 1
-                        else:
-                            post_acti_other_num += 1
-                    for op_post_pool in post_pool_ops:
-                        if isinstance(op_post_pool, NpuConv2d) or isinstance(op_post_pool, NpuOp):
-                            post_pool_conv_num += 1
-                        elif isinstance(op_post_pool, NpuConcat):
-                            if _check_post_op_only_conv_or_out(net, op_post_pool):
-                                post_pool_concat_num += 1
-                        else:
-                            post_pool_other_num += 1
-
-                    print("post_acti_pool_num: ", post_acti_pool_num)
-                    print("post_acti_concat_num: ", post_acti_concat_num)
-                    print("post_acti_elw_num: ", post_acti_elw_num)
-                    print("post_acti_conv_num: ", post_acti_conv_num)
-                    print("post_acti_other_num: ", post_acti_other_num)
-                    print("post_pool_conv_num: ", post_pool_conv_num)
-                    print("post_pool_concat_num: ", post_pool_concat_num)
-                    print("post_pool_other_num: ", post_pool_other_num)
-
-                    if post_acti_other_num == 0 and post_pool_other_num == 0 and \
-                            post_acti_pool_num > 0:
-                        flag = True
-
-            print("flag: ", flag)
-            if flag:
-                op_id = net.get_op_idx(op)
-                if post_acti_concat_num + post_acti_elw_num + post_pool_concat_num == 0:
-                    mode = 0
-                elif (post_acti_concat_num + post_acti_elw_num) > 0 and post_pool_concat_num == 0:
-                    mode = 1
-                elif (post_acti_concat_num + post_acti_elw_num) == 0 and post_pool_concat_num > 0:
-                    mode = 2
-                elif (post_acti_concat_num + post_acti_elw_num) > 0 and post_pool_concat_num > 0:
-                    mode = 3
-                print("mode: ", mode)
-                npu_op = NpuOp()
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-                if mode == 0 or mode == 1:
-                    npu_op.OutTensors = pool_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, pool_ops[0])
-                if mode == 2 or mode == 3:
-                    npu_op.OutTensors = post_pool_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, post_pool_ops[0])
-
-                npu_op.NpuOpMode = VpuPostOpSetMode.ACTIVATION_POOL
-                npu_op.NpuOpConvOp = op
-                npu_op.NpuOpActivate = True
-                npu_op.NpuOpActivateOp = acti_ops[0]
-                npu_op.NpuOpPool = True
-                npu_op.NpuOpPoolOp = pool_ops[0]
-                post_pool_concat_op = None
-                npu_op.NpuOpFlow.append(npu_op.NpuOpConvOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpActivateOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpPoolOp)
-                if mode == 1 or mode == 3:
-                    npu_op.NpuOpActiOut = True
-                if mode == 2 or mode == 3:
-                    npu_op.NpuOpConcat = True
-                    for post_pool_concat_op in post_pool_ops:
-                        if isinstance(post_pool_concat_op, NpuConcat):
-                            npu_op.NpuOpConcatOp = post_pool_concat_op
-                            break
-                    npu_op.NpuOpConcatOp.main_input_tensor_id = npu_op.NpuOpFlow[-1].OutTensors
-                    npu_op.NpuOpFlow.append(npu_op.NpuOpConcatOp)
-
-                assert (op_id + 1) == acti_op_ids[0]
-                assert (op_id + 2) == pool_op_ids[0]
-                net.delete_op(op_id)  # delete conv
-                net.delete_op(op_id)  # delete acti
-                net.delete_op(op_id)  # delete pool
-                if mode == 2 or mode == 3:
-                    assert op_id == net.get_op_idx(post_pool_concat_op)
-                    net.delete_op(op_id)
-                npu_op.init_all()
-                net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
-                npu_op.NpuOpId = op.TopOpId
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_ACTIVATION_ELW)
-def _post_fuse_conv_activation_elw(net: GraphIR):
-    print("-----TransformRule NPU_CONV_ACTIVATION_ELW-----")
-    i = 0
-    tensor_record = []
-    for op in net.AllOps:
-        _update_tensor_record(tensor_record, op)
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuConv2d):
-            flag = False
-            resnet_flag = False
-            mode = -1
-            post_conv_ids = _find_post_op(net, op)
-            print("Post Op:", post_conv_ids)
-            acti_ops = []
-            elw_ops = []
-            elw_op_ids = []
-            post_elw_ops = []
-            post_elw_ids = []
-            post_acti_elw_num = 0
-            post_acti_concat_num = 0
-            post_acti_pool_num = 0
-            post_acti_conv_num = 0
-            post_acti_other_num = 0
-            post_elw_conv_num = 0
-            post_elw_concat_num = 0
-            post_elw_other_num = 0
-
-            if len(post_conv_ids) == 1:
-                acti_op = net.get_op(post_conv_ids[0])
-                if isinstance(acti_op, NpuActivation):
-                    _update_tensor_record(tensor_record, acti_op)
-                    acti_ops.append(acti_op)
-                    acti_post_op_ids = _find_post_op(net, acti_op)
-                    for acti_post_op_idx in acti_post_op_ids:
-                        post_acti_op = net.get_op(acti_post_op_idx)
-                        _update_tensor_record(tensor_record, post_acti_op)
-                        elw_ops.append(post_acti_op)
-                        elw_op_ids.append(acti_post_op_idx)
-                        post_elw_op_ids = _find_post_op(net, post_acti_op)
-                        for post_elw_op_idx in post_elw_op_ids:
-                            post_elw_op = net.get_op(post_elw_op_idx)
-                            post_elw_ops.append(post_elw_op)
-                            post_elw_ids.append(post_elw_op_idx)
-
-                    for post_op in elw_ops:
-                        if isinstance(post_op, NpuElemWise):
-                            post_acti_elw_num += 1
-                        elif isinstance(post_op, NpuConcat):
-                            if _check_post_op_only_conv_or_out(net, post_op):
-                                post_acti_concat_num += 1
-                        elif isinstance(post_op, NpuPool):
-                            if _check_post_op_only_conv_or_out(net, post_op):
-                                post_acti_pool_num += 1
-                        elif isinstance(post_op, (NpuConv2d, NpuOp)):
-                            post_acti_conv_num += 1
-                        else:
-                            post_acti_other_num += 1
-
-            elif len(post_conv_ids) == 2:
-                for post_conv_op_id in post_conv_ids:
-                    post_conv_op = net.get_op(post_conv_op_id)
-                    if isinstance(post_conv_op, Activation):
-                        _update_tensor_record(tensor_record, post_conv_op)
-                        acti_ops.append(post_conv_op)
-
-                    elif isinstance(post_conv_op, ElemWise):
-                        _update_tensor_record(tensor_record, post_conv_op)
-                        elw_op_ids.append(post_conv_op_id)
-                        elw_ops.append(post_conv_op)
-
-                        post_elw_op_ids = _find_post_op(net, post_conv_op)
-                        for post_elw_op_idx in post_elw_op_ids:
-                            post_elw_op = net.get_op(post_elw_op_idx)
-                            post_elw_ops.append(post_elw_op)
-                            post_elw_ids.append(post_elw_op_idx)
-
-                if len(acti_ops) == 1 and len(elw_ops) == 1:  # 激活后面的op是这两个
-                    acti_post_op_ids = _find_post_op(net, acti_ops[0])
-                    if len(acti_post_op_ids) == 1 and acti_post_op_ids[0] in post_conv_ids:
-                        post_acti_elw_num += 1
-                        resnet_flag = True
-
-            for elw_post_op in post_elw_ops:
-                if isinstance(elw_post_op, (NpuConv2d, NpuOp)):
-                    post_elw_conv_num += 1
-                elif isinstance(elw_post_op, NpuConcat):
-                    if _check_post_op_only_conv_or_out(net, elw_post_op):
-                        post_elw_concat_num += 1
-                else:
-                    post_elw_other_num += 1
-
-            print("post_acti_elw_num: ", post_acti_elw_num)
-            print("post_acti_concat_num: ", post_acti_concat_num)
-            print("post_acti_pool_num: ", post_acti_pool_num)
-            print("post_acti_conv_num: ", post_acti_conv_num)
-            print("post_acti_other_num: ", post_acti_other_num)
-            print("post_elw_conv_num: ", post_elw_conv_num)
-            print("post_elw_concat_num: ", post_elw_concat_num)
-            print("post_elw_other_num: ", post_elw_other_num)
-
-            if (resnet_flag or
-                    (post_acti_other_num == 0 and post_elw_other_num == 0 and post_acti_elw_num > 0)):
-                flag = True
-
-            print("flag: ", flag)
-            if flag:
-                op_id = net.get_op_idx(op)
-                if post_acti_concat_num + post_acti_pool_num + post_elw_concat_num == 0:  # shortcut也属于
-                    mode = 0
-                elif (post_acti_concat_num + post_acti_pool_num) > 0 and post_elw_concat_num == 0:
-                    mode = 1
-                elif (post_acti_concat_num + post_acti_pool_num) == 0 and post_elw_concat_num > 0:
-                    mode = 2
-                elif (post_acti_concat_num + post_acti_pool_num) > 0 and post_elw_concat_num > 0:
-                    mode = 3
-                print("mode: ", mode)
-                npu_op = NpuOp()
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-                if mode == 0 or mode == 1:
-                    npu_op.OutTensors = elw_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, elw_ops[0])
-                if mode == 2 or mode == 3:
-                    npu_op.OutTensors = post_elw_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, post_elw_ops[0])
-
-                npu_op.NpuOpMode = VpuPostOpSetMode.ACTIVATION_ELW
-                npu_op.NpuOpConvOp = op
-                npu_op.NpuOpActivate = True
-                npu_op.NpuOpActivateOp = acti_ops[0]
-                npu_op.NpuOpElemWise = True
-                npu_op.NpuOpElemWiseOp = elw_ops[0]
-                post_elw_concat_op = None
-                npu_op.NpuOpFlow.append(npu_op.NpuOpConvOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpActivateOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpElemWiseOp)
-                if mode == 1 or mode == 3:
-                    npu_op.NpuOpActiOut = True
-                if mode == 2 or mode == 3:
-                    npu_op.NpuOpConcat = True
-                    for post_elw_concat_op in post_elw_ops:
-                        if isinstance(post_elw_concat_op, NpuConcat):
-                            npu_op.NpuOpConcatOp = post_elw_concat_op
-                            break
-                    npu_op.NpuOpConcatOp.main_input_tensor_id = npu_op.NpuOpFlow[-1].OutTensors
-                    npu_op.NpuOpFlow.append(npu_op.NpuOpConcatOp)
-
-                assert (op_id + 1) == post_conv_ids[0]
-                assert (op_id + 2) == elw_op_ids[0]
-                net.delete_op(op_id)  # delete conv
-                net.delete_op(op_id)  # delete acti
-                net.delete_op(op_id)  # delete elw
-                if mode == 2 or mode == 3:
-                    anti_op_id = net.get_op_idx(post_elw_concat_op)
-                    net.delete_op(anti_op_id)
-                npu_op.init_all()
-                net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
-                npu_op.NpuOpId = op.TopOpId
-
-
-# conv + acti + ['concat + conv, elw + conv,' pool + 'concat' + conv, pool + conv]
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_POOL)
-def _post_fuse_pool_single(net: GraphIR):
-    print("-----TransformRule NPU_CONV_POOL-----")
-    i = 0
-    tensor_record = []
-    for _op_id, op in enumerate(net.AllOps):
-        _update_tensor_record(tensor_record, op)
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuConv2d):
-            flag = False
-            mode = -1
-            pool_op_ids = _find_post_op(net, op)
-            pool_ops = []
-            concat_op_ids = []
-            concat_ops = []
-            conv_op_ids = []
-            conv_ops = []
-            other_ops = []
-            if len(pool_op_ids) <= 2:
-                for pool_id in pool_op_ids:
-                    pool_op = net.get_op(pool_id)
-                    if isinstance(pool_op, NpuPool):
-                        _update_tensor_record(tensor_record, pool_op)
-                        pool_ops.append(pool_op)
-                        post_pool_op_id = _find_post_op(net, pool_op)
-                        print(len(post_pool_op_id))
-                        for post_pool_op_id_idx in post_pool_op_id:
-                            post_pool_op = net.get_op(post_pool_op_id_idx)
-                            if isinstance(post_pool_op, NpuConv2d) or isinstance(post_pool_op, NpuOp):
-                                conv_ops.append(post_pool_op)
-                                conv_op_ids.append(post_pool_op_id_idx)
-                                continue
-                            elif isinstance(post_pool_op, NpuConcat):
-                                concat_flag = True
-                                post_concat_op_ids = _find_post_op(net, post_pool_op)
-                                for post_concat_op_ids_idx in post_concat_op_ids:
-                                    post_concat_op = net.get_op(post_concat_op_ids_idx)
-                                    if not isinstance(post_concat_op, NpuConv2d):
-                                        concat_flag = False
-                                if concat_flag:
-                                    concat_ops.append(post_pool_op)
-                                    concat_op_ids.append(post_pool_op_id_idx)
-                                continue
-                            else:
-                                other_ops.append(post_pool_op)
-
-                        print(len(concat_ops), len(conv_ops), len(other_ops))
-                        if ((len(concat_ops) > 0) or (len(conv_ops) > 0)) and (len(other_ops) == 0):
-                            flag = True
+                print(f'iter:{op_id}', [x.Type for x in op_list])
             else:
-                raise NotImplementedError
+                print(f'iter:{op_id}', npu_op.Type)
+        else:
+            print(f'iter:{op_id}', npu_op.Type)
 
-            print(flag)
 
-            if flag:
-                mode = _check_concat_mode(concat_ops, tensor_record)
-
-                npu_op = NpuOp()
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-                if mode == 0:
-                    npu_op.OutTensors = pool_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, pool_ops[0])
-
-                if mode == 1:
-                    npu_op.OutTensors = concat_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, concat_ops[0])
-
-                npu_op.NpuOpMode = VpuPostOpSetMode.POOL
-                npu_op.NpuOpConvOp = op
-                npu_op.NpuOpPool = True
-                npu_op.NpuOpPoolOp = pool_ops[0]
-                npu_op.NpuOpFlow.append(npu_op.NpuOpConvOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpPoolOp)
-
-                if mode == 1:
-                    npu_op.NpuOpConcat = True
-                    npu_op.NpuOpConcatOp = concat_ops[0]
-                    npu_op.NpuOpConcatOp.main_input_tensor_id = npu_op.NpuOpFlow[-1].OutTensors
-                    npu_op.NpuOpFlow.append(npu_op.NpuOpConcatOp)
-
-                op_id = net.get_op_idx(op)
-                assert (op_id + 1) == pool_op_ids[0]
-                net.delete_op(op_id)
-                net.delete_op(op_id)
-                if mode == 1:
-                    assert (op_id + 2) == concat_op_ids[0]
-                    net.delete_op(op_id)
-                npu_op.init_all()
-                net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
-                npu_op.NpuOpId = op.TopOpId
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_POOL_ACTIVATION)
-def _post_fuse_pool_activation(net: GraphIR):
-    print("-----TransformRule NPU_CONV_POOL_ACTIVATION-----")
-    i = 0
-    for op in net.AllOps:
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuConv2d):
-            flag = False
-            mode = -1
-            pool_op_ids = _find_post_op(net, op)
-            pool_ops = []
-            acti_ops = []
-            acti_op_ids = []
-            post_acti_ops = []
-            post_acti_op_ids = []
-            post_pool_acti_num = 0
-            post_pool_concat_num = 0
-            post_pool_elw_num = 0
-            post_pool_conv_num = 0
-            post_pool_other_num = 0
-            post_acti_conv_num = 0
-            post_acti_concat_num = 0
-            post_acti_other_num = 0
-
-            if len(pool_op_ids) == 1:
-                pool_op = net.get_op(pool_op_ids[0])
-                if isinstance(pool_op, NpuPool):
-                    pool_ops.append(pool_op)
-                    post_pool_op_id = _find_post_op(net, pool_op)
-                    print(len(post_pool_op_id))
-                    for post_pool_op_id_idx in post_pool_op_id:
-                        post_pool_op = net.get_op(post_pool_op_id_idx)
-                        acti_ops.append(post_pool_op)
-                        acti_op_ids.append(post_pool_op_id_idx)
-                        post_acti_op_id = _find_post_op(net, post_pool_op)
-                        for post_acti_op_id_idx in post_acti_op_id:
-                            post_acti_op = net.get_op(post_acti_op_id_idx)
-                            post_acti_ops.append(post_acti_op)
-                            post_acti_op_ids.append(post_acti_op_id_idx)
-
-                    for op_post_pool in acti_ops:
-                        if isinstance(op_post_pool, NpuActivation):
-                            post_pool_acti_num += 1
-                        elif isinstance(op_post_pool, NpuConcat):
-                            if _check_post_op_only_conv_or_out(net, op_post_pool):
-                                post_pool_concat_num += 1
-                        elif isinstance(op_post_pool, NpuElemWise):
-                            if _check_post_op_only_conv_or_out(net, op_post_pool):
-                                post_pool_elw_num += 1
-                        elif isinstance(op_post_pool, (NpuOp, NpuConv2d)):
-                            post_pool_conv_num += 1
-                        else:
-                            post_pool_other_num += 1
-
-                    print(len(post_acti_ops))
-                    for op_post_acti in post_acti_ops:
-                        if isinstance(op_post_acti, NpuConv2d) or isinstance(op_post_acti, NpuOp):
-                            post_acti_conv_num += 1
-                        elif isinstance(op_post_acti, NpuConcat):
-                            if _check_post_op_only_conv_or_out(net, op_post_acti):
-                                post_acti_concat_num += 1
-                        else:
-                            post_acti_other_num += 1
-                    print("post_pool_acti_num: ", post_pool_acti_num)
-                    print("post_pool_concat_num: ", post_pool_concat_num)
-                    print("post_pool_elw_num: ", post_pool_elw_num)
-                    print("post_pool_conv_num: ", post_pool_conv_num)
-                    print("post_pool_other_num: ", post_pool_other_num)
-                    print("post_acti_conv_num: ", post_acti_conv_num)
-                    print("post_acti_concat_num: ", post_acti_concat_num)
-                    print("post_acti_other_num: ", post_acti_other_num)
-
-                    if post_pool_other_num == 0 and post_acti_other_num == 0 and \
-                            post_pool_acti_num > 0:
-                        flag = True
-
-            print("flag: ", flag)
-            if flag:
-                op_id = net.get_op_idx(op)
-                if post_pool_concat_num + post_pool_elw_num + post_acti_concat_num == 0:
-                    mode = 0
-                elif (post_pool_concat_num + post_pool_elw_num) > 0 and post_acti_concat_num == 0:
-                    mode = 1
-                elif (post_pool_concat_num + post_pool_elw_num) == 0 and post_acti_concat_num > 0:
-                    mode = 2
-                elif (post_pool_concat_num + post_pool_elw_num) > 0 and post_acti_concat_num > 0:
-                    mode = 3
-                print("mode: ", mode)
-                npu_op = NpuOp()
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-                if mode == 0 or mode == 1:
-                    npu_op.OutTensors = acti_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, acti_ops[0])
-                if mode == 2 or mode == 3:
-                    npu_op.OutTensors = post_acti_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, post_acti_ops[0])
-
-                npu_op.NpuOpMode = VpuPostOpSetMode.POOL_ACTIVATION
-                npu_op.NpuOpConvOp = op
-                npu_op.NpuOpPool = True
-                npu_op.NpuOpPoolOp = pool_ops[0]
-                npu_op.NpuOpActivate = True
-                npu_op.NpuOpActivateOp = acti_ops[0]
-                npu_op.NpuOpFlow.append(npu_op.NpuOpConvOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpPoolOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpActivateOp)
-
-                post_acti_concat_op = None
-                if mode == 1 or mode == 3:
-                    npu_op.NpuOpActiOut = True
-                if mode == 2 or mode == 3:
-                    npu_op.NpuOpConcat = True
-                    for post_acti_concat_op in post_acti_ops:
-                        if isinstance(post_acti_concat_op, NpuConcat):
-                            npu_op.NpuOpConcatOp = post_acti_concat_op
-                            break
-                    npu_op.NpuOpConcatOp.main_input_tensor_id = npu_op.NpuOpFlow[-1].OutTensors
-                    npu_op.NpuOpFlow.append(npu_op.NpuOpConcatOp)
-                npu_op.init_all()
-
-                assert (op_id + 1) == pool_op_ids[0]
-                assert (op_id + 2) == acti_op_ids[0]
-                net.delete_op(op_id)  # delete conv
-                net.delete_op(op_id)  # delete pool
-                net.delete_op(op_id)  # delete acti
-                if mode == 2 or mode == 3:
-                    assert op_id == net.get_op_idx(post_acti_concat_op)
-                    net.delete_op(op_id)
-                net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
-                npu_op.NpuOpId = op.TopOpId
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_POOL_ELW)
-def _post_fuse_pool_elw(net: GraphIR):
-    print("-----TransformRule NPU_CONV_POOL_ELW-----")
-    i = 0
-    for op in net.AllOps:
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuConv2d):
-            flag = False
-            mode = -1
-            pool_op_ids = _find_post_op(net, op)
-            pool_ops = []
-            elw_ops = []
-            elw_op_ids = []
-            post_elw_ops = []
-            post_elw_op_ids = []
-            post_pool_acti_num = 0
-            post_pool_concat_num = 0
-            post_pool_elw_num = 0
-            post_pool_other_num = 0
-            post_elw_conv_num = 0
-            post_elw_concat_num = 0
-            post_elw_other_num = 0
-
-            if len(pool_op_ids) == 1:
-                pool_op = net.get_op(pool_op_ids[0])
-                if isinstance(pool_op, NpuPool):
-                    pool_ops.append(pool_op)
-                    post_pool_op_id = _find_post_op(net, pool_op)
-                    print(len(post_pool_op_id))
-                    for post_pool_op_id_idx in post_pool_op_id:
-                        post_pool_op = net.get_op(post_pool_op_id_idx)
-                        elw_ops.append(post_pool_op)
-                        elw_op_ids.append(post_pool_op_id_idx)
-                        post_elw_op_id = _find_post_op(net, post_pool_op)
-                        for post_elw_op_id_idx in post_elw_op_id:
-                            post_elw_op = net.get_op(post_elw_op_id_idx)
-                            post_elw_ops.append(post_elw_op)
-                            post_elw_op_ids.append(post_elw_op_id_idx)
-
-                    for op_post_pool in elw_ops:
-                        if isinstance(op_post_pool, NpuElemWise):
-                            post_pool_elw_num += 1
-                        elif isinstance(op_post_pool, NpuConcat):
-                            if _check_post_op_only_conv_or_out(net, op_post_pool):
-                                post_pool_concat_num += 1
-                        elif isinstance(op_post_pool, NpuActivation):
-                            if _check_post_op_only_conv_or_out(net, op_post_pool):
-                                post_pool_acti_num += 1
-                        else:
-                            post_pool_other_num += 1
-                    print(len(post_elw_ops))
-                    for op_post_elw in post_elw_ops:
-                        if isinstance(op_post_elw, NpuConv2d) or isinstance(op_post_elw, NpuOp):
-                            post_elw_conv_num += 1
-                        elif isinstance(op_post_elw, NpuConcat):
-                            if _check_post_op_only_conv_or_out(net, op_post_elw):
-                                post_elw_concat_num += 1
-                        else:
-                            post_elw_other_num += 1
-                    print("post_pool_elw_num: ", post_pool_elw_num)
-                    print("post_pool_concat_num: ", post_pool_concat_num)
-                    print("post_pool_acti_num: ", post_pool_acti_num)
-                    print("post_pool_other_num: ", post_pool_other_num)
-                    print("post_elw_conv_num: ", post_elw_conv_num)
-                    print("post_elw_concat_num: ", post_elw_concat_num)
-                    print("post_elw_other_num: ", post_elw_other_num)
-
-                    if post_pool_other_num == 0 and post_elw_other_num == 0 and \
-                            post_pool_elw_num > 0:
-                        flag = True
-
-            print("flag: ", flag)
-            if flag:
-                op_id = net.get_op_idx(op)
-                if post_pool_concat_num + post_pool_acti_num + post_elw_concat_num == 0:
-                    mode = 0
-                elif (post_pool_concat_num + post_pool_acti_num) > 0 and post_elw_concat_num == 0:
-                    mode = 1
-                elif (post_pool_concat_num + post_pool_acti_num) == 0 and post_elw_concat_num > 0:
-                    mode = 2
-                elif (post_pool_concat_num + post_pool_acti_num) > 0 and post_elw_concat_num > 0:
-                    mode = 3
-
-                print("mode: ", mode)
-                npu_op = NpuOp()
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-                if mode == 0 or mode == 1:
-                    npu_op.OutTensors = elw_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, elw_ops[0])
-                if mode == 2 or mode == 3:
-                    npu_op.OutTensors = post_elw_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, post_elw_ops[0])
-
-                npu_op.NpuOpMode = VpuPostOpSetMode.POOL_ELW
-                npu_op.NpuOpConvOp = op
-                npu_op.NpuOpPool = True
-                npu_op.NpuOpPoolOp = pool_ops[0]
-                npu_op.NpuOpElemWise = True
-                npu_op.NpuOpElemWiseOp = elw_ops[0]
-                npu_op.NpuOpFlow.append(npu_op.NpuOpConvOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpPoolOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpElemWiseOp)
-
-                post_elw_concat_op = None
-                if mode == 1 or mode == 3:
-                    npu_op.NpuOpActiOut = True
-                if mode == 2 or mode == 3:
-                    npu_op.NpuOpConcat = True
-                    for post_elw_concat_op in post_elw_ops:
-                        if isinstance(post_elw_concat_op, NpuConcat):
-                            npu_op.NpuOpConcatOp = post_elw_concat_op
-                            break
-                    npu_op.NpuOpConcatOp.main_input_tensor_id = npu_op.NpuOpFlow[-1].OutTensors
-                    npu_op.NpuOpFlow.append(npu_op.NpuOpConcatOp)
-                npu_op.init_all()
-
-                assert (op_id + 1) == pool_op_ids[0]
-                assert (op_id + 2) == elw_op_ids[0]
-                net.delete_op(op_id)  # delete conv
-                net.delete_op(op_id)  # delete pool
-                net.delete_op(op_id)  # delete elw
-                if mode == 2 or mode == 3:
-                    assert op_id == net.get_op_idx(post_elw_concat_op)
-                    net.delete_op(op_id)
-                net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
-                npu_op.NpuOpId = op.TopOpId
-
-
-def _post_fuse_three_op(net: GraphIR, op_pattern):
-    assert len(op_pattern) == 3
-    op0 = op_pattern[0]
-    op1 = op_pattern[1]
-    op2 = op_pattern[2]
-    i = 0
-    for op in net.AllOps:
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuConv2d):
-            flag = False
-            mode = -1
-            op0_op_ids = _find_post_op(net, op)
-            op0_ops = []
-            op1_ops = []
-            op2_ops = []
-            op2_op_ids = []
-            post_op2_ops = []
-            post_op2_op_ids = []
-            post_op1_op2_num = 0
-            post_op1_concat_num = 0
-            post_op1_elw_num = 0
-            post_op1_other_num = 0
-            post_op2_conv_num = 0
-            post_op2_concat_num = 0
-            post_op2_other_num = 0
-
-            if len(op0_op_ids) == 1:
-                op0_op = net.get_op(op0_op_ids[0])
-                if isinstance(op0_op, op0):
-                    op0_ops.append(op0_op)
-                    post_op0_op_id = _find_post_op(net, op0_op)
-                    print(len(post_op0_op_id))
-
-                    if len(post_op0_op_id) == 1:
-                        op1_op = net.get_op(post_op0_op_id[0])
-                        if isinstance(op1_op, op1):
-                            op1_ops.append(op1_op)
-                            post_op1_op_id = _find_post_op(net, op1_op)
-                            print(len(post_op1_op_id))
-                            for post_op1_op_id_idx in post_op1_op_id:
-                                post_op1_op = net.get_op(post_op1_op_id_idx)
-                                op2_ops.append(post_op1_op)
-                                op2_op_ids.append(post_op1_op_id_idx)
-                                post_op2_id = _find_post_op(net, post_op1_op)
-                                for post_op2_id_idx in post_op2_id:
-                                    post_op2_op = net.get_op(post_op2_id_idx)
-                                    post_op2_ops.append(post_op2_op)
-                                    post_op2_op_ids.append(post_op2_id_idx)
-
-                    elif len(post_op0_op_id) == 2:
-                        op1_op = net.get_op(post_op0_op_id[0])
-                        op1_op_1 = net.get_op(post_op0_op_id[1])
-
-                        if isinstance(op1_op, op1) \
-                                and (isinstance(op1_op_1, NpuConv2d)
-                                     or isinstance(op1_op_1, NpuOp)):
-                            op1_ops.append(op1_op)
-                            post_op1_op_id = _find_post_op(net, op1_op)
-                            print(len(post_op1_op_id))
-                            for post_op1_op_id_idx in post_op1_op_id:
-                                post_op1_op = net.get_op(post_op1_op_id_idx)
-                                op2_ops.append(post_op1_op)
-                                op2_op_ids.append(post_op1_op_id_idx)
-                                post_op2_id = _find_post_op(net, post_op1_op)
-                                for post_op2_id_idx in post_op2_id:
-                                    post_op2_op = net.get_op(post_op2_id_idx)
-                                    post_op2_ops.append(post_op2_op)
-                                    post_op2_op_ids.append(post_op2_id_idx)
-
-            for post_op1_op in op2_ops:
-                if isinstance(post_op1_op, op2):
-                    post_op1_op2_num += 1
-                elif isinstance(post_op1_op, NpuConcat):
-                    if _check_post_op_only_conv_or_out(net, post_op1_op):
-                        post_op1_concat_num += 1
-                elif isinstance(post_op1_op, NpuElemWise):
-                    if _check_post_op_only_conv_or_out(net, post_op1_op):
-                        post_op1_elw_num += 1
-                else:
-                    post_op1_other_num += 1
-            print(len(post_op2_ops))
-            for op_post_op2 in post_op2_ops:
-                if isinstance(op_post_op2, NpuConv2d) or isinstance(op_post_op2, NpuOp):
-                    post_op2_conv_num += 1
-                elif isinstance(op_post_op2, NpuConcat):
-                    if _check_post_op_only_conv_or_out(net, op_post_op2):
-                        post_op2_concat_num += 1
-                else:
-                    post_op2_other_num += 1
-            print("post_op1_op2_num: ", post_op1_op2_num)
-            print("post_op1_concat_num: ", post_op1_concat_num)
-            print("post_op1_elw_num: ", post_op1_elw_num)
-            print("post_op1_other_num: ", post_op1_other_num)
-            print("post_op2_conv_num: ", post_op2_conv_num)
-            print("post_op2_concat_num: ", post_op2_concat_num)
-            print("post_op2_other_num: ", post_op2_other_num)
-
-            if post_op1_other_num == 0 and post_op2_other_num == 0 and \
-                    post_op1_op2_num > 0:
-                flag = True
-
-            print("flag: ", flag)
-            if flag:
-                op_id = net.get_op_idx(op)
-                if post_op1_concat_num + post_op1_elw_num + post_op2_concat_num == 0:
-                    mode = 0
-                elif (post_op1_concat_num + post_op1_elw_num) > 0 and post_op2_concat_num == 0:
-                    mode = 1
-                elif (post_op1_concat_num + post_op1_elw_num) == 0 and post_op2_concat_num > 0:
-                    mode = 2
-                elif (post_op1_concat_num + post_op1_elw_num) > 0 and post_op2_concat_num > 0:
-                    mode = 3
-                print("mode: ", mode)
-                npu_op = NpuOp()
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-                if mode == 0 or mode == 1:
-                    npu_op.OutTensors = op2_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, op2_ops[0])
-                if mode == 2 or mode == 3:
-                    npu_op.OutTensors = post_op2_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, post_op2_ops[0])
-
-                if op0 == NpuPool \
-                        and op1 == NpuActivation \
-                        and op2 == NpuElemWise:
-
-                    npu_op.NpuOpMode = VpuPostOpSetMode.POOL_ACTIVATION_ELW
-                    npu_op.NpuOpConvOp = op
-                    npu_op.NpuOpPool = True
-                    npu_op.NpuOpPoolOp = op0_ops[0]
-                    npu_op.NpuOpActivate = True
-                    npu_op.NpuOpActivateOp = op1_ops[0]
-                    npu_op.NpuOpElemWise = True
-                    npu_op.NpuOpElemWiseOp = op2_ops[0]
-
-                elif op0 == NpuResize \
-                        and op1 == NpuActivation \
-                        and op2 == NpuElemWise:
-
-                    npu_op.NpuOpMode = VpuPostOpSetMode.RESIZE_ACTIVATION_ELW
-                    npu_op.NpuOpConvOp = op
-                    npu_op.NpuOpResize = True
-                    npu_op.NpuOpResizeOp = op0_ops[0]
-                    npu_op.NpuOpActivate = True
-                    npu_op.NpuOpActivateOp = op1_ops[0]
-                    npu_op.NpuOpElemWise = True
-                    npu_op.NpuOpElemWiseOp = op2_ops[0]
-
-                elif op0 == NpuPool \
-                        and op1 == NpuElemWise \
-                        and op2 == NpuActivation:
-
-                    npu_op.NpuOpMode = VpuPostOpSetMode.POOL_ELW_ACTIVATION
-                    npu_op.NpuOpConvOp = op
-                    npu_op.NpuOpPool = True
-                    npu_op.NpuOpPoolOp = op0_ops[0]
-                    npu_op.NpuOpElemWise = True
-                    npu_op.NpuOpElemWiseOp = op1_ops[0]
-                    npu_op.NpuOpActivate = True
-                    npu_op.NpuOpActivateOp = op2_ops[0]
-
-                elif op0 == NpuResize \
-                        and op1 == NpuElemWise \
-                        and op2 == NpuActivation:
-
-                    npu_op.NpuOpMode = VpuPostOpSetMode.POOL_ELW_ACTIVATION
-                    npu_op.NpuOpConvOp = op
-                    npu_op.NpuOpResize = True
-                    npu_op.NpuOpResizeOp = op0_ops[0]
-                    npu_op.NpuOpElemWise = True
-                    npu_op.NpuOpElemWiseOp = op1_ops[0]
-                    npu_op.NpuOpActivate = True
-                    npu_op.NpuOpActivateOp = op2_ops[0]
-
-                elif op0 == NpuActivation \
-                        and op1 == NpuElemWise \
-                        and op2 == NpuPool:
-
-                    npu_op.NpuOpMode = VpuPostOpSetMode.ACTIVATION_ELW_POOL
-                    npu_op.NpuOpConvOp = op
-                    npu_op.NpuOpActivate = True
-                    npu_op.NpuOpActivateOp = op0_ops[0]
-                    npu_op.NpuOpElemWise = True
-                    npu_op.NpuOpElemWiseOp = op1_ops[0]
-                    npu_op.NpuOpPool = True
-                    npu_op.NpuOpPoolOp = op2_ops[0]
-
-                elif op0 == NpuActivation \
-                        and op1 == NpuElemWise \
-                        and op2 == NpuResize:
-
-                    npu_op.NpuOpMode = VpuPostOpSetMode.ACTIVATION_ELW_RESIZE
-                    npu_op.NpuOpConvOp = op
-                    npu_op.NpuOpActivate = True
-                    npu_op.NpuOpActivateOp = op0_ops[0]
-                    npu_op.NpuOpElemWise = True
-                    npu_op.NpuOpElemWiseOp = op1_ops[0]
-                    npu_op.NpuOpResize = True
-                    npu_op.NpuOpResizeOp = op2_ops[0]
-
-                elif op0 == NpuActivation \
-                        and op1 == NpuPool \
-                        and op2 == NpuElemWise:
-
-                    npu_op.NpuOpMode = VpuPostOpSetMode.ACTIVATION_POOL_ELW
-                    npu_op.NpuOpConvOp = op
-                    npu_op.NpuOpActivate = True
-                    npu_op.NpuOpActivateOp = op0_ops[0]
-                    npu_op.NpuOpPool = True
-                    npu_op.NpuOpPoolOp = op1_ops[0]
-                    npu_op.NpuOpElemWise = True
-                    npu_op.NpuOpElemWiseOp = op2_ops[0]
-
-                elif op0 == NpuActivation \
-                        and op1 == NpuResize \
-                        and op2 == NpuElemWise:
-
-                    npu_op.NpuOpMode = VpuPostOpSetMode.ACTIVATION_RESIZE_ELW
-                    npu_op.NpuOpConvOp = op
-                    npu_op.NpuOpActivate = True
-                    npu_op.NpuOpActivateOp = op0_ops[0]
-                    npu_op.NpuOpResize = True
-                    npu_op.NpuOpResizeOp = op1_ops[0]
-                    npu_op.NpuOpElemWise = True
-                    npu_op.NpuOpElemWiseOp = op2_ops[0]
-
-                elif op0 == NpuElemWise \
-                        and op1 == NpuActivation \
-                        and op2 == NpuPool:
-
-                    npu_op.NpuOpMode = VpuPostOpSetMode.ELW_ACTIVATION_POOL
-                    npu_op.NpuOpConvOp = op
-                    npu_op.NpuOpElemWise = True
-                    npu_op.NpuOpElemWiseOp = op0_ops[0]
-                    npu_op.NpuOpActivate = True
-                    npu_op.NpuOpActivateOp = op1_ops[0]
-                    npu_op.NpuOpPool = True
-                    npu_op.NpuOpPoolOp = op2_ops[0]
-
-                elif op0 == NpuElemWise \
-                        and op1 == NpuActivation \
-                        and op2 == NpuResize:
-
-                    npu_op.NpuOpMode = VpuPostOpSetMode.ELW_ACTIVATION_RESIZE
-                    npu_op.NpuOpConvOp = op
-                    npu_op.NpuOpElemWise = True
-                    npu_op.NpuOpElemWiseOp = op0_ops[0]
-                    npu_op.NpuOpActivate = True
-                    npu_op.NpuOpActivateOp = op1_ops[0]
-                    npu_op.NpuOpResize = True
-                    npu_op.NpuOpResizeOp = op2_ops[0]
-
-                elif op0 == NpuElemWise \
-                        and op1 == NpuPool \
-                        and op2 == NpuActivation:
-
-                    npu_op.NpuOpMode = VpuPostOpSetMode.ELW_POOL_ACTIVATION
-                    npu_op.NpuOpConvOp = op
-                    npu_op.NpuOpElemWise = True
-                    npu_op.NpuOpElemWiseOp = op0_ops[0]
-                    npu_op.NpuOpPool = True
-                    npu_op.NpuOpPoolOp = op1_ops[0]
-                    npu_op.NpuOpActivate = True
-                    npu_op.NpuOpActivateOp = op2_ops[0]
-
-                elif op0 == NpuElemWise \
-                        and op1 == NpuResize \
-                        and op2 == NpuActivation:
-
-                    npu_op.NpuOpMode = VpuPostOpSetMode.ELW_RESIZE_ACTIVATION
-                    npu_op.NpuOpConvOp = op
-                    npu_op.NpuOpElemWise = True
-                    npu_op.NpuOpElemWiseOp = op0_ops[0]
-                    npu_op.NpuOpResize = True
-                    npu_op.NpuOpResizeOp = op1_ops[0]
-                    npu_op.NpuOpActivate = True
-                    npu_op.NpuOpActivateOp = op2_ops[0]
-
-                npu_op.NpuOpFlow.append(op)
-                npu_op.NpuOpFlow.append(op0_ops[0])
-                npu_op.NpuOpFlow.append(op1_ops[0])
-                npu_op.NpuOpFlow.append(op2_ops[0])
-
-                if mode == 1 or mode == 3:
-                    # npu_op.NpuOpResizeOut = True
-                    pass
-                if mode == 2 or mode == 3:
-                    npu_op.NpuOpConcat = True
-                    for post_op2_concat_op in post_op2_ops:
-                        if isinstance(post_op2_concat_op, NpuConcat):
-                            npu_op.NpuOpConcatOp = post_op2_concat_op
-                            break
-                    npu_op.NpuOpConcatOp.main_input_tensor_id = npu_op.NpuOpFlow[-1].OutTensors
-                    npu_op.NpuOpFlow.append(npu_op.NpuOpConcatOp)
-                npu_op.init_all()
-
-                assert (op_id + 1) == op0_op_ids[0]
-                assert (op_id + 2) == post_op0_op_id[0]
-                assert (op_id + 3) == op2_op_ids[0]
-
-                net.delete_op(op_id)  # delete conv
-                net.delete_op(op_id)  # delete op0
-                net.delete_op(op_id)  # delete op1
-                net.delete_op(op_id)  # delete op2
-
-                if mode == 2 or mode == 3:
-                    assert op_id == net.get_op_idx(post_op2_concat_op)
-                    net.delete_op(op_id)
-                net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
-                npu_op.NpuOpId = op.TopOpId
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_POOL_ACTIVATION_ELW)
-def _post_fuse_compose_pool_activation_elw(net: GraphIR):
-    print("-----TransformRule NPU_CONV_POOL_ACTIVATION_ELW-----")
-    op_pattern = [NpuPool, NpuActivation, NpuElemWise]
-    _post_fuse_three_op(net, op_pattern)
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_RESIZE_ACTIVATION_ELW)
-def _post_fuse_compose_pool_activation_elw(net: GraphIR):
-    print("-----TransformRule NPU_CONV_RESIZE_ACTIVATION_ELW-----")
-    op_pattern = [NpuResize, NpuActivation, NpuElemWise]
-    _post_fuse_three_op(net, op_pattern)
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_POOL_ELW_ACTIVATION)
-def _post_fuse_compose_pool_activation_elw(net: GraphIR):
-    print("-----TransformRule NPU_CONV_POOL_ELW_ACTIVATION-----")
-    op_pattern = [NpuPool, NpuElemWise, NpuActivation]
-    _post_fuse_three_op(net, op_pattern)
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_RESIZE_ELW_ACTIVATION)
-def _post_fuse_compose_pool_activation_elw(net: GraphIR):
-    print("-----TransformRule NPU_CONV_RESIZE_ELW_ACTIVATION-----")
-    op_pattern = [NpuResize, NpuElemWise, NpuActivation]
-    _post_fuse_three_op(net, op_pattern)
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_ACTIVATION_ELW_POOL)
-def _post_fuse_compose_pool_activation_elw(net: GraphIR):
-    print("-----TransformRule NPU_CONV_ACTIVATION_ELW_POOL-----")
-    op_pattern = [NpuActivation, NpuElemWise, NpuPool]
-    _post_fuse_three_op(net, op_pattern)
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_ACTIVATION_ELW_RESIZE)
-def _post_fuse_compose_pool_activation_elw(net: GraphIR):
-    print("-----TransformRule NPU_CONV_ACTIVATION_ELW_RESIZE-----")
-    op_pattern = [NpuActivation, NpuElemWise, NpuResize]
-    _post_fuse_three_op(net, op_pattern)
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_ACTIVATION_POOL_ELW)
-def _post_fuse_compose_pool_activation_elw(net: GraphIR):
-    print("-----TransformRule NPU_CONV_ACTIVATION_POOL_ELW-----")
-    op_pattern = [NpuActivation, NpuPool, NpuElemWise]
-    _post_fuse_three_op(net, op_pattern)
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_ELW_ACTIVATION_POOL)
-def _post_fuse_compose_pool_activation_elw(net: GraphIR):
-    print("-----TransformRule NPU_CONV_ELW_ACTIVATION_POOL-----")
-    op_pattern = [NpuElemWise, NpuActivation, NpuPool]
-    _post_fuse_three_op(net, op_pattern)
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_ELW_ACTIVATION_RESIZE)
-def _post_fuse_compose_pool_activation_elw(net: GraphIR):
-    print("-----TransformRule NPU_CONV_ELW_ACTIVATION_RESIZE-----")
-    op_pattern = [NpuElemWise, NpuActivation, NpuResize]
-    _post_fuse_three_op(net, op_pattern)
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_ELW_POOL_ACTIVATION)
-def _post_fuse_compose_pool_activation_elw(net: GraphIR):
-    print("-----TransformRule NPU_CONV_ELW_POOL_ACTIVATION-----")
-    op_pattern = [NpuElemWise, NpuPool, NpuActivation]
-    _post_fuse_three_op(net, op_pattern)
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_ELW_RESIZE_ACTIVATION)
-def _post_fuse_compose_pool_activation_elw(net: GraphIR):
-    print("-----TransformRule NPU_CONV_ELW_RESIZE_ACTIVATION-----")
-    op_pattern = [NpuElemWise, NpuResize, NpuActivation]
-    _post_fuse_three_op(net, op_pattern)
-
-
-# conv + acti + ['concat + conv, elw + conv,' resize + 'concat' + conv, resize + conv]
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_ACTIVATION_RESIZE)
-def _post_fuse_activation_resize(net: GraphIR):
-    print("-----TransformRule NPU_CONV_ACTIVATION_RESIZE-----")
-    i = 0
-    for op in net.AllOps:
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuConv2d):
-            flag = False
-            mode = -1
-            acti_op_ids = _find_post_op(net, op)
-            acti_ops = []
-            resize_ops = []
-            resize_op_ids = []
-            post_resize_ops = []
-            post_resize_op_ids = []
-            post_acti_resize_num = 0
-            post_acti_concat_num = 0
-            post_acti_elw_num = 0
-            post_acti_other_num = 0
-            post_resize_conv_num = 0
-            post_resize_concat_num = 0
-            post_resize_other_num = 0
-
-            if len(acti_op_ids) == 1:
-                acti_op = net.get_op(acti_op_ids[0])
-                if isinstance(acti_op, NpuActivation):
-                    acti_ops.append(acti_op)
-                    post_acti_op_id = _find_post_op(net, acti_op)
-                    print(len(post_acti_op_id))
-                    for post_acti_op_id_idx in post_acti_op_id:
-                        post_acti_op = net.get_op(post_acti_op_id_idx)
-                        resize_ops.append(post_acti_op)
-                        resize_op_ids.append(post_acti_op_id_idx)
-                        post_resize_op_id = _find_post_op(net, post_acti_op)
-                        for post_resize_op_id_idx in post_resize_op_id:
-                            post_resize_op = net.get_op(post_resize_op_id_idx)
-                            post_resize_ops.append(post_resize_op)
-                            post_resize_op_ids.append(post_resize_op_id_idx)
-
-                    for op_post_acti in resize_ops:
-                        if isinstance(op_post_acti, NpuResize):
-                            post_acti_resize_num += 1
-                        elif isinstance(op_post_acti, NpuConcat):
-                            if _check_post_op_only_conv_or_out(net, op_post_acti):
-                                post_acti_concat_num += 1
-                        elif isinstance(op_post_acti, NpuElemWise):
-                            if _check_post_op_only_conv_or_out(net, op_post_acti):
-                                post_acti_elw_num += 1
-                        else:
-                            post_acti_other_num += 1
-                    print(len(post_resize_ops))
-                    for op_post_resize in post_resize_ops:
-                        if isinstance(op_post_resize, NpuConv2d) or isinstance(op_post_resize, NpuOp):
-                            post_resize_conv_num += 1
-                        elif isinstance(op_post_resize, NpuConcat):
-                            if _check_post_op_only_conv_or_out(net, op_post_resize):
-                                post_resize_concat_num += 1
-                        else:
-                            post_resize_other_num += 1
-                    print("post_acti_resize_num: ", post_acti_resize_num)
-                    print("post_acti_concat_num: ", post_acti_concat_num)
-                    print("post_acti_elw_num: ", post_acti_elw_num)
-                    print("post_acti_other_num: ", post_acti_other_num)
-                    print("post_resize_conv_num: ", post_resize_conv_num)
-                    print("post_resize_concat_num: ", post_resize_concat_num)
-                    print("post_resize_other_num: ", post_resize_other_num)
-
-                    if post_acti_other_num == 0 and post_resize_other_num == 0 and \
-                            post_acti_resize_num > 0:
-                        flag = True
-
-            print("flag: ", flag)
-            if flag:
-                op_id = net.get_op_idx(op)
-                if post_acti_concat_num + post_acti_elw_num + post_resize_concat_num == 0:
-                    mode = 0
-                elif (post_acti_concat_num + post_acti_elw_num) > 0 and post_resize_concat_num == 0:
-                    mode = 1
-                elif (post_acti_concat_num + post_acti_elw_num) == 0 and post_resize_concat_num > 0:
-                    mode = 2
-                elif (post_acti_concat_num + post_acti_elw_num) > 0 and post_resize_concat_num > 0:
-                    mode = 3
-                print("mode: ", mode)
-                npu_op = NpuOp()
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-                if mode == 0 or mode == 1:
-                    npu_op.OutTensors = resize_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, resize_ops[0])
-                if mode == 2 or mode == 3:
-                    npu_op.OutTensors = post_resize_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, post_resize_ops[0])
-
-                npu_op.NpuOpMode = VpuPostOpSetMode.ACTIVATION_RESIZE
-                npu_op.NpuOpConvOp = op
-                npu_op.NpuOpActivate = True
-                npu_op.NpuOpActivateOp = acti_ops[0]
-                npu_op.NpuOpResize = True
-                npu_op.NpuOpResizeOp = resize_ops[0]
-                npu_op.NpuOpFlow.append(npu_op.NpuOpConvOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpActivateOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpResizeOp)
-
-                post_resize_concat_op = None
-                if mode == 1 or mode == 3:
-                    npu_op.NpuOpResizeOut = True
-                if mode == 2 or mode == 3:
-                    npu_op.NpuOpConcat = True
-                    for post_resize_concat_op in post_resize_ops:
-                        if isinstance(post_resize_concat_op, NpuConcat):
-                            npu_op.NpuOpConcatOp = post_resize_concat_op
-                            break
-                    npu_op.NpuOpConcatOp.main_input_tensor_id = npu_op.NpuOpFlow[-1].OutTensors
-                    npu_op.NpuOpFlow.append(npu_op.NpuOpConcatOp)
-                npu_op.init_all()
-
-                assert (op_id + 1) == acti_op_ids[0]
-                assert (op_id + 2) == resize_op_ids[0]
-                net.delete_op(op_id)  # delete conv
-                net.delete_op(op_id)  # delete acti
-                net.delete_op(op_id)  # delete resize
-                if mode == 2 or mode == 3:
-                    assert op_id == net.get_op_idx(post_resize_concat_op)
-                    net.delete_op(op_id)
-                net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
-                npu_op.NpuOpId = op.TopOpId
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_CONV_RESIZE)
-def _post_fuse_resize_single(net: GraphIR):
-    print("-----TransformRule NPU_CONV_RESIZE-----")
-    i = 0
-    tensor_record = []
-    for _op_id, op in enumerate(net.AllOps):
-        _update_tensor_record(tensor_record, op)
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuConv2d):
-            flag = False
-            mode = -1
-            resize_op_ids = _find_post_op(net, op)
-            resize_ops = []
-            concat_op_ids = []
-            concat_ops = []
-            conv_op_ids = []
-            conv_ops = []
-            other_ops = []
-            if len(resize_op_ids) == 1:
-                resize_op = net.get_op(resize_op_ids[0])
-                if isinstance(resize_op, NpuResize):
-                    _update_tensor_record(tensor_record, resize_op)
-                    resize_ops.append(resize_op)
-                    post_resize_op_id = _find_post_op(net, resize_op)
-                    print(len(post_resize_op_id))
-                    for post_resize_op_id_idx in post_resize_op_id:
-                        post_resize_op = net.get_op(post_resize_op_id_idx)
-                        if isinstance(post_resize_op, NpuConv2d) or isinstance(post_resize_op, NpuOp):
-                            conv_ops.append(post_resize_op)
-                            conv_op_ids.append(post_resize_op_id_idx)
-                            continue
-                        else:
-                            if isinstance(post_resize_op, NpuConcat):
-                                concat_flag = True
-                                post_concat_op_ids = _find_post_op(net, post_resize_op)
-                                for post_concat_op_ids_idx in post_concat_op_ids:
-                                    post_concat_op = net.get_op(post_concat_op_ids_idx)
-                                    if not (isinstance(post_concat_op, NpuConv2d) or isinstance(post_concat_op, NpuOp)):
-                                        concat_flag = False
-                                if concat_flag:
-                                    concat_ops.append(post_resize_op)
-                                    concat_op_ids.append(post_resize_op_id_idx)
-                                continue
-                            else:
-                                other_ops.append(post_resize_op)
-
-                    print(len(concat_ops), len(conv_ops), len(other_ops))
-                    if ((len(concat_ops) > 0) or (len(conv_ops) > 0)) and (len(other_ops) == 0):
-                        flag = True
-            print(flag)
-            if flag:
-                mode = _check_concat_mode(concat_ops, tensor_record)
-
-                npu_op = NpuOp()
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-                if mode == 0:
-                    npu_op.OutTensors = resize_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, resize_ops[0])
-                if mode == 1:
-                    npu_op.OutTensors = concat_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, concat_ops[0])
-
-                npu_op.NpuOpMode = VpuPostOpSetMode.RESIZE
-                npu_op.NpuOpConvOp = op
-                npu_op.NpuOpResize = True
-                npu_op.NpuOpResizeOp = resize_ops[0]
-                npu_op.NpuOpFlow.append(npu_op.NpuOpConvOp)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpResizeOp)
-
-                if mode == 1:
-                    npu_op.NpuOpConcat = True
-                    npu_op.NpuOpConcatOp = concat_ops[0]
-                    npu_op.NpuOpConcatOp.main_input_tensor_id = npu_op.NpuOpFlow[-1].OutTensors
-                    npu_op.NpuOpFlow.append(npu_op.NpuOpConcatOp)
-
-                npu_op.init_all()
-
-                op_id = net.get_op_idx(op)
-                assert (op_id + 1) == resize_op_ids[0]
-                net.delete_op(op_id)
-                net.delete_op(op_id)
-                if mode == 1:
-                    assert (op_id + 2) == concat_op_ids[0]
-                    net.delete_op(op_id)
-                net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
-                npu_op.NpuOpId = op.TopOpId
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_RESHAPE_FC)
-def _post_fuse_reshape_fc(net: GraphIR):
-    print("-----TransformRule NPU_RESHAPE_FC-----")
-    for _op_id, op in enumerate(net.AllOps):
-        if isinstance(op, NpuReshape):
-            if op.OutputShape[0].H == op.OutputShape[0].W == 1:
-                flag = False
-                fc_op_ids = []
-                fc_ops = []
-                post_op_ids = _find_post_op(net, op)
-                op_id = net.get_op_idx(op)
-
-                for post_op_ids_idx in post_op_ids:
-                    post_op = net.get_op(post_op_ids_idx)
-                    if isinstance(post_op, NpuFullConnected):
-                        flag = True
-                        fc_ops.append(post_op)
-                        fc_op_ids.append(post_op_ids_idx)
-
-                if len(fc_ops) == 1:
-                    flag = True
-                else:
-                    flag = False
-
-                print(flag)
-                if flag:
-                    fc_op = fc_ops[0]
-                    # _copy_opbase_input_info(fc_op, op)
-                    replace_tensor_index = fc_op.InTensors.index(op.OutTensors[0])
-                    assert len(op.InTensors) == 1
-                    fc_op.InTensors[replace_tensor_index] = op.InTensors[0]
-                    net.delete_op(op_id)
-
-
-@_register_ir_transformation_rule(TransformRule.NPU_FC)
-def _post_fuse_fc_single(net: GraphIR):  # 全连接层融合
-    print("------TransformRule NPU_FC-----")
-    i = 0
-    tensor_record = []
-    for _op_id, op in enumerate(net.AllOps):
-        _update_tensor_record(tensor_record, op)
-        print("iter: ", i, op.Type)
-        i += 1
-        if isinstance(op, NpuFullConnected):  # FullConnect
-            flag = False
-            mode = -1
-
-            if _check_post_op_out(net, op):
-                flag = True
-            concat_op_ids = []
-            concat_ops = []
-            post_op_ids = _find_post_op(net, op)
-            for post_op_ids_idx in post_op_ids:
-                post_op = net.get_op(post_op_ids_idx)
-                if isinstance(post_op, NpuConcat):  # FullConnect + Concat
-                    if _check_post_op_only_conv_or_out(net, post_op):
-                        flag = True
-                        concat_ops.append(post_op)
-                        concat_op_ids.append(post_op_ids_idx)
-
-            for post_op_ids_idx in post_op_ids:
-                post_op = net.get_op(post_op_ids_idx)
-                if not isinstance(post_op, NpuConcat):
-                    flag = False
-
-            if _check_post_op_only_conv_or_out(net, op):  # FullConnect + Conv / FullConnect / NPU / Pad
-                flag = True
-
-            if _check_post_op_only_cpu_op(net, op):  # FullConnect + Reshape / Transpose / Softmax
-                flag = True
-
-            print(flag)
-            if flag:
-                mode = _check_concat_mode(concat_ops, tensor_record)
-
-                npu_op = NpuOp()
-                npu_op.NpuOpConv = False
-                npu_op.NpuOpFc = True
-                npu_op.NpuOpFcOp = op
-                npu_op.InTensors = op.InTensors
-                _copy_opbase_input_info(npu_op, op)
-                npu_op.NpuOpFlow.append(npu_op.NpuOpFcOp)
-
-                if mode == 0:
-                    npu_op.OutTensors = op.OutTensors
-                    _copy_opbase_output_info(npu_op, op)
-                if mode == 1:
-                    npu_op.OutTensors = concat_ops[0].OutTensors
-                    _copy_opbase_output_info(npu_op, concat_ops[0])
-
-                npu_op.NpuOpMode = VpuPostOpSetMode.NONE
-                if mode == 1:
-                    npu_op.NpuOpConcat = True
-                    npu_op.NpuOpConcatOp = concat_ops[0]
-                    npu_op.NpuOpConcatOp.main_input_tensor_id = npu_op.NpuOpFlow[-1].OutTensors
-                    npu_op.NpuOpFlow.append(npu_op.NpuOpConcatOp)
-                npu_op.init_all()
-
-                op_id = net.get_op_idx(op)
-                net.delete_op(op_id)
-
-                if mode == 1:
-                    assert op_id == concat_op_ids[0]
-                    net.delete_op(op_id)
-                net.insert_op(npu_op, op_id)
-                print("op_id:", op.TopOpId)
-                npu_op.NpuOpId = op.TopOpId
-
-
-@_register_ir_transformation_rule(TransformRule.DELETE_FUSE_CONST)
+@_register_ir_transformation_rule(TransformRule.CONST_FOLDING)
 def _delete_fuse_constant(net: GraphIR):
-    print("-----TransformRule DELETE_FUSE_CONST-----")
+    print("----start TransformRule DELETE_FUSE_CONST-----")
+    value_class_operator = (Floor, Cast)
+    shape_class_operator = (OpShape, Unsqueeze, Transpose, Reshape, Slice)
+    conv_class_operator = (NpuConv2d, NpuPool)
 
     def _fuse_post(graph, current_op, result):
         post_op_ids = _find_post_op(graph, current_op)
@@ -2049,21 +234,12 @@ def _delete_fuse_constant(net: GraphIR):
 
     delete_list = []
     for _op_id, op in enumerate(net.AllOps):
-        if isinstance(op, Constant):
+        if isinstance(op, (Constant, OpShape)):
             out_tensor_idx = op.OutTensors[0]
             if net.AllTensors[out_tensor_idx].Type != TensorType.Parameter:
                 _fuse_post(net, op, delete_list)
             if _op_id not in delete_list:
                 delete_list.append(_op_id)
-
-    def quick_sort(arr):
-        if len(arr) <= 1:
-            return arr
-        pivot = arr[len(arr) // 2]
-        left = [x for x in arr if x > pivot]  # 大于枢轴的元素
-        middle = [x for x in arr if x == pivot]  # 等于枢轴的元素
-        right = [x for x in arr if x < pivot]  # 小于枢轴的元素
-        return quick_sort(left) + middle + quick_sort(right)
 
     delete_list = quick_sort(delete_list)
 
@@ -2072,41 +248,150 @@ def _delete_fuse_constant(net: GraphIR):
         net.delete_op(idx)
 
 
-# op_fuse_pass
-op_fuse_transform = [
-                     TransformRule.ORDER_TOP_OPS,
-                     TransformRule.DELETE_FUSE_CONST,
-                     TransformRule.NPU_PAD_CONV,
-                     TransformRule.NPU_RESHAPE_CONV,
-                     TransformRule.NPU_CONV,
-                     TransformRule.NPU_PAD_POOL,
-                     TransformRule.NPU_CONV_ELW,
-                     TransformRule.NPU_CONV_POOL,
-                     TransformRule.NPU_CONV_POOL_ELW,
-                     TransformRule.NPU_CONV_POOL_ACTIVATION,
-                     TransformRule.NPU_CONV_POOL_ACTIVATION_ELW,
-                     TransformRule.NPU_CONV_POOL_ELW_ACTIVATION,
-                     TransformRule.NPU_CONV_RESIZE,
-                     TransformRule.NPU_CONV_RESIZE_ACTIVATION_ELW,
-                     TransformRule.NPU_CONV_RESIZE_ELW_ACTIVATION,
-                     TransformRule.NPU_CONV_ACTIVATION,
-                     TransformRule.NPU_CONV_ACTIVATION_POOL,
-                     TransformRule.NPU_CONV_ACTIVATION_ELW,
-                     TransformRule.NPU_CONV_ACTIVATION_POOL_ELW,
-                     TransformRule.NPU_CONV_ACTIVATION_RESIZE,
-                     TransformRule.NPU_CONV_ACTIVATION_ELW_POOL,
-                     TransformRule.NPU_CONV_ACTIVATION_ELW_RESIZE,
-                     TransformRule.NPU_CONV_ELW_ACTIVATION_POOL,
-                     TransformRule.NPU_CONV_ELW_ACTIVATION_RESIZE,
-                     TransformRule.NPU_CONV_ELW_POOL_ACTIVATION,
-                     TransformRule.NPU_CONV_ELW_RESIZE_ACTIVATION,
-                     TransformRule.NPU_CONV,
-                     TransformRule.NPU_FC,
-                     TransformRule.NPU_RESHAPE_FC,
-                     TransformRule.ORDER_NPU_OPS
-                     ]
+@_register_ir_transformation_rule(TransformRule.SHORTCUT_CONV_ACTIVATION_ELW)
+def _post_fuse_conv_activation_elw(net: GraphIR):
+    print("----start TransformRule NPU_CONV_ACTIVATION_ELW-----")
+    i = 0
+    tensor_record = []
+    for op in net.AllOps:
+        _update_tensor_record(tensor_record, op)
+        print("iter: ", i, op.Type)
+        i += 1
+        if isinstance(op, NpuConv2d):
+            flag = False
+            post_conv_ids = _find_post_op(net, op)
+            acti_ops = []
+            elw_ops = []
+            elw_op_ids = []
+            post_elw_ops = []
+            post_elw_ids = []
+            post_acti_op_ids = []
+            post_acti_elw_num = 0
 
-# TODO net中添加该网络具有的算子类型总和，并修改需要的融合规则
-value_class_operator = (Floor, Cast)
-shape_class_operator = (OpShape, Unsqueeze, Transpose, Reshape)
-conv_class_operator = (NpuConv2d, NpuPool)
+            if len(post_conv_ids) == 2:
+                for post_conv_op_id in post_conv_ids:
+                    post_conv_op = net.get_op(post_conv_op_id)
+                    if isinstance(post_conv_op, Activation):
+                        _update_tensor_record(tensor_record, post_conv_op)
+                        acti_ops.append(post_conv_op)
+
+                    elif isinstance(post_conv_op, ElemWise):
+                        _update_tensor_record(tensor_record, post_conv_op)
+                        elw_op_ids.append(post_conv_op_id)
+                        elw_ops.append(post_conv_op)
+
+                        post_elw_op_ids = _find_post_op(net, post_conv_op)
+                        for post_elw_op_idx in post_elw_op_ids:
+                            post_elw_op = net.get_op(post_elw_op_idx)
+                            post_elw_ops.append(post_elw_op)
+                            post_elw_ids.append(post_elw_op_idx)
+
+                if len(acti_ops) == 1 and len(elw_ops) == 1:  # 激活后面的op是这两个
+                    post_acti_op_ids = _find_post_op(net, acti_ops[0])
+                    if len(post_acti_op_ids) == 1 and post_acti_op_ids[0] in post_conv_ids:
+                        post_acti_elw_num += 1
+                        flag = True
+
+            print("     Post Conv:", post_conv_ids)
+            print("     post Anti:", post_acti_op_ids)
+
+            print("     flag: ", flag)
+            if flag:
+                op_id = net.get_op_idx(op)
+                npu_op = NpuOp()
+                npu_op.fuse_ops([op, acti_ops[0], elw_ops[0]])
+                npu_op.Type = "CSM"
+                assert (op_id + 1) == post_conv_ids[0]
+                assert (op_id + 2) == elw_op_ids[0]
+                net.delete_op(op_id)  # delete conv
+                net.delete_op(op_id)  # delete acti
+                net.delete_op(op_id)  # delete elw
+
+                net.insert_op(npu_op, op_id)
+                # print("op_id:", op.TopOpId)
+
+
+@_register_ir_transformation_rule(TransformRule.NPU_CONCAT)
+def _fuse_concat(net: GraphIR):
+    print("----start TransformRule NPU_CONCAT-----")
+    # # 排序，确保concat的输入均已出现
+    # tensor_record = []
+    # n_ops = [net.AllOps[0]]
+    # op_record = [0]
+    # temp_ids = []
+    # i = -1
+    # # TODO 仅单输入网络可用，且第一个必须是网络输入op
+    # while True:
+    #     i += 1
+    #     current_op = n_ops[-1]
+    #     _update_tensor_record(tensor_record, current_op)
+    #     post_op_ids = _order_post_op(net, current_op)
+    #     print(f"iter:{i}", n_ops[-1].Name)
+    #
+    #     if len(post_op_ids) > 1:
+    #         for _id in post_op_ids[1:]:
+    #             if _id not in temp_ids and _id not in op_record:
+    #                 temp_ids.append(_id)
+    #         temp_ids = quick_sort(temp_ids)
+    #     elif len(post_op_ids) == 0 and len(temp_ids) == 0:
+    #         # name_list = [x.Name for x in n_ops]
+    #         # for op in net.AllOps:
+    #         #     if op.Name not in name_list:
+    #         #         print(op.Name)
+    #         assert len(n_ops) == len(net.AllOps), f"n_ops:{len(n_ops)}, AllOps:{len(net.AllOps)}"
+    #         break
+    #
+    #     post_op_id = post_op_ids[0]
+    #     post_op = net.get_op(post_op_id)
+    #     print("      Post Ops:", post_op_ids, post_op.Name)
+    #     print("      Temp Ops:", temp_ids)
+    #
+    #     if isinstance(post_op, (NpuElemWise, NpuConcat, NpuOp)):
+    #         temp_ids = [x for x in temp_ids if x not in op_record]
+    #         if _check_op_state(net, post_op, tensor_record):
+    #             print("      Post Op Ready")
+    #             n_ops.append(post_op)
+    #         elif temp_ids:
+    #             print("      Load Temp Op")
+    #             post_op_id = temp_ids.pop(-1)
+    #             post_op = net.get_op(post_op_id)
+    #             n_ops.append(post_op)
+    #     else:
+    #         n_ops.append(post_op)
+    #     op_record.append(post_op_id)
+    # net.AllOps = n_ops
+
+    # 具体处理Concat
+    for op in net.AllOps:
+        if isinstance(op, NpuConcat):
+            idx = net.get_op_idx(op)
+            # 将concat融入前一个NpuOp
+            pre_op = net.AllOps[idx - 1]
+            if isinstance(pre_op, NpuOp):
+                pre_op.fuse_ops(op)
+
+                net.delete_op(idx)
+            # else:
+            #     npu_op = NpuOp()
+            #     npu_op.NpuOpFlow.append(pre_op)
+            #     npu_op.NpuOpFlow.append(op)
+            #
+            #     _copy_opbase_input_info(npu_op, pre_op)
+            #     _copy_opbase_output_info(npu_op, op)
+            #     npu_op.init_all()
+            #
+            #     net.delete_op(idx-1)
+            #     net.delete_op(idx-1)
+            #     net.insert_op(npu_op, idx-1)
+    print("Net Lens:", len(net.AllOps))
+
+
+op_fuse_transform = [
+    TransformRule.ORDER_TOP_OPS,
+    TransformRule.CONST_FOLDING,
+    TransformRule.NPU_PAD,
+    TransformRule.NPU_SISO_OP,
+    TransformRule.SHORTCUT_CONV_ACTIVATION_ELW,
+    # TransformRule.NPU_CONCAT,
+    TransformRule.ORDER_NPU_OPS
+]
