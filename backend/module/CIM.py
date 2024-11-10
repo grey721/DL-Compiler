@@ -1,6 +1,6 @@
 from ir.dialect.npu.IR_operator import NpuOp, NpuConv2d, NpuFullConnected
 from ir.constant.type_mapping import *
-import numpy as np
+import math
 
 
 class CIM:
@@ -29,12 +29,13 @@ class CIM:
         n_cim = 0
         times_load = 0
         if isinstance(op, NpuConv2d):
-            k_map_hwc = op.KerH * op.KerW * op.KerM
+
+            k_map_hwc = op.KerH * op.KerW * op.KerC
             k_map_m = op.KerM
 
             # 该op在一个cycle内需要的CIM数
-            n_cim = np.ceil(k_map_hwc / self.H_equ)
-            times_load = np.ceil(k_map_m/self.W)
+            n_cim = math.ceil(k_map_hwc / self.H_equ)
+            times_load = math.ceil(k_map_m/self.W)
 
         elif isinstance(op, NpuFullConnected):
             pass

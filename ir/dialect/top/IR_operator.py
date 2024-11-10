@@ -315,6 +315,7 @@ class ConvBase(OpBase):
         super().__init__()
         # 卷积核尺寸
         self.KerM = None
+        self.KerC = None
         self.KerH = None
         self.KerW = None
 
@@ -355,7 +356,7 @@ class ConvBase(OpBase):
 
     def get_weight_size(self):
         """weight: H*W*C*M"""
-        weight_size = self.KerH * self.KerW * self.InputShape[0].C * self.OutputShape[0].C
+        weight_size = self.KerH * self.KerW * self.KerC * self.KerM
         return weight_size
 
     def get_weight_numpy(self, graph):

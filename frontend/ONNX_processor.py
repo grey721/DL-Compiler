@@ -334,7 +334,7 @@ class ONNX2TopIR:
         conv_op.OutputShape.append(self.graph.AllTensors[out_tensor_id].Shape)
 
         conv_op.KerM = conv_op.InputShape[1].N
-        conv_op.kerM_16 = True if conv_op.OutputShape[0].C % 16 == 0 else False
+        conv_op.KerC = conv_op.InputShape[0].C
 
         # 偏置项
         if len(in_tensors_name) == 3:

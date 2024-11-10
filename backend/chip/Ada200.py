@@ -1,0 +1,32 @@
+from ir.dialect.npu.IR_operator import *
+from backend.module.CIM import *
+from ir.tool.utils import within_n_base_2
+from ir.graph.Graph_IR import *
+
+
+class Ada200:
+    num_cluster = 4
+    num_cim_per_cluster = 4
+    num_cim = 4 * 4
+
+    def __init__(self):
+        self.CIM = CIM()
+
+    def node_partition(self, op):
+        n_cim, times_load = self.CIM.get_usage(op)
+
+        # Padding 以适应加法树
+        n_cim = within_n_base_2(self.num_cim, n_cim)
+
+        return n_cim, times_load
+
+
+if __name__ == "__main__":
+    import pickle
+    with open('output/yolov5s/npu_graph.pkl', 'rb') as file:
+        graph = pickle.load(file)
+    chip = Ada200()
+    for layer, npu_op in enumerate(graph.AllOps):
+        usage, times = chip.node_partition(npu_op)
+        if usage:
+            print(f"layer_{layer}:\n每个窗需要的CIM数：{usage} \n需要加载权重的次数：{times}")

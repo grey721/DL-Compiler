@@ -1,6 +1,5 @@
 import json
 import os
-from enum import Enum
 
 from ir.graph.Graph_IR import *
 from ir.conversion.ir_transform import _register_ir_transformation_rule
@@ -102,8 +101,8 @@ def easy_info(npu_graph: GraphIR):
 
         if ElemWiseOp is not None:
             if ElemWiseOp.Mode < 0 and ElemWiseOp.B == 0:
+                tensorB = npu_graph.AllTensors[ElemWiseOp.InTensors[1]]
                 with open(f'{layer_path}/B.json', 'w') as f:
-                    tensorB = npu_graph.AllTensors[ElemWiseOp.InTensors[1]]
                     json.dump({"B": tensorB.Data.tolist()}, f, indent=4)  # , indent=4
 
         # Weight 输出
