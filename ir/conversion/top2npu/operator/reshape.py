@@ -1,4 +1,4 @@
-from ir.conversion.top2npu.ada200.operator_lowing.base import OpTransformRule,  _register_op_transformation_rule
+from ir.conversion.top2npu.operator.base import OpTransformRule,  _register_op_transformation_rule
 from ir.dialect.npu.IR_operator import *
 
 

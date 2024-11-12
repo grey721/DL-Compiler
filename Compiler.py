@@ -2,7 +2,7 @@
 from frontend.ONNX_processor import *
 # IR
 from ir.constant.type_mapping import *
-from ir.conversion.top2npu.top2npu_pass import *
+from ir.conversion.top2npu.top2npu import *
 from ir.conversion.ir_transform import *
 from ir.conversion.optimization.op_fuse import *
 from ir.conversion.optimization.memory_assign import *
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     # lowing
     if config_path is None:
         quantization_mode = None
-    t2n = Top2Npu(mode=quantization_mode)
+    t2n = Top2Npu(chip="ada200", mode=quantization_mode)
     npu_graph = t2n.transform(top_graph)
 
     # pass
@@ -43,12 +43,6 @@ if __name__ == '__main__':
 
     ir_transformer.add_transform_option(op_fuse_transform)
     ir_transformer.transform(npu_graph)
-
-    # ir_transformer.add_transform_option(subnet_transform)
-    # ir_transformer.transform(npu_graph)
-
-    # ir_transformer.add_transform_option(layer_group_transform)
-    # ir_transformer.transform(npu_graph)
 
     ir_transformer.add_transform_option(weight_mapping_transform)
     ir_transformer.transform(npu_graph)

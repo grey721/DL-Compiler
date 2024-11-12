@@ -76,7 +76,6 @@ class Shape:  # 专门用于表示张量形状的class
 class IRTensor:  # IR中，表示张量的class
     Name = "top_ir_tensor"
     Id = None
-    Layout = Layout.NCHW
     Type = TensorType.Intermediate
     DataType = DataType.INT8
     ZeroPoint = None

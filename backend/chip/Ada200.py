@@ -1,6 +1,7 @@
 from ir.dialect.npu.IR_operator import *
 from backend.module.CIM import *
 from ir.tool.utils import within_n_base_2
+from ir.constant.type_mapping import Layout
 from ir.graph.Graph_IR import *
 
 
@@ -8,6 +9,7 @@ class Ada200:
     num_cluster = 4
     num_cim_per_cluster = 4
     num_cim = 4 * 4
+    DataLayout = Layout.NCHW
 
     def __init__(self):
         self.CIM = CIM()
@@ -39,4 +41,4 @@ if __name__ == "__main__":
     for layer, npu_op in enumerate(graph.AllOps):
         usage, times, n_re = chip.node_partition(npu_op)
         if usage:
-            print(f"layer_{layer}:\n每个窗需要的CIM数：{usage} \n需要加载权重的次数：{times}\n复用次数：{n_re}")
+            print(f"layer_{layer}:\n窗在hwc方向上需要的CIM数：{usage} \n需要加载权重的次数：{times}\n复用次数：{n_re}")

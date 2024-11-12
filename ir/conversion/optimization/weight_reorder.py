@@ -1,6 +1,4 @@
 import math
-import multiprocessing
-from enum import Enum
 
 from ir.conversion.ir_transform import _register_ir_transformation_rule
 from ir.dialect.npu.IR_operator import *

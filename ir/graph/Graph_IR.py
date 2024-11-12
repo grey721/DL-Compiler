@@ -16,7 +16,7 @@ class GraphIR:
         self.AllOpIds = []
         self.AllOps = []  # List[OpBase]
 
-        self.AllCpuOps = []
+        # self.AllCpuOps = []
         self.NetOutOpId = []
         self.NetInputOpId = []
         # 参数
@@ -30,6 +30,7 @@ class GraphIR:
         self.SubGraphs = []
         # config
         self.codegen_path = None
+        self.DataLayout = None
 
     def load_input_id(self, tensor_id):
         self.NetInTensors.append(tensor_id)

@@ -373,7 +373,7 @@ class ConvBase(OpBase):
             # axis：这是你想要增加新维度的位置。axis=0意味着新维度将被添加到张量的最前面。
             weight = np.expand_dims(weight, axis=-1)
             weight = np.expand_dims(weight, axis=-1)
-        if graph.AllTensors[weight_tensor].Layout == Layout.NHWC:
+        if graph.DataLayout == Layout.NHWC:
             # NCHW -> NHWC
             weight = np.transpose(weight, (0, 2, 3, 1))
         return weight

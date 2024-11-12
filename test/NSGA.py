@@ -99,8 +99,15 @@ class NSGA2:
 
         return rank
 
-    def select(self):
-        pass
+    def select(self, offspring):
+        s_pop = []
+        for i in offspring:
+            if self.n_pop >= len(s_pop) + len(i):
+                s_pop.extend(i)
+            else:
+                # 判断i的拥挤距离并加入s_pop
+                break
+        return s_pop
 
     def evolve(self):
         if len(self.funcs[FuncsType.OBJ]) == 0:
@@ -109,6 +116,7 @@ class NSGA2:
 
         self.evaluate_population()
         rank = self.non_dominated_sorting()
+
         self.plot_2d_rank(rank)
 
     def mutate(self, pop):

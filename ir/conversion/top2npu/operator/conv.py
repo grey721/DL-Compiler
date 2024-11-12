@@ -1,7 +1,5 @@
-import numpy as np
-
-from ir.conversion.top2npu.ada200.operator_lowing.base import OpTransformRule,  _register_op_transformation_rule
-from ir.conversion.top2npu.top_lowing import *
+from ir.conversion.top2npu.operator.base import OpTransformRule,  _register_op_transformation_rule
+from 备份.optimization.top_lowing import *
 from ir.dialect.npu.IR_operator import *
 
 
