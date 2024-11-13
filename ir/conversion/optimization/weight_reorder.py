@@ -8,7 +8,7 @@ from ir.graph.Graph_IR import *
 class TransformRule(Enum):
     NOPE = 1
 
-    WEIGHT_MAPPING = 2  # TODO 临时的简易输出
+    WEIGHT_MAPPING = 2
     WEIGHT_PADDING = 3
 
 

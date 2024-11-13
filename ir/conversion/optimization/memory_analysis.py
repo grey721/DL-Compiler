@@ -10,7 +10,7 @@ class TransformRule(Enum):
     EASY_MEMORY_ASSIGN = 3
 
 
-def addr_generator():
+def addr_generator(size):
     yield
 
 
@@ -125,7 +125,7 @@ def _memory_assign(net: GraphIR):
 
 
 # memory_assign_pass
-memory_assign_transform = [
+memory_analysis_transform = [
     TransformRule.EASY_MEMORY_ANALYSIS,
     TransformRule.EASY_MEMORY_ASSIGN
 ]

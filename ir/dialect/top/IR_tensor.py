@@ -77,7 +77,7 @@ class IRTensor:  # IR中，表示张量的class
     Name = "top_ir_tensor"
     Id = None
     Type = TensorType.Intermediate
-    DataType = DataType.INT8
+    DataType = DataType.FLOAT32
     ZeroPoint = None
     Scale = None
     Q_min = None

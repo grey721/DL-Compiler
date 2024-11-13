@@ -1,6 +1,6 @@
 import math
 
-from ir.dialect.npu.IR_tensor import *
+from ir.dialect.top.IR_tensor import *
 from ir.dialect.top.IR_operator import *
 
 
@@ -8,13 +8,7 @@ class NpuConv2d(Conv2d):
     fmi_size = None
     fmo_size = None
     weight_size = None
-    input_offset = None
-    weights_offset = None
-    output_offset = None
-    output_multiplier = None
-    output_shift = None
-    quantized_activation_min = None
-    quantized_activation_max = None
+
     conv_type = None
 
     pad_top = None
@@ -24,200 +18,26 @@ class NpuConv2d(Conv2d):
 
     def __init__(self):
         super().__init__()
-        self.conv_type = 0    # deconv:1 conv:0
+        self.conv_type = 0  # deconv:1 conv:0
+        self.split_shape = []
+        self.K_map_shape = None
 
-    def block_shape_reverse_infrence(self, block_address_list):
-
-        bh, bw, bc, sl = block_address_list.shape
-        assert sl == 6
-
-        assert (self.StrideH == self.StrideW)
-        assert (self.KerH == self.KerW)
-
-        k_s = self.KerH
-        Stride = self.StrideH
-        pad_top = self.pad_top
-        pad_bottom = self.pad_bottom
-        pad_left = self.pad_left
-        pad_right = self.pad_right
-        InputC = self.InputShape[0].C
-
-        block_pad_list = np.zeros([bh, bw, bc, 4], dtype=np.int32)
-
-        new_c = math.floor(InputC / bc)
-        c_nums = [new_c for _ in range(bc)]
-        for i in range(int(InputC - bc * new_c)):
-            c_nums[i] += 1
-
-        tem_c = []
-        tem = 0
-        for i in range(bc):
-            tem_c.append(tem)
-            tem += c_nums[i]
-
-        for i in range(bh):
-            for j in range(bw):
-                for k in range(bc):
-                    if i == 0:
-                        block_pad_list[i][j][k][0] = pad_top
-                    if i == bh - 1:
-                        block_pad_list[i][j][k][1] = pad_bottom
-                    if j == 0:
-                        block_pad_list[i][j][k][2] = pad_left
-                    if j == bw - 1:
-                        block_pad_list[i][j][k][3] = pad_right
-
-        for i in range(bh):
-            for j in range(bw):
-                for k in range(bc):
-                    block_address_list[i][j][k][0] = block_address_list[i][j][k][0] * Stride - pad_top
-                    block_address_list[i][j][k][1] = (block_address_list[i][j][k][1] * Stride) - Stride + k_s
-                    block_address_list[i][j][k][2] = block_address_list[i][j][k][2] * Stride - pad_left
-                    block_address_list[i][j][k][3] = (block_address_list[i][j][k][3] * Stride) - Stride + k_s
-                    block_address_list[i][j][k][4] = tem_c[k]
-                    block_address_list[i][j][k][5] = c_nums[k]
-                    if i == 0:
-                        block_address_list[i][j][k][0] += pad_top
-                        block_address_list[i][j][k][1] -= pad_top
-                    if i == bh - 1:
-                        if pad_bottom > 0:
-                            block_address_list[i][j][k][1] -= pad_bottom
-                        else:
-                            block_pad_list[i][j][k][1] = 0
-                    if j == 0:
-                        block_address_list[i][j][k][2] += pad_left
-                        block_address_list[i][j][k][3] -= pad_left
-                    if j == bw - 1:
-                        if pad_right > 0:
-                            block_address_list[i][j][k][3] -= pad_right
-                        else:
-                            block_pad_list[i][j][k][3] = 0
-        return block_address_list, block_pad_list
-
-    def update_block_address_list(self, npu_op_block_address_list, block_address_list):
-
-        npu_op_block_address_list['output_block_address_list'] = deepcopy(block_address_list)
-        block_address_list, block_pad_list = self.block_shape_reverse_infrence(block_address_list)
-        npu_op_block_address_list['input_block_address_list'] = deepcopy(block_address_list)
-        npu_op_block_address_list['block_pad_list'] = deepcopy(block_pad_list)
-
-        return block_address_list
-
-    def tile_shape_reverse_infrence(self, tile_address_list, block_address_list):
-
-        assert (self.StrideH == self.StrideW)
-        assert (self.KerH == self.KerW)
-        k_s = self.KerH
-        Stride = self.StrideH
-
-        block_pad_list = block_address_list['block_pad_list']
-        pad_top, pad_bottom, pad_left, pad_right = block_pad_list
-        th, tw, tc, sl = tile_address_list.shape
-
-        InputC = block_address_list['input_block_address_list'][5]
-
-        tile_pad_list = np.zeros([th, tw, tc, 4], dtype=np.int32)
-
-        new_c = math.floor(InputC / tc)
-        c_nums = [new_c for i in range(tc)]
-        for i in range(int(tc - tc * new_c)):
-            c_nums[i] += 1
-
-        tem_c = []
-        tem = 0
-        for i in range(tc):
-            tem_c.append(tem)
-            tem += c_nums[i]
-
-        for i in range(th):
-            for j in range(tw):
-                for k in range(tc):
-                    if i == 0:
-                        tile_pad_list[i][j][k][0] = pad_top
-                    if i == th - 1:
-                        tile_pad_list[i][j][k][1] = pad_bottom
-                    if j == 0:
-                        tile_pad_list[i][j][k][2] = pad_left
-                    if j == tw - 1:
-                        tile_pad_list[i][j][k][3] = pad_right
-
-        for i in range(th):
-            for j in range(tw):
-                for k in range(tc):
-                    tile_address_list[i][j][k][0] = tile_address_list[i][j][k][0] * Stride - pad_top
-                    tile_address_list[i][j][k][1] = (tile_address_list[i][j][k][1] * Stride) - Stride + k_s
-                    tile_address_list[i][j][k][2] = tile_address_list[i][j][k][2] * Stride - pad_left
-                    tile_address_list[i][j][k][3] = (tile_address_list[i][j][k][3] * Stride) - Stride + k_s
-                    tile_address_list[i][j][k][4] = tem_c[k]
-                    tile_address_list[i][j][k][5] = c_nums[k]
-                    if i == 0:
-                        tile_address_list[i][j][k][0] += pad_top
-                        tile_address_list[i][j][k][1] -= pad_top
-                    if i == th - 1:
-                        tile_address_list[i][j][k][1] -= pad_bottom
-                    if j == 0:
-                        tile_address_list[i][j][k][2] += pad_left
-                        tile_address_list[i][j][k][3] -= pad_left
-                    if j == tw - 1:
-                        tile_address_list[i][j][k][3] -= pad_right
-
-        return tile_address_list, tile_pad_list
-
-    def update_tile_address_list(self, npu_op_flow_tile_address_list, tile_address_list, block_address_list):
-
-        npu_op_flow_tile_address_list['output_tile_address_list'] = deepcopy(tile_address_list)
-        tile_address_list, tile_pad_list = self.tile_shape_reverse_infrence(tile_address_list, block_address_list)
-        npu_op_flow_tile_address_list['input_tile_address_list'] = deepcopy(tile_address_list)
-        npu_op_flow_tile_address_list['tile_pad_list'] = deepcopy(tile_pad_list)
-
-        return tile_address_list
+    def kernel2col(self):
+        self.K_map_shape = (self.KerH * self.KerW * self.KerC, self.KerM)
 
 
 class NpuActivation(Activation):
-
     def __init__(self):
         super().__init__()
 
-    def shape_reverse_infrence(self, address_list):
-        return address_list
-
-    def update_block_address_list(self, npu_op_block_address_list, block_address_list):
-        npu_op_block_address_list['output_block_address_list'] = deepcopy(block_address_list)
-        block_address_list = self.shape_reverse_infrence(block_address_list)
-        npu_op_block_address_list['input_block_address_list'] = deepcopy(block_address_list)
-
-        return block_address_list
-
-    def update_tile_address_list(self, npu_op_flow_tile_address_list, tile_address_list):
-        npu_op_flow_tile_address_list['input_tile_address_list'] = deepcopy(tile_address_list)
-        tile_address_list = self.shape_reverse_infrence(tile_address_list)
-        npu_op_flow_tile_address_list['output_tile_address_list'] = deepcopy(tile_address_list)
-
-        return tile_address_list
-
 
 class NpuLeakyRelu(NpuActivation):
-    input_offset = None
-    output_offset = None
-    identity_output_multiplier = None
-    alpha_output_multiplier = None
-    identity_output_shift = None
-    alpha_output_shift = None
-
     def __init__(self):
         super().__init__()
         # self.lut_dict = None
 
 
 class NpuLogistic(NpuActivation):
-    input_offset = None
-    input_multiplier = None
-    output_offset = None
-    output_multiplier = None
-
-    quantized_activation_min = None
-    quantized_activation_max = None
-
     def __init__(self):
         super().__init__()
         # self.lut_dict = None
@@ -232,465 +52,54 @@ class NpuPool(Pool):
     def __init__(self):
         super().__init__()
 
-    def block_shape_reverse_infrence(self, block_address_list):
-
-        assert (self.StrideH == self.StrideW)
-        assert (self.KerH == self.KerW)
-
-        bh, bw, bc, sl = block_address_list.shape
-        assert sl == 6
-
-        k_s = self.KerH
-        Stride = self.StrideH
-        pad_top = self.pad_top
-        pad_bottom = self.pad_bottom
-        pad_left = self.pad_left
-        pad_right = self.pad_right
-
-        block_pad_list = np.zeros([bh, bw, bc, 4], dtype=np.int32)
-
-        for i in range(bh):
-            for j in range(bw):
-                for k in range(bc):
-                    if i == 0:
-                        block_pad_list[i][j][k][0] = pad_top
-                    if i == bh - 1:
-                        block_pad_list[i][j][k][1] = pad_bottom
-                    if j == 0:
-                        block_pad_list[i][j][k][2] = pad_left
-                    if j == bw - 1:
-                        block_pad_list[i][j][k][3] = pad_right
-
-        for i in range(bh):
-            for j in range(bw):
-                for k in range(bc):
-                    block_address_list[i][j][k][0] = block_address_list[i][j][k][0] * Stride - pad_top
-                    block_address_list[i][j][k][1] = (block_address_list[i][j][k][1] * Stride) - Stride + k_s
-                    block_address_list[i][j][k][2] = block_address_list[i][j][k][2] * Stride - pad_left
-                    block_address_list[i][j][k][3] = (block_address_list[i][j][k][3] * Stride) - Stride + k_s
-                    if i == 0:
-                        block_address_list[i][j][k][0] += pad_top
-                        block_address_list[i][j][k][1] -= pad_top
-                    if i == bh - 1:
-                        block_address_list[i][j][k][1] -= pad_bottom
-                    if j == 0:
-                        block_address_list[i][j][k][2] += pad_left
-                        block_address_list[i][j][k][3] -= pad_left
-                    if j == bw - 1:
-                        block_address_list[i][j][k][3] -= pad_right
-
-        return block_address_list, block_pad_list
-
-    def update_block_address_list(self, npu_op_block_address_list, block_address_list):
-
-        npu_op_block_address_list['output_block_address_list'] = deepcopy(block_address_list)
-        block_address_list, block_pad_list = self.block_shape_reverse_infrence(block_address_list)
-        npu_op_block_address_list['input_block_address_list'] = deepcopy(block_address_list)
-        npu_op_block_address_list['block_pad_list'] = deepcopy(block_pad_list)
-
-        return block_address_list
-
-    def tile_shape_reverse_infrence(self, tile_address_list, block_address_list):
-
-        assert (self.StrideH == self.StrideW)
-        assert (self.KerH == self.KerW)
-        k_s = self.KerH
-        Stride = self.StrideH
-        InputC = self.InputShape[0].C
-        th, tw, tc, sl = tile_address_list.shape
-        block_pad_list = block_address_list["block_pad_list"]
-        pad_top, pad_bottom, pad_left, pad_right = block_pad_list
-
-        tile_pad_list = np.zeros([th, tw, tc, 4], dtype=np.int32)
-
-        for i in range(th):
-            for j in range(tw):
-                for k in range(tc):
-                    if i == 0:
-                        tile_pad_list[i][j][k][0] = pad_top
-                    if i == th - 1:
-                        tile_pad_list[i][j][k][1] = pad_bottom
-                    if j == 0:
-                        tile_pad_list[i][j][k][2] = pad_left
-                    if j == tw - 1:
-                        tile_pad_list[i][j][k][3] = pad_right
-
-        for i in range(th):
-            for j in range(tw):
-                for k in range(tc):
-                    tile_address_list[i][j][k][0] = tile_address_list[i][j][k][0] * Stride - pad_top
-                    tile_address_list[i][j][k][1] = (tile_address_list[i][j][k][1] * Stride) - Stride + k_s
-                    tile_address_list[i][j][k][2] = tile_address_list[i][j][k][2] * Stride - pad_left
-                    tile_address_list[i][j][k][3] = (tile_address_list[i][j][k][3] * Stride) - Stride + k_s
-                    if i == 0:
-                        tile_address_list[i][j][k][0] += pad_top
-                        tile_address_list[i][j][k][1] -= pad_top
-                    if i == th - 1:
-                        tile_address_list[i][j][k][1] -= pad_bottom
-                    if j == 0:
-                        tile_address_list[i][j][k][2] += pad_left
-                        tile_address_list[i][j][k][3] -= pad_left
-                    if j == tw - 1:
-                        tile_address_list[i][j][k][3] -= pad_right
-
-        return tile_address_list, tile_pad_list
-
-    def update_tile_address_list(self, npu_op_flow_tile_address_list, tile_address_list, block_address_list):
-
-        npu_op_flow_tile_address_list['output_tile_address_list'] = deepcopy(tile_address_list)
-        tile_address_list, tile_pad_list = self.tile_shape_reverse_infrence(tile_address_list, block_address_list)
-        npu_op_flow_tile_address_list['input_tile_address_list'] = deepcopy(tile_address_list)
-        npu_op_flow_tile_address_list['tile_pad_list'] = deepcopy(tile_pad_list)
-
-        return tile_address_list
-
 
 class NpuResize(Resize):
-    ratio_w = None
-    ratio_h = None
-
     def __init__(self):
         super().__init__()
 
-    def block_shape_reverse_infrence(self, block_address_list):
-
-        bh, bw, bc, sl = block_address_list.shape
-        assert bh * bw * bc == 1
-
-        block_address_list[0][0][0][1] = self.InputShape[0].H
-        block_address_list[0][0][0][3] = self.InputShape[0].W
-
-        return block_address_list
-
-    def update_block_address_list(self, npu_op_block_address_list, block_address_list):
-
-        npu_op_block_address_list['output_block_address_list'] = deepcopy(block_address_list)
-        block_address_list = self.block_shape_reverse_infrence(block_address_list)
-        npu_op_block_address_list['input_block_address_list'] = deepcopy(block_address_list)
-
-        return block_address_list
-
-    def tile_shape_reverse_infrence(self, tile_address_list):
-
-        th, tw, tc, sl = tile_address_list.shape
-        #
-        tile_drop_line_list = np.zeros([th, tw, tc, 4], dtype=np.int32)
-        scale = self.ScaleFactor
-
-        if th > 1:
-            assert scale % 2 == 0
-
-        assert tw == 1
-
-        tile_ih_list = []
-        tile_oh_list = []
-        for i in range(th):
-            for j in range(tw):
-                for k in range(tc):
-                    tile_oh = tile_address_list[i][j][k][1]
-                    tile_ih = int(tile_oh / scale)
-                    tile_ih_list.append(tile_ih)
-
-        if th > 1:
-            for i in range(th):
-                for j in range(tw):
-                    for k in range(tc):
-                        tile_oh = tile_address_list[i][j][k][1]
-                        assert tile_oh % scale == 0
-
-                        if i == 0:
-                            tile_address_list[i][j][k][0] = 0
-                            tile_address_list[i][j][k][1] = tile_ih + 1
-                            tile_drop_line_list[i][j][k][0] = 0
-                            tile_drop_line_list[i][j][k][1] = scale
-
-                        elif 0 < i < th - 1:
-                            tile_address_list[i][j][k][0] = sum(tile_ih_list[:i]) - 1
-                            if self.Mode == 0:
-                                tile_address_list[i][j][k][1] = tile_ih + 1
-                            else:
-                                tile_address_list[i][j][k][1] = tile_ih + 2
-                            tile_drop_line_list[i][j][k][0] = scale
-                            tile_drop_line_list[i][j][k][1] = scale
-
-                        else:
-                            tile_address_list[i][j][k][0] = sum(tile_ih_list) - tile_ih_list[i] - 1
-                            tile_address_list[i][j][k][1] = tile_ih_list[i] + 1
-                            tile_drop_line_list[i][j][k][0] = scale
-                            tile_drop_line_list[i][j][k][1] = 0
-
-                        tile_address_list[i][j][k][2] = 0
-                        tile_address_list[i][j][k][3] = int(tile_address_list[i][j][k][3] / scale)
-        else:
-            for i in range(th):
-                for j in range(tw):
-                    for k in range(tc):
-                        assert tile_oh % scale == 0
-                        tile_address_list[i][j][k][0] = 0
-                        tile_address_list[i][j][k][1] = int(tile_address_list[i][j][k][1] / scale)
-                        tile_address_list[i][j][k][2] = 0
-                        tile_address_list[i][j][k][3] = int(tile_address_list[i][j][k][3] / scale)
-
-        return tile_address_list, tile_drop_line_list
-
-    def update_tile_address_list(self, npu_op_flow_tile_address_list, tile_address_list):
-
-        npu_op_flow_tile_address_list['output_tile_address_list'] \
-            = deepcopy(tile_address_list)
-
-        tile_address_list, tile_drop_line_list = self.tile_shape_reverse_infrence(tile_address_list)
-
-        npu_op_flow_tile_address_list['input_tile_address_list'] \
-            = deepcopy(tile_address_list)
-
-        npu_op_flow_tile_address_list['tile_drop_line_list'] \
-            = deepcopy(tile_drop_line_list)
-        return tile_address_list
-
 
 class NpuConcat(Concat):
-
     def __init__(self):
         super().__init__()
         self.main_input_tensor_id = None
 
-    def block_shape_reverse_infrence(self, block_address_list):
-
-        bh, bw, bc, sl = block_address_list.shape
-        assert bh * bw * bc == 1
-
-        block_address_list[0][0][0][4] = 0
-        block_address_list[0][0][0][5] = self.InputShape[0].C
-
-        block_address_list_0 = deepcopy(block_address_list)
-
-        block_address_list[0][0][0][4] = 0
-        block_address_list[0][0][0][5] = self.InputShape[1].C
-
-        return block_address_list_0, block_address_list
-
-    def update_block_address_list(self, npu_op_block_address_list, block_address_list):
-
-        npu_op_block_address_list['output_block_address_list'] = deepcopy(block_address_list)
-        block_address_list_0, block_address_list = self.block_shape_reverse_infrence(block_address_list)
-        npu_op_block_address_list['input_block_address_list'] = deepcopy(block_address_list_0)
-        npu_op_block_address_list['input1_block_address_list'] = deepcopy(block_address_list)
-
-        return block_address_list
-
-    def update_tile_address_list(self, npu_op_flow_tile_address_list, tile_address_list):
-
-        npu_op_flow_tile_address_list['output_tile_address_list'] \
-            = deepcopy(tile_address_list)
-
-        th, tw, tc, sl = tile_address_list.shape
-        for i in range(th):
-            for j in range(tw):
-                for k in range(tc):
-                    tile_address_list[i][j][k][4] = 0
-                    tile_address_list[i][j][k][5] = self.InputShape[0].C
-                    npu_op_flow_tile_address_list['input_tile_address_list'] \
-                        = deepcopy(tile_address_list)
-
-                    tile_address_list[i][j][k][4] = 0
-                    tile_address_list[i][j][k][5] = self.InputShape[1].C
-                    npu_op_flow_tile_address_list['input1_tile_address_list'] \
-                        = deepcopy(tile_address_list)
-
-        return tile_address_list
-
 
 class NpuSplit(Split):
-
     def __init__(self):
         super().__init__()
-        # TODO
 
 
 class NpuElemWise(ElemWise):
-    left_shift = None
-    input_multiplier = None
-    input_shift = None
-    input_offset = None
-    input1_multiplier = None
-    input1_shift = None
-    input1_offset = None
-    output_multiplier = None
-    output_shift = None
-    output_offset = None
-    quantized_activation_min = None
-    quantized_activation_max = None
-
     def __init__(self):
         super().__init__()
-
-    def shape_reverse_infrence(self, address_list):
-        return address_list
-
-    def update_block_address_list(self, npu_op_block_address_list, block_address_list):
-        npu_op_block_address_list['output_block_address_list'] = deepcopy(block_address_list)
-        block_address_list = self.shape_reverse_infrence(block_address_list)
-        npu_op_block_address_list['input_block_address_list'] = deepcopy(block_address_list)
-
-        return block_address_list
-
-    def update_tile_address_list(self, npu_op_flow_tile_address_list, tile_address_list):
-        npu_op_flow_tile_address_list['input_tile_address_list'] = deepcopy(tile_address_list)
-        tile_address_list = self.shape_reverse_infrence(tile_address_list)
-        npu_op_flow_tile_address_list['output_tile_address_list'] = deepcopy(tile_address_list)
-
-        return tile_address_list
 
 
 class NpuReshape(Reshape):
-    Device = "cpu"
-    TimeStep = None
-
     def __init__(self):
         super().__init__()
-
-    def set_time_step(self, time_step):
-        self.TimeStep = time_step
 
 
 class NpuTranspose(Transpose):
-    Device = "cpu"
-    TimeStep = None
-
     def __init__(self):
         super().__init__()
-
-    def set_time_step(self, time_step):
-        self.TimeStep = time_step
 
 
 class NpuSoftmax(NpuActivation):
-    Device = "cpu"
-    TimeStep = None
-
     def __init__(self):
         super().__init__()
-
-    def set_time_step(self, time_step):
-        self.TimeStep = time_step
 
 
 class NpuMean(Mean):
-    Type = "NpuMean"
-    Device = "cpu"
-    TimeStep = None
-
     def __init__(self):
         super().__init__()
-
-    def set_time_step(self, time_step):
-        self.TimeStep = time_step
 
 
 class NpuPad(Pad):
-    Device = "npu"
-    TimeStep = None
-
     def __init__(self):
         super().__init__()
 
-    def set_time_step(self, time_step):
-        self.TimeStep = time_step
-
-    def block_shape_reverse_infrence(self, block_address_list):
-
-        bh, bw, bc, sl = block_address_list.shape
-
-        pad_top = self.pad_top
-        pad_bottom = self.pad_bottom
-        pad_left = self.pad_left
-        pad_right = self.pad_right
-        block_pad_list = np.zeros([bh, bw, bc, 4], dtype=np.int32)
-
-        for i in range(bh):
-            for j in range(bw):
-                for k in range(bc):
-                    if i == 0:
-                        block_pad_list[i][j][k][0] = pad_top
-                    if i == bh - 1:
-                        block_pad_list[i][j][k][1] = pad_bottom
-                    if j == 0:
-                        block_pad_list[i][j][k][2] = pad_left
-                    if j == bw - 1:
-                        block_pad_list[i][j][k][3] = pad_right
-
-                    if i == 0:
-                        block_address_list[i][j][k][1] -= pad_top
-                    if i == bh - 1:
-                        block_address_list[i][j][k][1] -= pad_bottom
-                    if j == 0:
-                        block_address_list[i][j][k][3] -= pad_left
-                    if j == bw - 1:
-                        block_address_list[i][j][k][3] -= pad_right
-
-        return block_address_list, block_pad_list
-
-    def update_block_address_list(self, npu_op_block_address_list, block_address_list):
-
-        npu_op_block_address_list['output_block_address_list'] = deepcopy(block_address_list)
-        block_address_list, block_pad_list = self.block_shape_reverse_infrence(block_address_list)
-        npu_op_block_address_list['input_block_address_list'] = deepcopy(block_address_list)
-        npu_op_block_address_list['block_pad_list'] = deepcopy(block_pad_list)
-
-        return block_address_list
-
-    def tile_shape_reverse_infrence(self, tile_address_list):
-
-        pad_top = self.pad_top
-        pad_bottom = self.pad_bottom
-        pad_left = self.pad_left
-        pad_right = self.pad_right
-        th, tw, tc, sl = tile_address_list.shape
-        tile_pad_list = np.zeros([th, tw, tc, 4], dtype=np.int32)
-
-        for i in range(th):
-            for j in range(tw):
-                for k in range(tc):
-                    if i == 0:
-                        tile_pad_list[i][j][k][0] = pad_top
-                    if i == th - 1:
-                        tile_pad_list[i][j][k][1] = pad_bottom
-                    if j == 0:
-                        tile_pad_list[i][j][k][2] = pad_left
-                    if j == tw - 1:
-                        tile_pad_list[i][j][k][3] = pad_right
-
-                    if i == 0:
-                        tile_address_list[i][j][k][1] -= pad_top
-                    if i == th - 1:
-                        tile_address_list[i][j][k][1] -= pad_bottom
-                    if j == 0:
-                        tile_address_list[i][j][k][3] -= pad_left
-                    if j == tw - 1:
-                        tile_address_list[i][j][k][3] -= pad_right
-
-        return tile_address_list, tile_pad_list
-
-    def update_tile_address_list(self, npu_op_flow_tile_address_list, tile_address_list):
-
-        npu_op_flow_tile_address_list['output_tile_address_list'] = deepcopy(tile_address_list)
-        npu_op_flow_tile_address_list['input_tile_address_list'] = deepcopy(tile_address_list)
-        tile_address_list, tile_pad_list = self.tile_shape_reverse_infrence(tile_address_list)
-        npu_op_flow_tile_address_list['tile_pad_list'] = deepcopy(tile_pad_list)
-        return tile_address_list
-
 
 class NpuFullConnected(FullConnected):
-    fmi_size = None
-    fmo_size = None
-    weight_size = None
-    input_offset = None
-    weights_offset = None
-    output_offset = None
-    output_multiplier = None
-    output_shift = None
-    quantized_activation_min = None
-    quantized_activation_max = None
     conv_type = None
 
     def __init__(self):

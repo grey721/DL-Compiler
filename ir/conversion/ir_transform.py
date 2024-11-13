@@ -17,6 +17,7 @@ class IRTransformer:
         return ir_graph
 
 
+# 开始优化前，所有优化函数会被映射到该字典内,以供后续调用。以枚举类为键
 TRANSFORM_MAP: Dict[Enum, Callable] = {}
 
 
@@ -64,14 +65,14 @@ def _copy_opbase_output_info(op_dst, op_src):
 def _order_post_op(net, op):
     post_op_id = []
     if isinstance(op, NpuOp):
-        outputs = deepcopy(op.fmo_tensor)
+        outputs = op.fmo_tensor[:]
         outputs.extend(op.short_cut_out_tensor)
     else:
         outputs = op.OutTensors
 
     for post_op in net.AllOps:
         if isinstance(post_op, NpuOp):
-            inputs = deepcopy(post_op.fmi_tensor)
+            inputs = post_op.fmi_tensor[:]
             inputs.extend(post_op.elemwise_input_tensor)
             inputs.extend(post_op.concat_input_tensor)
             for t_name in inputs:
@@ -92,7 +93,7 @@ def _order_post_op(net, op):
 def _order_pre_op(net, op):
     pre_op_id = []
     if isinstance(op, NpuOp):
-        inputs = deepcopy(op.fmi_tensor)
+        inputs = op.fmi_tensor[:]
         concat_inputs = op.concat_input_tensor
         inputs.extend(concat_inputs)
         elemwise_inputs = op.elemwise_input_tensor
@@ -103,7 +104,7 @@ def _order_pre_op(net, op):
     for pre_op in net.AllOps:
         if isinstance(pre_op, NpuOp):
             if pre_op.short_cut_out_tensor:
-                outputs = deepcopy(pre_op.short_cut_out_tensor)
+                outputs = pre_op.short_cut_out_tensor[:]
             else:
                 outputs = []
             outputs.extend(pre_op.fmo_tensor)  # 当前Op的所有输出
