@@ -61,18 +61,20 @@ class Ada300:
     def gen_block_param(self, op, n_cim, times_load, repeat):
         weight = op.WeightValue
         sub_block = np.array([np.array_split(i, n_cim, axis=0) for i in np.array_split(weight, times_load, axis=1)])
-        sub_bias = np.array(np.array_split(op.BiasValue, times_load))
+
+        sub_bias = np.array_split(op.BiasValue, times_load)
+        sub_bias = np.tile(sub_bias, (n_cim, 1))
 
         if repeat and len(sub_block) < self.num_cim:
             sub_block = np.tile(sub_block, (1, repeat, 1,  1))
             sub_bias = np.tile(sub_bias, (repeat, 1))
 
-        shape = sub_block.shape
-        sub_block = sub_block.reshape((-1, 16, shape[2], shape[3]))
+        w_shape = sub_block.shape
+        sub_block = sub_block.reshape((-1, 16, w_shape[2], w_shape[3]))
+        sub_bias = sub_bias.reshape((-1, 16, self.CIM.W))
+
         op.WeightValue = sub_block
         op.BiasValue = sub_bias
-
-
 
     def get_replication_numbers(self, n_cim, times_load):
         # NSGA3
