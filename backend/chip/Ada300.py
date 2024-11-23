@@ -64,11 +64,15 @@ class Ada300:
         sub_bias = np.array(np.array_split(op.BiasValue, times_load))
 
         if repeat and len(sub_block) < self.num_cim:
-            sub_block = np.tile(sub_block, (repeat, 1))
+            sub_block = np.tile(sub_block, (1, repeat, 1,  1))
             sub_bias = np.tile(sub_bias, (repeat, 1))
 
+        shape = sub_block.shape
+        sub_block = sub_block.reshape((-1, 16, shape[2], shape[3]))
         op.WeightValue = sub_block
         op.BiasValue = sub_bias
+
+
 
     def get_replication_numbers(self, n_cim, times_load):
         # NSGA3
