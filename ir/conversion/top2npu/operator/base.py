@@ -24,12 +24,12 @@ class OpTransformRule(Enum):
     CONSTANT_LOWERING = 17
 
 
-ADA200_TRANSFORM_MAP: Dict[Enum, Callable] = {}
+ADA300_TRANSFORM_MAP: Dict[Enum, Callable] = {}
 
 
 # 装饰器首次应用于函数时，装饰器函数会被调用一次
 def _register_op_transformation_rule(transform_rule):  # 装饰器工厂，ADA200_TRANSFORM_MAP[rule]赋值为函数impl
     def callback(impl):
-        ADA200_TRANSFORM_MAP[transform_rule] = impl
+        ADA300_TRANSFORM_MAP[transform_rule] = impl
 
     return callback

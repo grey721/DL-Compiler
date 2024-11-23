@@ -1,5 +1,4 @@
 from ir.conversion.top2npu.operator.base import OpTransformRule,  _register_op_transformation_rule
-from 备份.optimization.top_lowing import *
 from ir.dialect.npu.IR_operator import *
 
 

@@ -6,15 +6,15 @@ from ir.graph.Graph_IR import *
 
 class TransformRule(Enum):
     NOPE = 1
-    EASY_MEMORY_ANALYSIS = 2
-    EASY_MEMORY_ASSIGN = 3
+    MEMORY_OPERATION_ANALYSIS = 2
+    LIFE_CYCLE = 3
 
 
 def addr_generator(size):
     yield
 
 
-@_register_ir_transformation_rule(TransformRule.EASY_MEMORY_ANALYSIS)
+@_register_ir_transformation_rule(TransformRule.MEMORY_OPERATION_ANALYSIS)
 def _memory_analysis(net: GraphIR):
     print("----start TransformRule EASY_MEMORY_ANALYSIS-----")
     for idx, npu_op in enumerate(net.AllOps):
@@ -74,7 +74,7 @@ def _memory_analysis(net: GraphIR):
             print("     Read", npu_op.read_list)
 
 
-@_register_ir_transformation_rule(TransformRule.EASY_MEMORY_ASSIGN)
+@_register_ir_transformation_rule(TransformRule.LIFE_CYCLE)
 def _memory_assign(net: GraphIR):
     print("----start TransformRule EASY_MEMORY_ASSIGN-----")
     life_cycle = {}
@@ -126,6 +126,6 @@ def _memory_assign(net: GraphIR):
 
 # memory_assign_pass
 memory_analysis_transform = [
-    TransformRule.EASY_MEMORY_ANALYSIS,
-    TransformRule.EASY_MEMORY_ASSIGN
+    TransformRule.MEMORY_OPERATION_ANALYSIS,
+    TransformRule.LIFE_CYCLE
 ]

@@ -131,7 +131,7 @@ def _order_npu_ops(net: GraphIR):  # 排序NPU
                         n_pre_op.append(pre_op_idx)
                         continue
             if len(n_pre_op) == len(op.PreOpId):
-                net.AllOps[op_idx].PreOpId = n_pre_op
+                op.PreOpId = n_pre_op
 
         print(op.NpuOpId, op.Type, pre_op_id, post_op_id)
 

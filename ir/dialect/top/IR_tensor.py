@@ -34,6 +34,7 @@ class Shape:  # 专门用于表示张量形状的class
             self.W = 1
         elif dims == 5:
             self.N, self.BoxNum, self.BoxInfo, self.fiH, self.fiW = tensor_shape
+
         #     # (x, y, w h,confidence)
         #     # 批次，3个预测框，预选框信息，尺度且单位像素
         # 维度i,j,f,k,v含义：第 i 张图，第 j 个锚框， 锚框的信息f，第 k 行单元格，第 v 列单元格
@@ -71,6 +72,25 @@ class Shape:  # 专门用于表示张量形状的class
         for i in self.list:
             res *= i
         return res
+
+    def reshape(self, dim_name, value):
+        if value == 0:
+            return
+        if 0 < len(self.list) <= 4:  # 不同情况下赋值赋值shape
+            n_list = [self.N, self.C, self.H, self.W]
+            if dim_name == "N":
+                self.N = value
+                n_list[0] = value
+            elif dim_name == "C":
+                self.C = value
+                n_list[1] = value
+            elif dim_name == "H":
+                self.H = value
+                n_list[2] = value
+            elif dim_name == "W":
+                self.W = value
+                n_list[3] = value
+            self.list = n_list
 
 
 class IRTensor:  # IR中，表示张量的class

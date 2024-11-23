@@ -306,7 +306,6 @@ class ConvBase(OpBase):
     # Auto_pads = "PAD_ZERO"
     # 是否是首层
     FirstLayer = False
-    KerM_16 = False
 
     # 激活函数
     # do_relu = False

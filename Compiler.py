@@ -15,7 +15,7 @@ if __name__ == '__main__':
     model_path = 'assets/yolov5s.onnx'
 
     # chip
-    chip = "ada200"
+    chip = "ada300"
 
     # 量化
     config_path = None  # 'assets/yolov3.json'
@@ -49,19 +49,19 @@ if __name__ == '__main__':
     ir_transformer.add_transform_option(op_fuse_transform)
     ir_transformer.transform(npu_graph)
 
-    ir_transformer.add_transform_option(weight_mapping_transform)
-    ir_transformer.transform(npu_graph)
-
     ir_transformer.add_transform_option(memory_analysis_transform)
     ir_transformer.transform(npu_graph)
 
     # 后端，根据芯片实际参数优化
-    if chip == "ada200":
-        backend = Ada200(npu_graph)
+    if chip == "ada300":
+        backend = Ada300(npu_graph)
     else:
         raise NotImplementedError
 
     npu_graph = backend.graph
+
+    ir_transformer.add_transform_option(weight_mapping_transform)
+    ir_transformer.transform(npu_graph)
 
     ir_transformer.add_transform_option(codegen_transform)
     ir_transformer.transform(npu_graph)
