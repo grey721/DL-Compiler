@@ -107,7 +107,7 @@ class ONNXRUNER:
                         temp["output_dims"] = [len(shape) for shape in temp["output_shape"]]
                         temp["output"] = [t.tolist() for t in temp["output"]]
 
-                        with open(f"{verification_path}/{op_info["Type"]}.json", 'w') as f:
+                        with open(f'{verification_path}/{op_info["Type"]}.json', 'w') as f:
                             json.dump(temp, f, indent=4)  # , indent=4
 
         else:

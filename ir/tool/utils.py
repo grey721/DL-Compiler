@@ -4,6 +4,6 @@ def within_n_base_2(n: int, var: int):
     """
     if var != 1:
         compensation = var % n
-        if compensation and n & (n-1) == 0:  # 判断是否以2为底
+        if compensation and var & (var-1):  # 判断是否以2为底
             var += (1 << compensation.bit_length()) - compensation
     return var
