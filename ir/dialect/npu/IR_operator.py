@@ -510,3 +510,18 @@ class VpuAdditionOutputSelection(object):
     RESIZE_SHORT_CUT_OUTPUT = 2
     POOL_SHORT_CUT_OUTPUT = 2
     ELEW_SHORT_CUT_OUTPUT = 3
+
+
+class SubBlock:
+    def __init__(self):
+        self.BlockId = None
+        self.times_load = None
+        self.cim_add_num = None
+
+    def inherit_from_operator(self, op):
+        self.BlockId = op.NpuOpId
+        if isinstance(op, NpuOp):
+            if op.NpuOpConv:
+                self.times_load, self.cim_add_num, _ = op.NpuOpConvOp.WeightValue.shape
+
+        pass

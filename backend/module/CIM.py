@@ -14,7 +14,7 @@ class CIM:
         self.Capacity = h * w * subcell_num
         self.H_equ = h * subcell_num  # 等效高度
 
-    def get_usage_map(self, op):
+    def map_weight_and_get_cim_usage(self, op):
         """
         Weight to col and padding
         return n_cim, times_load
