@@ -1,5 +1,5 @@
 import numpy as np
-from ir.constant.type_mapping import *
+from ir.utils.constant.type_mapping import *
 
 
 # H高度，w宽度，C通道数，M卷积核数量，也是输出的深度

@@ -19,7 +19,6 @@ def _weight_mapping(net: GraphIR):
             if npu_conv_op is None:
                 continue
             npu_op_id = npu_op.NpuOpId
-            k_n = npu_conv_op.WeightValue.shape[0]
             weight = {
                 "weight": npu_conv_op.WeightValue.tolist(),
 

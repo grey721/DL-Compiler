@@ -43,6 +43,7 @@ class NSGA:
             # 选这下一代的父代
             rank = self.get_rank(n_individuals)
             self.select(rank)
+            # self.plot_2d_rank(rank, only_f0=True)
 
         # 可视化
         rank = self.get_rank(n_individuals)
@@ -50,7 +51,6 @@ class NSGA:
         self.plot_2d_rank(rank, only_f0=True)
 
     def mutate(self):
-        self.gene[0:self.n_pop, :] = self.gene[self.n_pop:None, :]
         for g_idx in range(self.n_pop):
             if np.random.rand() < self.p_mutation:
                 position = np.random.randint(0, 2)
@@ -60,26 +60,25 @@ class NSGA:
                 elif new < 0:
                     new *= -1
                 self.gene[g_idx][position] = new
-        pass
 
     def crossover(self):
-        for c_idx in range(self.n_pop):
+        for g_idx in range(self.n_pop):
             if np.random.rand() < self.p_crossover:
                 p_idx = int(np.round(self.n_pop * np.random.rand()))
-                if p_idx == c_idx and c_idx == self.n_pop-1:
+                if p_idx == g_idx and g_idx == self.n_pop-1:
                     p_idx -= 1
-                elif p_idx == c_idx and c_idx == 0:
+                elif p_idx == g_idx and g_idx == 0:
                     p_idx -= 1
-                elif p_idx == c_idx:
+                elif p_idx == g_idx:
                     p_idx += 1
 
                 if np.random.randint(0, 2):
-                    temp = self.gene[c_idx][0]
-                    self.gene[c_idx][0] = self.gene[p_idx][0]
+                    temp = self.gene[g_idx][0]
+                    self.gene[g_idx][0] = self.gene[p_idx][0]
                     self.gene[p_idx][0] = temp
                 else:
-                    temp = self.gene[c_idx][1]
-                    self.gene[c_idx][1] = self.gene[p_idx][1]
+                    temp = self.gene[g_idx][1]
+                    self.gene[g_idx][1] = self.gene[p_idx][1]
                     self.gene[p_idx][1] = temp
 
     def evaluate(self):
@@ -92,7 +91,7 @@ class NSGA:
             n = len(x)
             return (1 - np.exp(-sum((x + 1 / np.sqrt(n)) ** 2))) * 10
 
-        for idx, g in enumerate(self.gene[:self.n_pop, :]):
+        for idx, g in enumerate(self.gene[0:self.n_pop, :]):
             self.pop[0][idx] = z1(g)
             self.pop[1][idx] = z2(g)
 
@@ -101,6 +100,8 @@ class NSGA:
         for n, fn in enumerate(rank):
             if len(s) + len(fn) <= self.n_pop:
                 s.extend(fn)
+            elif len(s) + len(fn) == self.n_pop:
+                break
             else:
                 # 挑选加入s
                 n_refer = math.comb(self.n_obj + p - 1, p)
@@ -114,11 +115,13 @@ class NSGA:
                     for _ in range(t):
                         del s[-1]
                 break
+        # 保存父代
         self.pop[:, self.n_pop:None] = self.pop[:, s]
-        self.gene[:self.n_pop, :] = self.gene[s, :]
+        self.gene[self.n_pop:None, :] = self.gene[s, :]
+        # 复制父代基因，准备生成子代基因
+        self.gene[0:self.n_pop, :] = self.gene[self.n_pop:None, :]
 
     def get_rank(self, n_individuals):
-
         dominate_set = [[] for _ in range(n_individuals)]
         dominated_count = [0] * n_individuals
         current_rank = []
