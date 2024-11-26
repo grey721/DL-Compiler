@@ -1,7 +1,6 @@
 import json
 
-from ir.constant.framework.constant_ONNX import *
-from ir.constant.type_mapping import *
+from ir.utils.constant.framework.constant_ONNX import *
 from ir.graph.Graph_IR import *
 
 

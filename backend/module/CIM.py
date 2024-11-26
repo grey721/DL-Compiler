@@ -1,5 +1,5 @@
-from ir.dialect.npu.IR_operator import NpuOp, NpuConv2d, NpuFullConnected
-from ir.constant.type_mapping import *
+from ir.dialect.npu.IR_operator import NpuConv2d, NpuFullConnected
+from ir.utils.constant.type_mapping import *
 import numpy as np
 import math
 

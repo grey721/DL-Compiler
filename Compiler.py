@@ -1,7 +1,6 @@
 # Parse Model
 from frontend.ONNX_processor import *
 # IR
-from ir.constant.type_mapping import *
 from ir.conversion.top2npu.top2npu import *
 from ir.conversion.ir_transform import *
 from ir.conversion.optimization.op_fuse import *

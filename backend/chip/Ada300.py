@@ -1,6 +1,6 @@
 from backend.module.CIM import *
 from ir.graph.Graph_IR import *
-from ir.tool.utils import within_n_base_2
+from ir.utils.utils import within_n_base_2
 
 
 class Ada300:
@@ -63,6 +63,7 @@ class Ada300:
                 [np.array_split(i, n_cim) for i in np.array_split(op.WeightValue, times_load, axis=1)])
             sub_bias = np.array(np.array_split(op.BiasValue, times_load))
 
+            # temp output
             w_shape = sub_weight.shape
             if n_block > self.num_cim:
                 op.WeightValue = sub_weight.reshape((-1, self.num_cim, w_shape[2],  w_shape[3]))
