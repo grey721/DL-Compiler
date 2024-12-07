@@ -325,11 +325,11 @@ class NpuOp(OpBase):
         if self.NpuOpConcat:
             npu_flow_tensor_record = []
             for npu_op in self.NpuOpFlow:
-                if not isinstance(npu_op, NpuConcat):
+                if isinstance(npu_op, NpuConcat):
+                    break
+                else:
                     npu_flow_tensor_record.extend(npu_op.InTensors)
                     npu_flow_tensor_record.extend(npu_op.OutTensors)
-                else:
-                    break
 
             for in_tensor in self.NpuOpConcatOp.InTensors:
                 if in_tensor not in npu_flow_tensor_record:
@@ -338,11 +338,11 @@ class NpuOp(OpBase):
         if self.NpuOpElemWise:
             npu_flow_tensor_record = []
             for npu_op in self.NpuOpFlow:
-                if not isinstance(npu_op, NpuElemWise):
+                if isinstance(npu_op, NpuElemWise):
+                    break
+                else:
                     npu_flow_tensor_record.extend(npu_op.InTensors)
                     npu_flow_tensor_record.extend(npu_op.OutTensors)
-                else:
-                    break
 
             for in_tensor in self.NpuOpElemWiseOp.InTensors:
                 if in_tensor not in npu_flow_tensor_record:
