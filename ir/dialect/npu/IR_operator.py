@@ -176,6 +176,8 @@ class NpuOp(OpBase):
         self.concat_output_shape = None
         self.fmi_from_global_memory = False
 
+        self.sub_block_list = []
+
     def __repr__(self):
         return f"""
     ######################## NpuOp.{self.NpuOpId} #############################
@@ -513,15 +515,15 @@ class VpuAdditionOutputSelection(object):
 
 
 class SubBlock:
+
     def __init__(self):
         self.BlockId = None
-        self.times_load = None
-        self.cim_add_num = None
+        self.NpuOp = None
 
-    def inherit_from_operator(self, op):
-        self.BlockId = op.NpuOpId
-        if isinstance(op, NpuOp):
-            if op.NpuOpConv:
-                self.times_load, self.cim_add_num, _ = op.NpuOpConvOp.WeightValue.shape
+        self.tree_flag = 0
+        self.repeat = 1
 
-        pass
+        self.WeightValue = None
+        self.Bias = False
+        self.BiasValue = None
+        # 通过调整IFM 在该SubBlock上的输入部分，控制输出的多少
