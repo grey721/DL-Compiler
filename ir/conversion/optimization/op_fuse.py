@@ -314,6 +314,7 @@ def _post_fuse_conv_activation_elw(net: GraphIR):
 @_register_ir_transformation_rule(TransformRule.NPU_CONCAT)
 def _fuse_concat(net: GraphIR):
     print("----start TransformRule NPU_CONCAT-----")
+    # 模型一般已经满足该顺序
     # # 排序，确保concat的输入均已出现
     # tensor_record = []
     # n_ops = [net.AllOps[0]]
@@ -371,18 +372,13 @@ def _fuse_concat(net: GraphIR):
                 pre_op.fuse_ops(op)
 
                 net.delete_op(idx)
-            # else:
-            #     npu_op = NpuOp()
-            #     npu_op.NpuOpFlow.append(pre_op)
-            #     npu_op.NpuOpFlow.append(op)
-            #
-            #     _copy_opbase_input_info(npu_op, pre_op)
-            #     _copy_opbase_output_info(npu_op, op)
-            #     npu_op.init_all()
-            #
-            #     net.delete_op(idx-1)
-            #     net.delete_op(idx-1)
-            #     net.insert_op(npu_op, idx-1)
+            else:
+                npu_op = NpuOp()
+                npu_op.fuse_ops([pre_op, op])
+
+                net.delete_op(idx-1)
+                net.delete_op(idx-1)
+                net.insert_op(npu_op, idx-1)
     print("Net Lens:", len(net.AllOps))
 
 

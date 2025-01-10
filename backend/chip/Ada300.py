@@ -34,10 +34,14 @@ class Ada300:
                     continue
             elif isinstance(npu_op, (NpuConv2d, NpuFullConnected)):
                 op = npu_op
+                npu_op = NpuOp()
+                npu_op.fuse_ops(npu_op)
+                del self.graph.AllOps[layer]
+                self.graph.AllOps.insert(layer, npu_op)
             else:
                 continue
 
-            # 若算子有权重，计算hwc方向上所需的CIM个数和权重的加载次数，并且对权重Pad
+            # 若算子有权重，计算hwc方向上所需的CIM个数和权重的加载次数，并且对权重Pad，weight2col
             n_cim, times_load = self.CIM.map_weight_and_get_cim_usage(op)
 
             # 适应加法树
@@ -63,18 +67,20 @@ class Ada300:
                 [np.array_split(i, n_cim) for i in np.array_split(op.WeightValue, times_load, axis=1)])
             sub_bias = np.array(np.array_split(op.BiasValue, times_load))
 
-            # temp output
+            op.WeightValue = sub_weight
+            op.BiasValue = sub_bias
+
+            # 输出Reshape
             w_shape = sub_weight.shape
             if n_block > self.num_cim:
-                op.WeightValue = sub_weight.reshape((-1, self.num_cim, w_shape[2],  w_shape[3]))
-                op.BiasValue = sub_bias.reshape((-1, times_per_load, self.CIM.W))
+                sub_weight = sub_weight.reshape((-1, self.num_cim, w_shape[2],  w_shape[3]))
+                sub_bias = sub_bias.reshape((-1, times_per_load, self.CIM.W))
             else:
-                op.WeightValue = sub_weight.reshape((1, -1, w_shape[2],  w_shape[3]))
-                op.BiasValue = sub_bias.reshape((1, -1, self.CIM.W))
+                sub_weight = sub_weight.reshape((1, -1, w_shape[2],  w_shape[3]))
+                sub_bias = sub_bias.reshape((1, -1, self.CIM.W))
 
             # op.times_per_load = times_per_load
-            op.repeat = repeat
-            op.tree_flag = round(math.log2(n_cim))
+            tree_flag = round(math.log2(n_cim))
 
             print(f"layer_{layer}:\n"
                   f"    窗在hwc方向上需要的CIM数：{n_cim} \n"
@@ -83,6 +89,22 @@ class Ada300:
                   f"    SubBlock形状：{op.WeightValue.shape}\n"
                   f"    -SubBias形状：{op.BiasValue.shape}\n"
                   )
+
+            sub_block_list = []
+            for n, block in enumerate(sub_weight):
+                sub_block = SubBlock()
+                sub_block.BlockId = (layer, n)
+                sub_block.tree_flag = tree_flag
+
+                sub_block.WeightValue = block
+                if op.Bias:
+                    sub_block.Bias = True
+                    sub_block.BiasValue = sub_bias[n]
+
+                sub_block_list.append(sub_block)
+
+            sub_block_list[-1].repeat = repeat
+            npu_op.sub_block_list = sub_block_list
 
     def get_replication_numbers(self, n_cim, times_load):
         # NSGA3
