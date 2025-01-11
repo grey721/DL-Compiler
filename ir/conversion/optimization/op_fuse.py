@@ -1,4 +1,5 @@
 from enum import Enum
+from ir.utils.formula import *
 
 from ir.conversion.ir_transform import _find_post_op, _find_pre_op, \
     _register_ir_transformation_rule, \
@@ -210,8 +211,9 @@ def _delete_fuse_constant(net: GraphIR):
     shape_class_operator = (OpShape, Unsqueeze, Transpose, Reshape, Slice)
     conv_class_operator = (NpuConv2d, NpuPool)
 
-    def _fuse_post(graph, current_op, result):
-        post_op_ids = _find_post_op(graph, current_op)
+    # 常量传播
+    def _fuse_post(graph, _current_op, result):
+        post_op_ids = _current_op.PostTopOpId  # _find_post_op(graph, _current_op)
         for post_idx in post_op_ids:
             post_op = graph.get_op(post_idx)
             # 在此限制可与常数融合的算子类型
@@ -232,6 +234,7 @@ def _delete_fuse_constant(net: GraphIR):
                         result.append(post_idx)
                     _fuse_post(graph, post_op, result)
 
+
     delete_list = []
     for _op_id, op in enumerate(net.AllOps):
         if isinstance(op, (Constant, OpShape)):
@@ -246,6 +249,47 @@ def _delete_fuse_constant(net: GraphIR):
     for idx in delete_list:
         print('Delete:', net.AllOps[idx].Name)
         net.delete_op(idx)
+
+    # 常量折叠
+    def handle(v, b, mode, _idx, wise_list):
+        if b != 0:
+            if mode == -1:
+                v += b
+            elif mode == -2:
+                v -= b
+            elif mode == -3:
+                v *= b
+            elif mode == -5:
+                v **= b
+            return v
+        else:
+            wise_list.append(v)
+            wise_list.append(f"B_{_idx}")
+            return Variable("X")
+
+    record = []
+    for _op_id, op in enumerate(net.AllOps):
+        if isinstance(op, ElemWise) and op.TopOpId not in record and op.Mode < 0 and len(op.PostTopOpId) == 1:
+            print(op.Name, _op_id)
+            current_op = op
+            temp = [_op_id]
+            formula = []
+            x = Variable("X")
+            x = handle(x, op.B, op.Mode, _op_id, formula)
+            while True:
+                post_idx = _find_post_op(net, current_op)[0]
+
+                post_op = net.get_op(post_idx)
+                if isinstance(post_op, ElemWise) and post_op.Mode < 0 and len(post_op.PostTopOpId) == 1:
+                    print(post_op.Name, post_idx)
+                    x = handle(x, post_op.B, post_op.Mode, post_idx, formula)
+                    temp.append(post_idx)
+                    record.append(post_op.TopOpId)
+                else:
+                    formula.append(x)
+                    print("========", formula)
+                    break
+                current_op = post_op
 
 
 @_register_ir_transformation_rule(TransformRule.SHORTCUT_CONV_ACTIVATION_ELW)

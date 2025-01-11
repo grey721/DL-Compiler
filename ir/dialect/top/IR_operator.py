@@ -248,7 +248,7 @@ class ElementWiseMode(object):  # 元操作代码
 
 class ElemWise(OpBase):
     Type = "ElemWise"
-    Mode = None
+    Mode = None  # 若输入为常量，则为负数，输入记为B
 
     # do_relu = False
     # FusedActFunc = 0

@@ -227,7 +227,7 @@ class ONNX2TopIR:
         if tensor_num != len(in_tensors_name):
             elem_op.Mode = 0 - elem_op.Mode
             if len(in_tensors_name) == 2 and self.graph.AllTensors[in_tensor_id].Data.ndim == 0:
-                elem_op.B = self.graph.AllTensors[in_tensor_id].Data.item()
+                elem_op.B = self.graph.AllTensors[in_tensor_id].Data.item()  # 标量
 
         # 输出
         out_tensors_name = op.output
