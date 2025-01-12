@@ -1,6 +1,31 @@
 import numpy as np
 
 
+def trim_zeros_nd(arr: np.ndarray):
+    arr_dim_num = len(arr.shape)
+
+    idx_pattern = [slice(0, None) for _ in range(arr_dim_num)]
+    new_shape = list(arr.shape)
+    for n_dim, dims in enumerate(arr.shape):  # 第n_dim维度有dims个
+        idx = idx_pattern[:]
+        for dim in range(dims, 0, -1):
+            idx[n_dim] = dim - 1
+            if np.any(arr[*idx]):
+                new_shape[n_dim] = dim
+                break
+
+    new_shape = tuple(new_shape)
+    if new_shape != arr.shape:
+        new_pattern = (slice(0, i) for i in new_shape)
+
+        new_arr = np.zeros(new_shape)
+        new_arr += arr[*new_pattern]
+
+        return new_arr
+    else:
+        return arr.copy()
+
+
 def count2str(count):
     if count == int(count):
         count = int(count)
@@ -243,6 +268,7 @@ class Formula:
                 #
                 if self_shape == other_shape:
                     r.params = self.params + other_p
+                    r.params = trim_zeros_nd(r.params)
                 else:
                     # 切片，取各维度最大值
                     self_slice = []  # 广播，适应维度
@@ -260,6 +286,7 @@ class Formula:
                     r.params = np.zeros(shape)
                     r.params[*self_slice] += self.params
                     r.params[*other_slice] += other_p
+                    r.params = trim_zeros_nd(r.params)
 
             else:  # 也是表达式，但有不同的符号
                 r = other + self
@@ -290,6 +317,7 @@ class Formula:
                 other_slice = [0] * len(self_shape)
                 other_slice[sym_idx] = slice(0, other_len)
                 r.params[*other_slice] += other.params
+                r.params = trim_zeros_nd(r.params)
 
             else:  # 新符号
                 r.symbol = (other.symbol, *self.symbol)
@@ -332,6 +360,7 @@ class Formula:
                 #
                 if self_shape == other_shape:
                     r.params = self.params - other_p  # 减后面
+                    r.params = trim_zeros_nd(r.params)
                 else:
                     # 切片，取各维度最大值
                     self_slice = []  # 广播，适应维度
@@ -349,6 +378,7 @@ class Formula:
                     r.params = np.zeros(shape)
                     r.params[*self_slice] += self.params
                     r.params[*other_slice] -= other_p  # 减后面
+                    r.params = trim_zeros_nd(r.params)
 
             else:  # 也是表达式，但有不同的符号
                 r = other - self
@@ -380,6 +410,7 @@ class Formula:
                 other_slice = [0] * len(self_shape)
                 other_slice[sym_idx] = slice(0, other_len)
                 r.params[*other_slice] -= other.params  # 减后面
+                r.params = trim_zeros_nd(r.params)
 
             else:  # 新符号
                 r.symbol = (other.symbol, *self.symbol)
@@ -494,21 +525,19 @@ class Formula:
         elif power == 0:
             return 1
 
+    def set_main_symbol(self, sym):
+        if self.symbol[0] == sym:
+            return
+        else:
+            n_symbol = []
+            pattern = []
+            for idx, i in enumerate(self.symbol):
+                if i == sym:
+                    n_symbol.insert(0, i)
+                    pattern.insert(0, i)
+                else:
+                    n_symbol.append(i)
+                    pattern.append(i)
 
-if __name__ == "__main__":
-    x = Variable("x")
-    y = Variable("y")
-    z = Variable("z")
-
-    a = x + y
-    a = a * z
-    print(a.symbol)
-    print(a.params)
-    # print("+")
-    # b = y - x
-    # print(b.symbol)
-    # print(b.params)
-
-    # c = a * x
-    # print(c.symbol)
-    # print(c.params)
+            self.symbol = tuple(n_symbol)
+            self.params.transpose(pattern)

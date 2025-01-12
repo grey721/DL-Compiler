@@ -282,7 +282,11 @@ def _delete_fuse_constant(net: GraphIR):
                     temp.append(post_idx)
                     record.append(post_op.TopOpId)
                 else:
-                    print("========", x.params)
+                    x.set_main_symbol("X")
+                    print("====可替换成====")
+                    print(x.symbol)
+                    print(x.params)
+                    print("==============")
                     break
                 current_op = post_op
 
