@@ -251,21 +251,18 @@ def _delete_fuse_constant(net: GraphIR):
         net.delete_op(idx)
 
     # 常量折叠
-    def handle(v, b, mode, _idx, wise_list):
-        if b != 0:
-            if mode == -1:
-                v += b
-            elif mode == -2:
-                v -= b
-            elif mode == -3:
-                v *= b
-            elif mode == -5:
-                v **= b
-            return v
-        else:
-            wise_list.append(v)
-            wise_list.append(f"B_{_idx}")
-            return Variable("X")
+    def handle(v, b, mode, _idx):
+        if b == 0:
+            b = Variable(f"B_{_idx}")
+        if mode == -1:
+            v += b
+        elif mode == -2:
+            v -= b
+        elif mode == -3:
+            v *= b
+        elif mode == -5:
+            v **= b
+        return v
 
     record = []
     for _op_id, op in enumerate(net.AllOps):
@@ -273,21 +270,19 @@ def _delete_fuse_constant(net: GraphIR):
             print(op.Name, _op_id)
             current_op = op
             temp = [_op_id]
-            formula = []
             x = Variable("X")
-            x = handle(x, op.B, op.Mode, _op_id, formula)
+            x = handle(x, op.B, op.Mode, _op_id)
             while True:
                 post_idx = _find_post_op(net, current_op)[0]
 
                 post_op = net.get_op(post_idx)
                 if isinstance(post_op, ElemWise) and post_op.Mode < 0 and len(post_op.PostTopOpId) == 1:
                     print(post_op.Name, post_idx)
-                    x = handle(x, post_op.B, post_op.Mode, post_idx, formula)
+                    x = handle(x, post_op.B, post_op.Mode, post_idx)
                     temp.append(post_idx)
                     record.append(post_op.TopOpId)
                 else:
-                    formula.append(x)
-                    print("========", formula)
+                    print("========", x.params)
                     break
                 current_op = post_op
 
