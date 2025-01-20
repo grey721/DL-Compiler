@@ -283,6 +283,17 @@ def _delete_fuse_constant(net: GraphIR):
                     record.append(post_op.TopOpId)
                 else:
                     x.set_main_symbol("X")
+
+                    # 检测是否是仅含有一个带x的项，若是多项式，则需要优化计算顺序
+                    num = 0
+                    for i in np.sum(x.params[1: None, ...], axis=1):
+                        if i:
+                            num += 1
+
+                    if num > 1:
+                        # 优化计算顺序，例如：因式分解、优化幂运算、重新融合，避免拆开某些多项式
+                        pass
+
                     print("====可替换成====")
                     print(x.symbol)
                     print(x.params)

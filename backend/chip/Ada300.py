@@ -4,9 +4,9 @@ from ir.utils.utils import within_n_base_2
 
 
 class Ada300:
-    num_cluster = 4
+    num_cluster = 4  # 未来将这部分改入CIM模块中
     num_cim_per_cluster = 4
-    num_cim = 4 * 4
+    num_cim = num_cluster * num_cim_per_cluster
     DataLayout = Layout.NCHW
     CIM = CIM(
         h=64,
@@ -24,6 +24,7 @@ class Ada300:
 
     def node_partition(self):
         print("----start TransformRule NODE_PARTITION and WEIGHT_PADDING-----")
+        z = 0
         for layer, npu_op in enumerate(self.graph.AllOps):
             if isinstance(npu_op, NpuOp):
                 if npu_op.NpuOpConv:
@@ -40,7 +41,7 @@ class Ada300:
                 self.graph.AllOps.insert(layer, npu_op)
             else:
                 continue
-
+            z += 1
             # 若算子有权重，计算hwc方向上所需的CIM个数和权重的加载次数，并且对权重Pad，weight2col
             n_cim, times_load = self.CIM.map_weight_and_get_cim_usage(op)
 
@@ -61,7 +62,7 @@ class Ada300:
                 times_per_load = times_load
 
             # 权重分割
-            # weight[加载次数][当次加载所需要的CIM数量][CIM中使用的H][CIM中使用的W]
+            # weight[加载次数/需要的核心数][当次加载所需要的CIM数量][CIM中使用的H][CIM中使用的W]
             # bias[加载次数][当次所需要的偏置]
             sub_weight = np.array(
                 [np.array_split(i, n_cim) for i in np.array_split(op.WeightValue, times_load, axis=1)])
@@ -83,6 +84,7 @@ class Ada300:
             tree_flag = round(math.log2(n_cim))
 
             print(f"layer_{layer}:\n"
+                  f"    Kernel Shape：{op.InputShape[1]}\n"
                   f"    窗在hwc方向上需要的CIM数：{n_cim} \n"
                   f"    需要加载权重的次数：{times_load}\n"
                   f"    最后次加载中可复用次数：{repeat}\n"
@@ -105,6 +107,7 @@ class Ada300:
 
             sub_block_list[-1].repeat = repeat
             npu_op.sub_block_list = sub_block_list
+        print(f"总计含矩阵乘的算子有：{z}个")
 
     def get_replication_numbers(self, n_cim, times_load):
         # NSGA3
