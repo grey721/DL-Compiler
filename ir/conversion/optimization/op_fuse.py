@@ -1,6 +1,7 @@
 from enum import Enum
 from ir.utils.formula import *
 
+
 from ir.conversion.ir_transform import _find_post_op, _find_pre_op, \
     _register_ir_transformation_rule, \
     _copy_opbase_input_info, \
@@ -35,14 +36,7 @@ op_type_mapping = {
 }
 
 
-def quick_sort(arr):
-    if len(arr) <= 1:
-        return arr
-    pivot = arr[len(arr) // 2]
-    left = [x for x in arr if x > pivot]  # 大于枢轴的元素
-    middle = [x for x in arr if x == pivot]  # 等于枢轴的元素
-    right = [x for x in arr if x < pivot]  # 小于枢轴的元素
-    return quick_sort(left) + middle + quick_sort(right)
+
 
 
 def _check_concat_mode(concat_ops, tensor_record):
@@ -243,37 +237,36 @@ def _delete_fuse_constant(net: GraphIR):
             if _op_id not in delete_list:
                 delete_list.append(_op_id)
 
-    delete_list = quick_sort(delete_list)
-
-    for idx in delete_list:
-        print('Delete:', net.AllOps[idx].Name)
-        net.delete_op(idx)
 
     # 常量折叠
-    record = []
+    # record = []
     new_ops = []
     for _op_id, op in enumerate(net.AllOps):
-        if isinstance(op, ElemWise) and (op.TopOpId not in record) and op.Mode < 0:
+        if isinstance(op, ElemWise) and (op.TopOpId not in delete_list) and op.Mode < 0:
 
-            def _fuse_elem(current_op, op_list, record_list):
-                post_ids = _find_post_op(net, current_op)
-                for _post_idx in post_ids:
-                    post = net.get_op(_post_idx)
-                    if not (isinstance(post, ElemWise) and op.Mode < 0):
+            def _fuse_elem(pre_op, op_list, record_list):
+                current_ids = _find_post_op(net, pre_op)
+                for _current_idx in current_ids:
+                    current = net.get_op(_current_idx)
+                    if not (isinstance(current, ElemWise) and op.Mode < 0):
                         return [op_list]
 
                 new_list = []
-                for _post_idx in post_ids:
-                    post = net.get_op(_post_idx)
-                    record_list.append(post.TopOpId)
-                    new_list.extend(_fuse_elem(post, [*op_list, post], record_list))
+                for _current_idx in current_ids:
+                    current = net.get_op(_current_idx)
+                    record_list.append(current.TopOpId)
+                    new_list.extend(_fuse_elem(current, [*op_list, current], record_list))
 
                 return new_list
 
-            op_lists = _fuse_elem(op, [op], record)
+            op_lists = _fuse_elem(op, [op], delete_list)
+
             if len(op_lists[0]) == 1:
                 continue
-            print(op.Name, _op_id)
+            delete_list.append(op.TopOpId)
+
+            for fuse_op in op_lists:
+                print(f"iter:{_op_id}： {[_op.Name for _op in fuse_op]}")
 
             for fuse_list in op_lists:
                 x = Variable("X")
@@ -320,9 +313,9 @@ def _delete_fuse_constant(net: GraphIR):
                     # 插回图IR
                     new_ops.append(npu_op)
 
+    net.delete_ops_with_idx(delete_list)
     for fuse_op in new_ops:
         net.insert_op(fuse_op, _find_pre_op(net, fuse_op.OriginalOpStream[0])[0] + 1)
-    net.delete_ops_with_top(record)
 
 
 @_register_ir_transformation_rule(TransformRule.SHORTCUT_CONV_ACTIVATION_ELW)

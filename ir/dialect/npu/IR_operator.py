@@ -114,82 +114,82 @@ class ArithmeticOp(OpBase):
     def __init__(self):
         super().__init__()
         self.Type = "NpuOp"
-        self.Name = "ArithmeticOp"
+        self.Name = "Arithmetic"
         self.NpuOpFlow = []
         self.OriginalOpStream = ()
         self.fmi_tensor = []
         self.fmo_tensor = []
         self.formula = None
 
-    def fuse_ops(self, op_list, formula: Formula):
+    def fuse_ops(self, op_list, formula: Formula):  # 要求第一个维度是输入变量
         self.OriginalOpStream = tuple(op_list)
         self.formula = formula
 
+        symbol = formula.symbol[1:]
         params = formula.params
 
-        result = []
-        if isinstance(formula, Formula):
-            symbol = formula.symbol[1:]
-            shape = params.shape
-            sub_shape = shape[1:]
-            for i in range(shape[0]):
-                # 此时为输入x的i次方的系数矩阵，矩阵内部的变量相加
-                b = 0
-                for index in np.ndindex(sub_shape):
-                    temp = params[(i, *index)]
-                    if temp == 0:
-                        continue
-                    for m, n in enumerate(index):
-                        if n == 0:
-                            continue
-                        temp *= op_list[symbol[m]].B_array ** n
+        shape = params.shape
+        result = [0] * shape[0]
+        for index in np.ndindex(shape):
+            temp = params[index]
+            if temp == 0:  # 系数为0，跳过
+                continue
+            for v, power in enumerate(index[1:]):
+                if power == 0:  # 幂次为1，跳过
+                    continue
+                temp *= op_list[symbol[v]].B_array ** power
 
-                    b += temp
-                result.append(b)
+            result[index[0]] += temp
 
-            # max_power = len(result)
-            # need_memory = 0
-            #
-            # for power, i in enumerate(result):
-            #     if np.any(i):
-            #         need_memory |= power
-            # print(bin(need_memory)[:1:-1])
+        # max_power = len(result)
+        # need_memory = 0
+        #
+        # for power, i in enumerate(result):
+        #     if np.any(i):
+        #         need_memory |= power
+        # print(bin(need_memory)[:1:-1])
 
-            num = 0
-            for i in result[1:]:
+        # 项数
+        num = 0
+        for i in result[1:]:
+            if np.any(i):
+                num += 1
+
+        # ax+b形式，无法再优化流程，否则会有不同的计算方法，有不同的开销，在后端补充吧
+        if num == 1:
+            # 转换Op
+            for power, i in enumerate(result[1:], 1):
                 if np.any(i):
-                    num += 1
-
-            # 无法再优化流程，否则会有不同的计算方法，有不同的开销，在后端补充吧
-            if num == 1:
-                # 转换Op
-                for power, i in enumerate(result[1:], 1):
-                    if np.any(i):
-                        if power != 1:
-                            power_op = ElemWise()
-                            power_op.Mode = ElementWiseMode.ELW_POW
-                            power_op.B = power
-                            self.NpuOpFlow.append(power_op)
-                        mul_op = ElemWise()
-                        mul_op.Mode = ElementWiseMode.ELW_MUL
-                        if isinstance(i, np.ndarray):
-                            mul_op.B_array = i
-                        else:
-                            mul_op.B = i
-                        self.NpuOpFlow.append(mul_op)
-                        break
-
-                if np.any(result[0]):
-                    add_op = ElemWise()
-                    add_op.Mode = ElementWiseMode.ELW_ADD
-                    if isinstance(result[0], np.ndarray):
-                        add_op.B_array = result[0]
+                    if power != 1:
+                        power_op = ElemWise()
+                        power_op.Mode = ElementWiseMode.ELW_POW
+                        power_op.B = power
+                        self.NpuOpFlow.append(power_op)
+                    mul_op = ElemWise()
+                    mul_op.Mode = ElementWiseMode.ELW_MUL
+                    if isinstance(i, np.ndarray):
+                        mul_op.B_array = i
                     else:
-                        add_op.B = result[0]
-                    self.NpuOpFlow.append(add_op)
+                        mul_op.B = i
+                    self.NpuOpFlow.append(mul_op)
+                    break
 
-                # 为融合Op添加输入输出信息，为内部Op添加输入输出信息
-                self.init_tensor()
+            if np.any(result[0]):
+                add_op = ElemWise()
+                add_op.Mode = ElementWiseMode.ELW_ADD
+                if isinstance(result[0], np.ndarray):
+                    add_op.B_array = result[0]
+                else:
+                    add_op.B = result[0]
+                self.NpuOpFlow.append(add_op)
+
+            # 为融合Op添加输入输出信息，为内部Op添加输入输出信息
+            self.init_tensor()
+            for idx, op in enumerate(self.NpuOpFlow):
+                if 0 < idx:
+                    op.InputShape = self.NpuOpFlow[idx-1].OutputShape
+                if idx < len(self.NpuOpFlow) - 1:
+                    op.OutputShape = Shape(op.shape_inference())
 
     def init_tensor(self):
 
@@ -210,6 +210,9 @@ class ArithmeticOp(OpBase):
 
         self.NpuOpFlow[-1].OutTensors = self.OutTensors
         self.NpuOpFlow[-1].OutputShape = self.OutputShape
+
+
+
 
     def set_fmi_tensors(self, ir_tensor_ids):
         self.fmi_tensor = ir_tensor_ids[0:1]

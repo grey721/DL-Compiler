@@ -1,5 +1,6 @@
 from ir.dialect.npu.IR_operator import *
 from ir.dialect.top.IR_tensor import *
+from ir.utils.utils import *
 
 
 class GraphIR:
@@ -47,18 +48,19 @@ class GraphIR:
         self.AllOpIds.insert(op_idx, id(op))  # op唯一身份标识
 
     def delete_op(self, op_idx):
+        # print('Delete:', self.AllOps[op_idx].Name)
         del self.AllOps[op_idx]
         del self.AllOpIds[op_idx]
 
-    def delete_ops_with_top(self, op_ids):
+    def delete_ops_with_idx(self, delete_list):
         try:
-            for op_idx, op in enumerate(self.AllOps):
-                if op.TopOpId in op_ids:
-                    print('Delete:', op.Name)
-                    del self.AllOps[op_idx]
-                    del self.AllOpIds[op_idx]
+            delete_list = quick_sort(delete_list)
+            for idx in delete_list:
+                print('Delete:', self.AllOps[idx].Name)
+                del self.AllOps[idx]
+                del self.AllOpIds[idx]
         except TypeError:
-            self.delete_ops_with_top([op_ids])
+            self.delete_ops_with_idx([delete_list])
 
     def add_tensor(self, tensor):
         if tensor.Id not in self.AllTensorIds:
