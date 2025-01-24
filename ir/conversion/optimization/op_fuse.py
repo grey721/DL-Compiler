@@ -214,26 +214,25 @@ def _delete_fuse_constant(net: GraphIR):
     # 常量传播
     def _fuse_post(graph, _current_op, result):
         post_op_ids = _current_op.PostTopOpId  # _find_post_op(graph, _current_op)
-        for post_idx in post_op_ids:
-            post_op = graph.get_op(post_idx)
+        for _post_idx in post_op_ids:
+            post = graph.get_op(_post_idx)
             # 在此限制可与常数融合的算子类型
             # 单输入单输出
-            if isinstance(post_op, value_class_operator) or isinstance(post_op, shape_class_operator):
-                if post_idx not in result:
-                    for _out_tensor_id in post_op.OutTensors:
+            if isinstance(post, value_class_operator) or isinstance(post, shape_class_operator):
+                if _post_idx not in result:
+                    for _out_tensor_id in post.OutTensors:
                         net.AllTensors[_out_tensor_id].Type = TensorType.Const
-                    result.append(post_idx)
-                _fuse_post(graph, post_op, result)
+                    result.append(_post_idx)
+                _fuse_post(graph, post, result)
             else:
-                flag = True
-                for _in_tensor_id in post_op.InTensors:
+                f = True
+                for _in_tensor_id in post.InTensors:
                     if net.AllTensors[_in_tensor_id].Type != TensorType.Const:
-                        flag = False
-                if flag:
-                    if post_idx not in result:
-                        result.append(post_idx)
-                    _fuse_post(graph, post_op, result)
-
+                        f = False
+                if f:
+                    if _post_idx not in result:
+                        result.append(_post_idx)
+                    _fuse_post(graph, post, result)
 
     delete_list = []
     for _op_id, op in enumerate(net.AllOps):
@@ -251,35 +250,37 @@ def _delete_fuse_constant(net: GraphIR):
         net.delete_op(idx)
 
     # 常量折叠
-    def handle(v, b, mode, _idx):
-        if b == 0:
-            b = Variable(_idx)
-        if mode == -1:
-            v += b
-        elif mode == -2:
-            v -= b
-        elif mode == -3:
-            v *= b
-        elif mode == -5:
-            v **= b
-        return v
-
     record = []
+    new_ops = []
     for _op_id, op in enumerate(net.AllOps):
-        if isinstance(op, ElemWise) and op.TopOpId not in record and op.Mode < 0 and len(op.PostTopOpId) == 1:
-            print(op.Name, _op_id)
-            current_op = op
-            temp = [op]
-            x = Variable("X")
-            x = handle(x, op.B, op.Mode, 0)
-            while True:
-                post_idx = _find_post_op(net, current_op)[0]
-                post_op = net.get_op(post_idx)
+        if isinstance(op, ElemWise) and (op.TopOpId not in record) and op.Mode < 0:
 
-                if isinstance(post_op, ElemWise) and post_op.Mode < 0 and len(post_op.PostTopOpId) == 1:
-                    print(post_op.Name, post_idx)
+            def _fuse_elem(current_op, op_list, record_list):
+                post_ids = _find_post_op(net, current_op)
+                for _post_idx in post_ids:
+                    post = net.get_op(_post_idx)
+                    if not (isinstance(post, ElemWise) and op.Mode < 0):
+                        return [op_list]
+
+                new_list = []
+                for _post_idx in post_ids:
+                    post = net.get_op(_post_idx)
+                    record_list.append(post.TopOpId)
+                    new_list.extend(_fuse_elem(post, [*op_list, post], record_list))
+
+                return new_list
+
+            op_lists = _fuse_elem(op, [op], record)
+            if len(op_lists[0]) == 1:
+                continue
+            print(op.Name, _op_id)
+
+            for fuse_list in op_lists:
+                x = Variable("X")
+                temp = []
+                for _idx, elem_wise in enumerate(fuse_list):
                     # 避免开括号平方
-                    if post_op.Mode == -5 or (post_op.Mode == -3 and post_op.B == 0):
+                    if elem_wise.Mode == -5 or (elem_wise.Mode == -3 and elem_wise.B == 0):
                         if isinstance(x, Formula):
                             x.set_main_symbol("X")
 
@@ -288,37 +289,40 @@ def _delete_fuse_constant(net: GraphIR):
                             if i:
                                 num += 1
                         if num > 1:
-                            print("====可替换成====")
-                            print(x.symbol)
-                            print(x.params)
-                            print("==============")
-                            break
+                            # 融合
+                            npu_op = ArithmeticOp()
+                            npu_op.fuse_ops(temp, x)
+                            # 插回图IR
+                            new_ops.append(npu_op)
+                            # net.insert_op(npu_op, _find_pre_op(net, temp[0])[0]+1)
+                            # 将代融合列表重置
+                            x = Variable("X")
+                            temp = []
 
                     # 正式开始计算
-                    x = handle(x, post_op.B, post_op.Mode, len(temp))
-                    temp.append(post_op)
-                    record.append(post_op.TopOpId)
-                else:
-                    if isinstance(x, Formula):
-                        x.set_main_symbol("X")
+                    b = elem_wise.B
+                    if b == 0:
+                        b = Variable(len(temp))
+                    if elem_wise.Mode == -1:
+                        x += b
+                    elif elem_wise.Mode == -2:
+                        x -= b
+                    elif elem_wise.Mode == -3:
+                        x *= b
+                    elif elem_wise.Mode == -5:
+                        x **= b
+                    temp.append(elem_wise)
 
-                    # 检测是否是仅含有一个带x的项，若是多项式，则需要优化计算顺序
-                    num = 0
-                    for i in [np.sum(sub) for sub in x.params]:
-                        if i:
-                            num += 1
-                    if num > 1:
-                        # 优化计算顺序，例如：因式分解、优化幂运算、重新融合，避免拆开某些多项式
-                        pass
-
-                    print("====可替换成====")
-                    print(x.symbol)
-                    print(x.params)
+                if temp:
+                    # 融合
                     npu_op = ArithmeticOp()
                     npu_op.fuse_ops(temp, x)
-                    print("==============")
-                    break
-                current_op = post_op
+                    # 插回图IR
+                    new_ops.append(npu_op)
+
+    for fuse_op in new_ops:
+        net.insert_op(fuse_op, _find_pre_op(net, fuse_op.OriginalOpStream[0])[0] + 1)
+    net.delete_ops_with_top(record)
 
 
 @_register_ir_transformation_rule(TransformRule.SHORTCUT_CONV_ACTIVATION_ELW)

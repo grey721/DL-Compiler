@@ -50,6 +50,16 @@ class GraphIR:
         del self.AllOps[op_idx]
         del self.AllOpIds[op_idx]
 
+    def delete_ops_with_top(self, op_ids):
+        try:
+            for op_idx, op in enumerate(self.AllOps):
+                if op.TopOpId in op_ids:
+                    print('Delete:', op.Name)
+                    del self.AllOps[op_idx]
+                    del self.AllOpIds[op_idx]
+        except TypeError:
+            self.delete_ops_with_top([op_ids])
+
     def add_tensor(self, tensor):
         if tensor.Id not in self.AllTensorIds:
             self.AllTensorIds.append(tensor.Id)

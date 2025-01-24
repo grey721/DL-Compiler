@@ -123,10 +123,11 @@ class ArithmeticOp(OpBase):
 
     def fuse_ops(self, op_list, formula: Formula):
         self.OriginalOpStream = tuple(op_list)
+        self.formula = formula
+
         params = formula.params
 
         result = []
-
         if isinstance(formula, Formula):
             symbol = formula.symbol[1:]
             shape = params.shape
@@ -189,11 +190,6 @@ class ArithmeticOp(OpBase):
 
                 # 为融合Op添加输入输出信息，为内部Op添加输入输出信息
                 self.init_tensor()
-                self.NpuOpFlow[0].InTensors = self.InTensors
-                self.NpuOpFlow[0].InputShape =  self.InputShape
-
-                self.NpuOpFlow[-1].OutTensors = self.OutTensors
-                self.NpuOpFlow[-1].OutputShape = self.OutputShape
 
     def init_tensor(self):
 
@@ -208,6 +204,12 @@ class ArithmeticOp(OpBase):
 
         self.set_fmi_size()
         self.set_fmo_size()
+
+        self.NpuOpFlow[0].InTensors = self.InTensors
+        self.NpuOpFlow[0].InputShape = self.InputShape
+
+        self.NpuOpFlow[-1].OutTensors = self.OutTensors
+        self.NpuOpFlow[-1].OutputShape = self.OutputShape
 
     def set_fmi_tensors(self, ir_tensor_ids):
         self.fmi_tensor = ir_tensor_ids[0:1]
