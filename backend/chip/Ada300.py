@@ -85,6 +85,7 @@ class Ada300:
 
             print(f"layer_{layer}:\n"
                   f"    Kernel Shape：{op.InputShape[1]}\n"
+                  f"    Output Shape：{op.OutputShape[0]}\n"
                   f"    窗在hwc方向上需要的CIM数：{n_cim} \n"
                   f"    需要加载权重的次数：{times_load}\n"
                   f"    最后次加载中可复用次数：{repeat}\n"

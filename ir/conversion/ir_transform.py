@@ -53,13 +53,13 @@ def _find_post_op(net, op):
 
 
 def _copy_opbase_input_info(op_dst, op_src):
-    op_dst.InTensors = op_src.InTensors
-    op_dst.InputShape = op_src.InputShape
+    op_dst.InTensors = op_src.InTensors[:]
+    op_dst.InputShape = op_src.InputShape[:]
 
 
 def _copy_opbase_output_info(op_dst, op_src):
-    op_dst.OutTensors = op_src.OutTensors
-    op_dst.OutputShape = op_src.OutputShape
+    op_dst.OutTensors = op_src.OutTensors[:]
+    op_dst.OutputShape = op_src.OutputShape[:]
 
 
 def _order_post_op(net, op):

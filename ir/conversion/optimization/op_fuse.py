@@ -253,7 +253,7 @@ def _delete_fuse_constant(net: GraphIR):
     # 常量折叠
     def handle(v, b, mode, _idx):
         if b == 0:
-            b = Variable(f"B_{_idx}")
+            b = Variable(_idx)
         if mode == -1:
             v += b
         elif mode == -2:
@@ -269,27 +269,44 @@ def _delete_fuse_constant(net: GraphIR):
         if isinstance(op, ElemWise) and op.TopOpId not in record and op.Mode < 0 and len(op.PostTopOpId) == 1:
             print(op.Name, _op_id)
             current_op = op
-            temp = [_op_id]
+            temp = [op]
             x = Variable("X")
-            x = handle(x, op.B, op.Mode, _op_id)
+            x = handle(x, op.B, op.Mode, 0)
             while True:
                 post_idx = _find_post_op(net, current_op)[0]
-
                 post_op = net.get_op(post_idx)
+
                 if isinstance(post_op, ElemWise) and post_op.Mode < 0 and len(post_op.PostTopOpId) == 1:
                     print(post_op.Name, post_idx)
-                    x = handle(x, post_op.B, post_op.Mode, post_idx)
-                    temp.append(post_idx)
+                    # 避免开括号平方
+                    if post_op.Mode == -5 or (post_op.Mode == -3 and post_op.B == 0):
+                        if isinstance(x, Formula):
+                            x.set_main_symbol("X")
+
+                        num = 0
+                        for i in [np.sum(sub) for sub in x.params]:
+                            if i:
+                                num += 1
+                        if num > 1:
+                            print("====可替换成====")
+                            print(x.symbol)
+                            print(x.params)
+                            print("==============")
+                            break
+
+                    # 正式开始计算
+                    x = handle(x, post_op.B, post_op.Mode, len(temp))
+                    temp.append(post_op)
                     record.append(post_op.TopOpId)
                 else:
-                    x.set_main_symbol("X")
+                    if isinstance(x, Formula):
+                        x.set_main_symbol("X")
 
                     # 检测是否是仅含有一个带x的项，若是多项式，则需要优化计算顺序
                     num = 0
-                    for i in np.sum(x.params[1: None, ...], axis=1):
+                    for i in [np.sum(sub) for sub in x.params]:
                         if i:
                             num += 1
-
                     if num > 1:
                         # 优化计算顺序，例如：因式分解、优化幂运算、重新融合，避免拆开某些多项式
                         pass
@@ -297,6 +314,8 @@ def _delete_fuse_constant(net: GraphIR):
                     print("====可替换成====")
                     print(x.symbol)
                     print(x.params)
+                    npu_op = ArithmeticOp()
+                    npu_op.fuse_ops(temp, x)
                     print("==============")
                     break
                 current_op = post_op

@@ -256,6 +256,7 @@ class ElemWise(OpBase):
     def __init__(self):
         super().__init__()  # 用于在子类实例中初始化父类中的__init__，必须先调用，子类才能有父类的初始化
         self.B = 0
+        self.B_array = None
 
     def __repr__(self):
         return (
