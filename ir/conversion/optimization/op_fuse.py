@@ -237,7 +237,6 @@ def _delete_fuse_constant(net: GraphIR):
             if _op_id not in delete_list:
                 delete_list.append(_op_id)
 
-
     # 常量折叠
     # record = []
     new_ops = []

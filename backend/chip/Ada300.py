@@ -1,6 +1,5 @@
 from backend.module.CIM import *
 from ir.graph.Graph_IR import *
-from ir.utils.utils import within_n_base_2
 
 
 class Ada300:
@@ -41,72 +40,10 @@ class Ada300:
                 self.graph.AllOps.insert(layer, npu_op)
             else:
                 continue
+            print(f"layer_{layer}:")
             z += 1
-            # 若算子有权重，计算hwc方向上所需的CIM个数和权重的加载次数，并且对权重Pad，weight2col
-            n_cim, times_load = self.CIM.map_weight_and_get_cim_usage(op)
-
-            # 适应加法树
-            n_cim = within_n_base_2(self.num_cim, n_cim)
-
-            n_block = n_cim * times_load
-
-            # 复用次数，若n_cim大于16，则获得最后一个block的n_cim复用次数
-            repeat = 1
-            last = n_block % 16
-            if last != 0 and self.num_cim % last == 0:
-                repeat = self.num_cim // last
-
-            # 每次加载中，加载n_cim的次数
-            times_per_load = self.num_cim // n_cim
-            if times_per_load > times_load:
-                times_per_load = times_load
-
-            # 权重分割
-            # weight[加载次数/需要的核心数][当次加载所需要的CIM数量][CIM中使用的H][CIM中使用的W]
-            # bias[加载次数][当次所需要的偏置]
-            sub_weight = np.array(
-                [np.array_split(i, n_cim) for i in np.array_split(op.WeightValue, times_load, axis=1)])
-            sub_bias = np.array(np.array_split(op.BiasValue, times_load))
-
-            op.WeightValue = sub_weight
-            op.BiasValue = sub_bias
-
-            # 输出Reshape
-            w_shape = sub_weight.shape
-            if n_block > self.num_cim:
-                sub_weight = sub_weight.reshape((-1, self.num_cim, w_shape[2],  w_shape[3]))
-                sub_bias = sub_bias.reshape((-1, times_per_load, self.CIM.W))
-            else:
-                sub_weight = sub_weight.reshape((1, -1, w_shape[2],  w_shape[3]))
-                sub_bias = sub_bias.reshape((1, -1, self.CIM.W))
-
-            # op.times_per_load = times_per_load
-            tree_flag = round(math.log2(n_cim))
-
-            print(f"layer_{layer}:\n"
-                  f"    Kernel Shape：{op.InputShape[1]}\n"
-                  f"    Output Shape：{op.OutputShape[0]}\n"
-                  f"    窗在hwc方向上需要的CIM数：{n_cim} \n"
-                  f"    需要加载权重的次数：{times_load}\n"
-                  f"    最后次加载中可复用次数：{repeat}\n"
-                  f"    SubBlock形状：{op.WeightValue.shape}\n"
-                  f"    -SubBias形状：{op.BiasValue.shape}\n"
-                  )
-
-            sub_block_list = []
-            for n, block in enumerate(sub_weight):
-                sub_block = SubBlock()
-                sub_block.BlockId = (layer, n)
-                sub_block.tree_flag = tree_flag
-
-                sub_block.WeightValue = block
-                if op.Bias:
-                    sub_block.Bias = True
-                    sub_block.BiasValue = sub_bias[n]
-
-                sub_block_list.append(sub_block)
-
-            sub_block_list[-1].repeat = repeat
+            sub_block_list = self.CIM.generate_unit(op, self.num_cim)
+            # self.graph.AllTensors[op.OutTensors[0]].Shape.reshape("C", n_k_n)
             npu_op.sub_block_list = sub_block_list
         print(f"总计含矩阵乘的算子有：{z}个")
 
