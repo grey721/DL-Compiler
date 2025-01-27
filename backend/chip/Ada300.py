@@ -50,6 +50,7 @@ class Ada300:
             npu_op.sub_block_list = sub_block_list
             c += op.WeightValue.shape[0] * op.OutputShape[0].H * op.OutputShape[0].W
         self.graph.num_mvm_op_unit = c
+        self.graph.mvm_op_idx = mvm_op
         print(f"总计含矩阵乘的算子有：{len(mvm_op)}个")
         # NSGA(self.graph, mvm_op, Ada300)
 

@@ -280,8 +280,8 @@ class NSGA:
 
 
 if __name__ == "__main__":
-    import pickle
-    with open('output/yolov5s/npu_graph.pkl', 'rb') as file:
-        graph = pickle.load(file)
-    a = NSGA(graph, 16)
-
+    # import pickle
+    # with open('output/yolov5s/npu_graph.pkl', 'rb') as file:
+    #     graph = pickle.load(file)
+    # a = NSGA(graph, 16)
+    print(bin(0b0001))
