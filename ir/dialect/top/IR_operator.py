@@ -190,7 +190,7 @@ class OpBase:  # 算子基类
         for attr_name in dir(self):
             attr = getattr(self, attr_name)
             if not callable(attr) and not attr_name.startswith('_'):
-                skip_name_list = ("Value", "offset", "multiplier", "shift", "quantized", "ratio", "size", "Id")
+                skip_name_list = ("Value", "offset", "multiplier", "shift", "quantized", "ratio", "size", "Id", "formula", "array")
                 flag = False
                 for name in skip_name_list:
                     if name in attr_name:
@@ -201,6 +201,9 @@ class OpBase:  # 算子基类
                 if "Shape" in attr_name:
                     param[attr_name] = []
                     for shape in attr:
+                        if isinstance(shape, list):
+                            print(attr)
+                            print(self)
                         param[attr_name].append(shape.list)
                 else:
                     param[attr_name] = attr
@@ -266,7 +269,7 @@ class ElemWise(OpBase):
             f'{self.PreTopOpId} -> self -> {self.PostTopOpId}\n'
             f'Input tensor Id:{self.InTensors}\n'
             f'Input shape:{self.InputShape}\n'
-            f'Output tensor Id:{self.OutTensors[0]}\n'
+            f'Output tensor Id:{self.OutTensors}\n'
             f'Output shape:{self.OutputShape[0]}\n'
             f'############## ElemWise.{self.TopOpId} ##############\n'
         )

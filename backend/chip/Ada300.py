@@ -1,8 +1,10 @@
 from backend.module.CIM import *
 from ir.graph.Graph_IR import *
+from ir.utils.NSGA import *
 
 
 class Ada300:
+    num_core = 16
     num_cluster = 4  # 未来将这部分改入CIM模块中
     num_cim_per_cluster = 4
     num_cim = num_cluster * num_cim_per_cluster
@@ -23,7 +25,8 @@ class Ada300:
 
     def node_partition(self):
         print("----start TransformRule NODE_PARTITION and WEIGHT_PADDING-----")
-        z = 0
+        mvm_op = []
+        c = 0
         for layer, npu_op in enumerate(self.graph.AllOps):
             if isinstance(npu_op, NpuOp):
                 if npu_op.NpuOpConv:
@@ -41,11 +44,14 @@ class Ada300:
             else:
                 continue
             print(f"layer_{layer}:")
-            z += 1
+            mvm_op.append(layer)
             sub_block_list = self.CIM.generate_unit(op, self.num_cim)
             # self.graph.AllTensors[op.OutTensors[0]].Shape.reshape("C", n_k_n)
             npu_op.sub_block_list = sub_block_list
-        print(f"总计含矩阵乘的算子有：{z}个")
+            c += op.WeightValue.shape[0] * op.OutputShape[0].H * op.OutputShape[0].W
+        self.graph.num_mvm_op_unit = c
+        print(f"总计含矩阵乘的算子有：{len(mvm_op)}个")
+        # NSGA(self.graph, mvm_op, Ada300)
 
     def get_replication_numbers(self, n_cim, times_load):
         # NSGA3

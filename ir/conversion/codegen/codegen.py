@@ -51,7 +51,7 @@ def easy_info(npu_graph: GraphIR):
         ElemWiseOp = None
 
         # Op输出
-        if isinstance(op, NpuOp):
+        if isinstance(op, (NpuOp, ArithmeticOp)):
             op_dict = {"type": op.Type,
                        "provider": op.PreOpId,
                        "consumer": op.PostOpId,
@@ -67,7 +67,7 @@ def easy_info(npu_graph: GraphIR):
                 param_dict["OutTensors"] = tensors_ids2names(npu_graph, param_dict["OutTensors"])
                 op_dict["flow"].append(param_dict)
 
-            if op.NpuOpElemWise:
+            if isinstance(op, NpuOp) and op.NpuOpElemWise:
                 ElemWiseOp = op.NpuOpElemWiseOp
 
         else:

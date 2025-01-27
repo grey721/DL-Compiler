@@ -189,7 +189,8 @@ class ArithmeticOp(OpBase):
                 if 0 < idx:
                     op.InputShape = self.NpuOpFlow[idx-1].OutputShape
                 if idx < len(self.NpuOpFlow) - 1:
-                    op.OutputShape = Shape(op.shape_inference())
+                    op.OutputShape = [Shape(op.shape_inference())]
+
 
     def init_tensor(self):
 

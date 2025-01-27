@@ -220,9 +220,9 @@ class ONNX2TopIR:
 
             in_tensor_id = self.graph.AllTensorIds.index(input_name)
             elem_op.load_input_id(in_tensor_id)
-            elem_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
             self.graph.AllTensors[in_tensor_id].ConsumerOp = op_idx
             if self.graph.AllTensors[in_tensor_id].Type == TensorType.Intermediate:
+                elem_op.InputShape.append(self.graph.AllTensors[in_tensor_id].Shape)
                 tensor_num += 1
         if tensor_num != len(in_tensors_name):
             elem_op.Mode = 0 - elem_op.Mode

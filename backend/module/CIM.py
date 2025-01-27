@@ -115,6 +115,8 @@ class CIM:
                 _bias[0:k_n] = bias
                 op.BiasValue = _bias
 
+                op.OutputShape[0].reshape("C", n_k_n)
+
         elif isinstance(op, NpuFullConnected):
             pass
 
