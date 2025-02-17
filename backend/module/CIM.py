@@ -36,7 +36,7 @@ class CIM:
             times_per_load = times_load
 
         # 权重分割
-        # weight[加载次数/需要的核心数][当次加载所需要的CIM数量][CIM中使用的H][CIM中使用的W]
+        # weight[加载次数][当次加载所需要的CIM数量][CIM中使用的H][CIM中使用的W]
         # bias[加载次数][当次所需要的偏置]
         sub_weight = np.array(
             [np.array_split(i, n_cim) for i in np.array_split(op.WeightValue, times_load, axis=1)])

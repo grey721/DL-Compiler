@@ -10,11 +10,11 @@ from ir.utils.utils import *
 
 def random_sub_range(low, high, exclude=(), random_order=False):
     assert low != high, f"{low} == {high}"
-    num1 = random.randint(low, high)
-    num2 = random.randint(low, high)
+    num1 = np.random.randint(low, high)
+    num2 = np.random.randint(low, high)
     while (num2 == num1) or (num1 in exclude) or (num2 in exclude):
-        num1 = random.randint(low, high)
-        num2 = random.randint(low, high)
+        num1 = np.random.randint(low, high)
+        num2 = np.random.randint(low, high)
 
     if random_order:
         return num1, num2
@@ -50,26 +50,22 @@ class Task:
             mask = generate_binary_number(self.col)
 
         result = []
-        a = 0
         while (not any(result)) and any(self.bitmap[sub]):
-            a += 1
-            if a > 2:
-                print(a)
-                print(result)
-                print(sub)
-                print(self.bitmap)
             result = []
             for i, mapping in enumerate(self.bitmap[sub]):
-                selection = random.randint(0, high)
-                output = mapping & mask & selection
-                result.append(output)
-                # 从该副本中删去
-                if row:
-                    assert self.bitmap[row+i] >= output
-                    self.bitmap[row+i] -= output
+                if mapping:
+                    selection = random.randint(0, high)
+                    output = mapping & mask & selection
+                    result.append(output)
+                    # 从该副本中删去
+                    if row:
+                        assert self.bitmap[row+i] >= output
+                        self.bitmap[row+i] -= output
+                    else:
+                        assert self.bitmap[i] >= output
+                        self.bitmap[i] -= output
                 else:
-                    assert self.bitmap[i] >= output
-                    self.bitmap[i] -= output
+                    result.append(0)
 
         return result if result else [0]
 
@@ -122,7 +118,7 @@ class NSGA:
     def __init__(self, npu_graph: GraphIR,
                  chip,
                  n_individuals=50,
-                 n_generations=1000,
+                 n_generations=100,
                  # p_crossover=0.7,
                  p_mutation=0.4):
 
@@ -132,7 +128,7 @@ class NSGA:
         self.pop = np.zeros((self.n_obj, n_individuals * 2))  # 后一半放父代， 前一半放子代
         self.gene = None
         # chip info
-        self.n_core = chip.num_core
+        self.n_core_per_chip = chip.num_core
         self.n_cim_per_core = chip.num_cim
         self.cim_h = chip.CIM.H
         self.cim_w = chip.CIM.W
@@ -172,8 +168,9 @@ class NSGA:
         n_individuals = self.n_pop * 2
 
         # evolve
+        print("Begin")
         for _ in range(self.n_generations):
-            print(f"第{_}代：")
+            # print(f"第{_}代")
             # 选这一代的父代
             rank = self.get_rank(n_individuals)
             self.select(rank)
@@ -195,6 +192,14 @@ class NSGA:
         # self.normalize()
         rank = self.get_rank(n_individuals)  # n_individuals    self.n_pop
         self.plot_2d_rank(rank)
+        for ranke in rank:
+            for idx in ranke:
+                print(f"第{idx}个个体")
+                print(f"芯片数：{self.pop[0][idx]}")
+                print(f"浪费率：{self.pop[1][idx]}")
+                # for op in self.gene[idx]:
+                #     for c in range(len(op)):
+                #         print(f"第{c}层，复制{len(op[c])}份")
         # self.plot_3d_rank(rank, only_f0=False)
 
     def mutate(self, indivi):
@@ -209,6 +214,7 @@ class NSGA:
                 kind = np.random.randint(0, 2)
 
             if kind == 0:
+                # 增加复制数
                 n_task = Task(np.random.randint(self.sequence_boundary), self.pattern[position])
                 delete_list = []
                 for idx, copy in enumerate(individual[position][c_position]):
@@ -221,6 +227,7 @@ class NSGA:
                 individual[position][c_position].append(n_task)
 
             elif kind == 1:
+                # 交换顺序
                 if np.random.rand() < 0.05:
                     other_position = np.random.randint(0, self.n_gene)
                     oc_position = np.random.randint(0, len(individual[other_position]))
@@ -235,6 +242,7 @@ class NSGA:
 
             elif kind == 2:
                 # num_t > 1:
+                # 减少复制数
                 t_idx = np.random.randint(0, num_t)
                 split = individual[position][c_position][t_idx].destroy(num_t-1)
                 del individual[position][c_position][t_idx]
@@ -243,9 +251,12 @@ class NSGA:
 
             elif kind == 3:
                 # num_t > 1
-                t1, t2 = random_sub_range(0, num_t - 1, random_order=True)
+                # 传递数据
+                t1, t2 = random_sub_range(0, num_t, random_order=True)
                 if np.random.rand() < 0.5:
-                    n_row = random.randint(0, individual[position][c_position][t2].row-1)
+                    n_row = np.random.randint(0, individual[position][c_position][t2].row)
+                    while individual[position][c_position][t1].bitmap[n_row] == 0:
+                        n_row = np.random.randint(0, individual[position][c_position][t2].row)
                     addition = individual[position][c_position][t1].randomly_draws(row=n_row)
                     individual[position][c_position][t2].add_task(addition, row=n_row)
                 else:
@@ -267,23 +278,24 @@ class NSGA:
 
     def evaluate(self):
 
-        def delay(op_list):
-            time = 0
-            for op in op_list:
-                for c_layer in op:
-                    n_copy = len(c_layer)
-                    time += 1 / n_copy + n_copy
-            return time
-
-        def throughput(x):
-            output = 0
-            for n, i in enumerate(x):
-                output += len(x) * n
-            return 100000 / output
-
         for idx, g in enumerate(self.gene[0:self.n_pop]):
-            self.pop[0][idx] = delay(g)
-            self.pop[1][idx] = throughput(g)
+            chip = []
+            ag = 0
+            for op in g:
+                for c_layer in op:
+                    for copy in c_layer:
+                        # 找到插入位置
+                        for i in range(len(chip)):
+                            if copy.sequence < chip[i].sequence:
+                                chip.insert(i, copy)
+                                ag += copy.n_cim
+                                break
+                        else:
+                            chip.append(copy)
+                            ag += copy.n_cim
+            num_chip = ag / self.n_cim_per_core / self.n_core_per_chip
+            self.pop[0][idx] = num_chip
+            self.pop[1][idx] = math.ceil(num_chip) - num_chip
 
     def select(self, rank, p=4):
         s = []
@@ -413,5 +425,4 @@ if __name__ == "__main__":
     # a = NSGA(graph, 16, )
 
     a = [0, 1]
-    print(a[slice(0,1)])
     a = NSGA(graph, Ada300)

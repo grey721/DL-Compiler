@@ -26,7 +26,7 @@ class Ada300:
     def node_partition(self):
         print("----start TransformRule NODE_PARTITION and WEIGHT_PADDING-----")
         mvm_op = []
-        c = 0
+        ag = 0
         for layer, npu_op in enumerate(self.graph.AllOps):
             if isinstance(npu_op, NpuOp):
                 if npu_op.NpuOpConv:
@@ -48,10 +48,11 @@ class Ada300:
             sub_block_list = self.CIM.generate_unit(op, self.num_cim)
             # self.graph.AllTensors[op.OutTensors[0]].Shape.reshape("C", n_k_n)
             npu_op.sub_block_list = sub_block_list
-            c += op.WeightValue.shape[0] * op.OutputShape[0].H * op.OutputShape[0].W
-        self.graph.num_mvm_op_unit = c
+            ag += op.WeightValue.shape[0] * op.WeightValue.shape[1]
+        self.graph.num_mvm_op_unit = ag
         self.graph.mvm_op_idx = mvm_op
         print(f"总计含矩阵乘的算子有：{len(mvm_op)}个")
+        print(f"总计AG个数：{ag}")
         # NSGA(self.graph, mvm_op, Ada300)
 
     def get_replication_numbers(self, n_cim, times_load):
